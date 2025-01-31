@@ -8,7 +8,7 @@
 #' @param rsq_thresh R square clumping threshold
 #' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
 #' @return List with 2 data frames - MR results and instruments
-run_mr <- function(expoure,
+run_mr <- function(exposure,
                    exposure_id,
                    outcome,
                    outcome_id,
