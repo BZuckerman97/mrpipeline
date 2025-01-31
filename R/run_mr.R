@@ -1,15 +1,15 @@
 #' Performs MR
 #'
 #' @param exposure_id character. e.g. "syn52361761" -> we should change this to the protein/gene name
-#' @param expoure TODO
+#' @param expoure data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?
 #' @param outcome data frame. Summary statistics for outcome, must be formatted as above
 #' @param outcome_id character. Name for outcome e.g. 'SjD'
 #' @param sumstats_info data frame.
 #' @param downloadLocation path to folder where cleaned exposure files exist -> do we want to rename this to exposure_location?
-#' @param ref_rsid data frame -> only for the X chromosome, think we should make sure all X chromosomes have been renamed as 23
+#' @param ref_rsid data frame -> only for the X chromosome, think we should make sure all X chromosomes have been renamed as 23 and the ref_rsid file has been incorporated before entering the function?
 #' @param pval_thresh number. 5e-6 by default
 #' @param rsq_thresh R square clumping threshold
-#' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest
+#' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
 #' @return List with 2 data frames - MR results and instruments
 
 run_mr <- function(expoure,
@@ -36,6 +36,7 @@ validate_instrument_region_arg(instrument_region)
   timestamp()
   print("******")
 
+#' TO DELETE
   #syn_code <-
   #  synGet(entity = exposure_id,
   #         downloadLocation = downloadLocation) # Downloading the summary statistics for the protein of interest
@@ -46,43 +47,48 @@ validate_instrument_region_arg(instrument_region)
   #        exdir = paste(syn_code$cacheDir))
   #}
 
-  exposure <-
-    fread(
-      paste0(
-        syn_code$cacheDir,
-        "/",
-        gsub(".tar", "", sumstats_info[sumstats_info$Code == exposure_id,]$Docname[1]),
-        "/",
-        "discovery_chr",
-        sumstats_info[sumstats_info$Code == exposure_id,]$chr[1],
-        "_",
-        sumstats_info[sumstats_info$Code == exposure_id,]$UKBPPP_ProteinID[1],
-        ":",
-        sumstats_info[sumstats_info$Code == exposure_id,]$Panel[1],
-        ".gz"
-      )
-    )
+#' TO DELETE CAN BE READ IN BEFORE THE FUNCTION
+  # exposure <-
+  #   fread(
+  #     paste0(
+  #       syn_code$cacheDir,
+  #       "/",
+  #       gsub(".tar", "", sumstats_info[sumstats_info$Code == exposure_id,]$Docname[1]),
+  #       "/",
+  #       "discovery_chr",
+  #       sumstats_info[sumstats_info$Code == exposure_id,]$chr[1],
+  #       "_",
+  #       sumstats_info[sumstats_info$Code == exposure_id,]$UKBPPP_ProteinID[1],
+  #       ":",
+  #       sumstats_info[sumstats_info$Code == exposure_id,]$Panel[1],
+  #       ".gz"
+  #     )
+  #   )
 
+  #' Taken out sumstats_info here
   exposure <-
-    exposure[exposure$GENPOS > (sumstats_info[sumstats_info$Code == exposure_id,]$gene_start[1] - 200000) &
+    exposure[exposure$GENPOS > instrument_region$start - 200000) &
               # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
-              exposure$GENPOS < (sumstats_info[sumstats_info$Code ==
-                                                exposure_id,]$gene_end[1] + 200000), ]
+              exposure$GENPOS < instrument_region$end + 200000), ]
+
   exposure$P <- 10 ^ -exposure$LOG10P
 
   exposure <-
       exposure[exposure$P < pval_thresh,]                                                                                     # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
-    exposure$CHROM <-
-      ifelse(exposure$CHROM == 23, "X", exposure$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
+
+  #' This needs to be done before the function starts
+  #exposure$CHROM <-
+    #  ifelse(exposure$CHROM == 23, "X", exposure$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
 
     if (is.null(exposure) || nrow(exposure) == 0) {
       print(paste0("Skipping ", sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]))
       print("No significant cis pQTLs")
     } else {
-      outcome_overlap <-
-        outcome[outcome$`#chrom` == sumstats_info[sumstats_info$Code == exposure_id,]$chr[1],]                              # Only selecting the chromosome of interest to speed up stuff downstream from here
-      outcome_overlap <-
-        outcome_overlap[outcome_overlap$pos %in% exposure$GENPOS,]                                                 # Only selecting the variants that are overlapping between exposure and outcome sum stats
+      # Only selecting the chromosome of interest to speed up stuff downstream from here
+      outcome_overlap <- outcome |>
+        filter(`#chrom` %in% exposure$chr) |>
+        filter(pos %in% exposure$GENPOS)
+      # Only selecting the variants that are overlapping between exposure and outcome sum stats
 
       if (is.null(outcome_overlap) ||
           nrow(outcome_overlap) == 0) {
@@ -389,7 +395,6 @@ validate_instrument_region_arg(instrument_region)
 
   return(result)
 }
-
 
 # Private fuctions --------------------------------------------------------
 
