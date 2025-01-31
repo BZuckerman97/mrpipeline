@@ -6,7 +6,7 @@
 #' @param sumstats_info data frame.
 #' @param downloadLocation path to folder where synapse files are downloaded
 #' @param ref_rsid data frame
-#' @param pval_thresholds number. 5e-6 by default
+#' @param pval_thresh number. 5e-6 by default
 #'
 #' @return List with 2 data frames - MR results and insruments
 run_mr <- function(expoure,
@@ -16,7 +16,7 @@ run_mr <- function(expoure,
                        sumstats_info,
                        downloadLocation,
                        ref_rsid,
-                       pval_thresholds = 5e-6) {
+                   pval_thresh = 5e-6) {
   result <- NULL
 
   print(exposure_id)
@@ -57,7 +57,6 @@ run_mr <- function(expoure,
                                                 exposure_id,]$gene_end[1] + 200000), ]
   chrom_u$P <- 10 ^ -chrom_u$LOG10P
 
-  for (pval_thresh in pval_thresholds) {
     chrom <-
       chrom_u[chrom_u$P < pval_thresh,]                                                                                     # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
     chrom$CHROM <-
@@ -383,7 +382,7 @@ run_mr <- function(expoure,
         }
       }
     }
-  }
+
 
   print(paste(sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1], "done"))
   # unlink(paste0(gsub("\\\\[^\\\\]*$", "", syn_code$cacheDir)), recursive=T)                    # ATTENTON !  This step deletes the map you downloaded your sum stats in - double-check that this doesn't accidentally delete important files from your desktop/server or so
