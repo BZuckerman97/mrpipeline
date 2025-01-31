@@ -36,7 +36,7 @@ run_mr <- function(expoure,
           exdir = paste(syn_code$cacheDir))
   }
 
-  chrom_u <-
+  exposure <-
     fread(
       paste0(
         syn_code$cacheDir,
@@ -53,26 +53,26 @@ run_mr <- function(expoure,
       )
     )
 
-  chrom_u <-
-    chrom_u[chrom_u$GENPOS > (sumstats_info[sumstats_info$Code == exposure_id,]$gene_start[1] - 200000) &
+  exposure <-
+    exposure[exposure$GENPOS > (sumstats_info[sumstats_info$Code == exposure_id,]$gene_start[1] - 200000) &
               # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
-              chrom_u$GENPOS < (sumstats_info[sumstats_info$Code ==
+              exposure$GENPOS < (sumstats_info[sumstats_info$Code ==
                                                 exposure_id,]$gene_end[1] + 200000), ]
-  chrom_u$P <- 10 ^ -chrom_u$LOG10P
+  exposure$P <- 10 ^ -exposure$LOG10P
 
-    chrom <-
-      chrom_u[chrom_u$P < pval_thresh,]                                                                                     # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
-    chrom$CHROM <-
-      ifelse(chrom$CHROM == 23, "X", chrom$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
+  exposure <-
+      exposure[exposure$P < pval_thresh,]                                                                                     # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
+    exposure$CHROM <-
+      ifelse(exposure$CHROM == 23, "X", exposure$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
 
-    if (is.null(chrom) || nrow(chrom) == 0) {
+    if (is.null(exposure) || nrow(exposure) == 0) {
       print(paste0("Skipping ", sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]))
       print("No significant cis pQTLs")
     } else {
       outcome_overlap <-
         outcome[outcome$`#chrom` == sumstats_info[sumstats_info$Code == exposure_id,]$chr[1],]                              # Only selecting the chromosome of interest to speed up stuff downstream from here
       outcome_overlap <-
-        outcome_overlap[outcome_overlap$pos %in% chrom$GENPOS,]                                                 # Only selecting the variants that are overlapping between exposure and outcome sum stats
+        outcome_overlap[outcome_overlap$pos %in% exposure$GENPOS,]                                                 # Only selecting the variants that are overlapping between exposure and outcome sum stats
 
       if (is.null(outcome_overlap) ||
           nrow(outcome_overlap) == 0) {
@@ -107,28 +107,28 @@ run_mr <- function(expoure,
             pos_col = "pos"
           )
 
-        chrom_overlap <-
-          chrom[chrom$GENPOS %in% outcome_overlap$pos.outcome,]                                                     # Again, we just take the overlapping variants (now in the other direction)
-        chrom_overlap_2 <-
-          chrom_overlap                                                                                           # Because the order of effect allele and other allele is random, we make a second dataframe with the opposite order of these alleles to optimize matching between sum stats
-        chrom_overlap_2$BETA <- chrom_overlap_2$BETA * -1
-        chrom_overlap_2$A1FREQ  <- 1 - chrom_overlap_2$A1FREQ
-        colnames(chrom_overlap_2)[colnames(chrom_overlap_2) %in% c("ALLELE0", "ALLELE1")] <-
+        exposure_overlap <-
+          exposure[exposure$GENPOS %in% outcome_overlap$pos.outcome,]                                                     # Again, we just take the overlapping variants (now in the other direction)
+        exposure_overlap_2 <-
+          exposure_overlap                                                                                           # Because the order of effect allele and other allele is random, we make a second dataframe with the opposite order of these alleles to optimize matching between sum stats
+        exposure_overlap_2$BETA <- exposure_overlap_2$BETA * -1
+        exposure_overlap_2$A1FREQ  <- 1 - exposure_overlap_2$A1FREQ
+        colnames(exposure_overlap_2)[colnames(exposure_overlap_2) %in% c("ALLELE0", "ALLELE1")] <-
           c("ALLELE1", "ALLELE0")
-        chrom_overlap <- rbind(chrom_overlap, chrom_overlap_2)
-        chrom_overlap$ID <-
+        exposure_overlap <- rbind(exposure_overlap, exposure_overlap_2)
+        exposure_overlap$ID <-
           paste(
-            chrom_overlap$CHROM,
-            chrom_overlap$GENPOS,
-            chrom_overlap$ALLELE1,
-            chrom_overlap$ALLELE0,
+            exposure_overlap$CHROM,
+            exposure_overlap$GENPOS,
+            exposure_overlap$ALLELE1,
+            exposure_overlap$ALLELE0,
             sep = ":"
           )
-        chrom_overlap$phen <-
+        exposure_overlap$phen <-
           sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]
-        chrom_overlap <-
+        exposure_overlap <-
           format_data(
-            chrom_overlap,
+            exposure_overlap,
             type = "exposure",
             phenotype_col = "phen",
             snp_col = "ID",
@@ -143,9 +143,9 @@ run_mr <- function(expoure,
             pos_col = "GENPOS",
             log_pval = T
           )
-        rm(chrom_overlap_2, chrom)
+
         dat_u <-
-          harmonise_data(exposure_dat = chrom_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
+          harmonise_data(exposure_dat = exposure_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
 
         if (sumstats_info[sumstats_info$Code == exposure_id,]$chr[1] == "X") {
           # This little if-else-statement just makes sure that you get the appropriate RSIDs for each variant; because the X-chromosome requires an additional file, this one is in a separate loop
@@ -197,10 +197,6 @@ run_mr <- function(expoure,
               bfile = "LD_ref/g1000_eur"
             )
           dat <- dat_u[dat_u$SNP %in% clump$rsid,]
-          rm(chrom_overlap,
-             outcome_overlap,
-             outcome_rsid,
-             clump)
 
           # Note: this particular script uses the IVW method adjusted for between-variant correlation. This is not standard, but is a good method to use when using a lenient R2 threshold such as the one we use (0.1) when using proteins as the exposure.
 
@@ -312,7 +308,6 @@ run_mr <- function(expoure,
                   pval = output_mr_egger_corr@Pvalue.Int
                 )
               results <- rbind(results1, results2, results3)
-              rm(results1, results2, results3)
 
             }
           }
@@ -371,12 +366,6 @@ run_mr <- function(expoure,
 
             df_sum <- rbind(df_sum, results)
             df_instr <- rbind(df_instr, dat[,-c(34)])
-            rm(dat,
-               results,
-               ld,
-               dat2,
-               output_mr_ivw_corr,
-               output_mr_egger_corr)
 
             result <- list(results = df_sum,
                            instruments = df_instr)
