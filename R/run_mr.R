@@ -10,7 +10,7 @@
 #' @param expoure TODO
 #' @param rsq_thresh R square clumping threshold
 #'
-#' @return List with 2 data frames - MR results and insruments
+#' @return List with 2 data frames - MR results and instruments
 run_mr <- function(expoure,
                    exposure_id,
                        outcome,
@@ -18,8 +18,17 @@ run_mr <- function(expoure,
                        sumstats_info,
                        downloadLocation,
                        ref_rsid,
+                   instrument_region = list(chromosome = "1",
+                                            start = 1L,
+                                            end = 200L),
                    pval_thresh = 5e-6,
                    rsq_thresh = 0.1) {
+
+# Validaate arguments -----------------------------------------------------
+
+validate_instrument_region_arg(instrument_region)
+
+
   result <- NULL
 
   print(exposure_id)
@@ -378,4 +387,25 @@ run_mr <- function(expoure,
   # unlink(paste0(gsub("\\\\[^\\\\]*$", "", syn_code$cacheDir)), recursive=T)                    # ATTENTON !  This step deletes the map you downloaded your sum stats in - double-check that this doesn't accidentally delete important files from your desktop/server or so
 
   return(result)
+}
+
+
+# Private fuctions --------------------------------------------------------
+
+
+validate_instrument_region_arg(instrument_region) {
+
+  if (is.null(instrument_region)) {
+    invisible(TRUE)
+  }
+
+  # check is list
+
+  # check correct names in list
+
+  # check chromosome is type character
+
+  # check start and end are both integers
+
+  invisible(TRUE)
 }
