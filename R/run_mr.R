@@ -5,7 +5,6 @@
 #' @param outcome data frame. Summary statistics for outcome, must be formatted as above
 #' @param outcome_id character. Name for outcome e.g. 'SjD'
 #' @param sumstats_info data frame.
-#' @param downloadLocation path to folder where cleaned exposure files exist -> do we want to rename this to exposure_location?
 #' @param pval_thresh number. 5e-6 by default
 #' @param rsq_thresh R square clumping threshold
 #' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
@@ -15,7 +14,7 @@ run_mr <- function(expoure,
                    outcome,
                    outcome_id,
                    sumstats_info,
-                   downloadLocation,
+                   # downloadLocation,
                    # ref_rsid,
                    instrument_region = list(chromosome = 1L,
                                             start = 1L,
