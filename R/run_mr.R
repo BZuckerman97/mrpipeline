@@ -6,7 +6,6 @@
 #' @param outcome_id character. Name for outcome e.g. 'SjD'
 #' @param sumstats_info data frame.
 #' @param downloadLocation path to folder where cleaned exposure files exist -> do we want to rename this to exposure_location?
-#' @param ref_rsid data frame -> only for the X chromosome, think we should make sure all X chromosomes have been renamed as 23 and the ref_rsid file has been incorporated before entering the function?
 #' @param pval_thresh number. 5e-6 by default
 #' @param rsq_thresh R square clumping threshold
 #' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
@@ -17,7 +16,7 @@ run_mr <- function(expoure,
                    outcome_id,
                    sumstats_info,
                    downloadLocation,
-                   ref_rsid,
+                   # ref_rsid,
                    instrument_region = list(chromosome = 1L,
                                             start = 1L,
                                             end = 200L),
@@ -164,28 +163,28 @@ validate_instrument_region_arg(instrument_region)
         dat_u <-
           harmonise_data(exposure_dat = exposure_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
 
-        if (sumstats_info[sumstats_info$Code == exposure_id,]$chr[1] == "X") {
-          # This little if-else-statement just makes sure that you get the appropriate RSIDs for each variant; because the X-chromosome requires an additional file, this one is in a separate loop
-          dat_u <-
-            merge(
-              dat_u,
-              ref_rsid[, c("V1", "V2", "V3")],
-              by.x = "pos.exposure",
-              by.y = "V2",
-              all.x = T
-            )
-          colnames(dat_u)[colnames(dat_u) %in% c("V1", "V3")] <-
-            c("#chrom", "rsids")
-        } else {
-          dat_u <-
-            merge(
-              dat_u,
-              outcome_rsid,
-              by.x = "pos.exposure",
-              by.y = "pos",
-              all.x = T
-            )
-        }
+        # if (sumstats_info[sumstats_info$Code == exposure_id,]$chr[1] == "X") {
+        #   # This little if-else-statement just makes sure that you get the appropriate RSIDs for each variant; because the X-chromosome requires an additional file, this one is in a separate loop
+        #   dat_u <-
+        #     merge(
+        #       dat_u,
+        #       ref_rsid[, c("V1", "V2", "V3")],
+        #       by.x = "pos.exposure",
+        #       by.y = "V2",
+        #       all.x = T
+        #     )
+        #   colnames(dat_u)[colnames(dat_u) %in% c("V1", "V3")] <-
+        #     c("#chrom", "rsids")
+        # } else {
+        #   dat_u <-
+        #     merge(
+        #       dat_u,
+        #       outcome_rsid,
+        #       by.x = "pos.exposure",
+        #       by.y = "pos",
+        #       all.x = T
+        #     )
+        # }
 
         colnames(dat_u)[colnames(dat_u) %in% c("SNP", "rsids")] <-
           c("pos_id", "SNP")                                                  # We make sure that our reference column (which should have the name "SNP") is the RSID column
@@ -410,7 +409,7 @@ validate_instrument_region_arg(instrument_region) {
 
   # check correct names in list
 
-  # check chromosome is type character
+  # check chromosome is type integer
 
   # check start and end are both integers
 
