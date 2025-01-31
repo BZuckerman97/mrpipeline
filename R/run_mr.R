@@ -7,6 +7,8 @@
 #' @param downloadLocation path to folder where synapse files are downloaded
 #' @param ref_rsid data frame
 #' @param pval_thresh number. 5e-6 by default
+#' @param expoure TODO
+#' @param rsq_thresh R square clumping threshold
 #'
 #' @return List with 2 data frames - MR results and insruments
 run_mr <- function(expoure,
@@ -16,7 +18,8 @@ run_mr <- function(expoure,
                        sumstats_info,
                        downloadLocation,
                        ref_rsid,
-                   pval_thresh = 5e-6) {
+                   pval_thresh = 5e-6,
+                   rsq_thresh = 0.1) {
   result <- NULL
 
   print(exposure_id)
@@ -179,7 +182,6 @@ run_mr <- function(expoure,
           break()
         }
 
-        for (rsq_thresh in c(0.1)) {
           print("Clumping")
           clump <-
             ld_clump(
@@ -379,7 +381,6 @@ run_mr <- function(expoure,
             result <- list(results = df_sum,
                            instruments = df_instr)
           }
-        }
       }
     }
 
