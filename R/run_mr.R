@@ -32,50 +32,15 @@ validate_instrument_region_arg(instrument_region)
   timestamp()
   print("******")
 
-#' TO DELETE
-  #syn_code <-
-  #  synGet(entity = exposure_id,
-  #         downloadLocation = downloadLocation) # Downloading the summary statistics for the protein of interest
-
-  #if (!dir.exists(fs::path_ext_remove(syn_code$path))) {
-  #  untar(paste(syn_code$path),
-  #        list = F,
-  #        exdir = paste(syn_code$cacheDir))
-  #}
-
-#' TO DELETE CAN BE READ IN BEFORE THE FUNCTION
-  # exposure <-
-  #   fread(
-  #     paste0(
-  #       syn_code$cacheDir,
-  #       "/",
-  #       gsub(".tar", "", sumstats_info[sumstats_info$Code == exposure_id,]$Docname[1]),
-  #       "/",
-  #       "discovery_chr",
-  #       sumstats_info[sumstats_info$Code == exposure_id,]$chr[1],
-  #       "_",
-  #       sumstats_info[sumstats_info$Code == exposure_id,]$UKBPPP_ProteinID[1],
-  #       ":",
-  #       sumstats_info[sumstats_info$Code == exposure_id,]$Panel[1],
-  #       ".gz"
-  #     )
-  #   )
-
-
 # Filter exposure for IVs ----------------------------------------------------------
 
   #' Taken out sumstats_info here
   #' To replace with tidyverse language
   #' To move out of the run_mr function and have a specify window
-  exposure <-
-    exposure[exposure$GENPOS > instrument_region$start &
-              # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
-              exposure$GENPOS < instrument_region$end, ]
-
-  exposure$P <- 10 ^ -exposure$LOG10P
-
-  exposure <-
-      exposure[exposure$P < pval_thresh,]                                                                                     # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
+  exposure <- exposure |>
+    dplyr::filter(GENPOS > instrument_region$start & GENPOS < instrument_region$end) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
+    dplyr::mutate(P = 10 ^ -LOG10P) |>
+    dplyr::filter(P < pval_thresh)                                                                                   # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
 
   #' This needs to be done before the function starts
   #exposure$CHROM <-
@@ -89,9 +54,10 @@ validate_instrument_region_arg(instrument_region)
       warning("No significant cis pQTLs")
     } else {
       # Only selecting the chromosome of interest to speed up stuff downstream from here
+      #' Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
       outcome_overlap <- outcome |>
-        filter(`#chrom` %in% exposure$chr) |>
-        filter(pos %in% exposure$GENPOS)
+        dplyr::filter(`#chrom` %in% exposure$chr) |>
+        dplyr::filter(pos %in% exposure$GENPOS)
       # Only selecting the variants that are overlapping between exposure and outcome sum stats
 
       if (is.null(outcome_overlap) ||
@@ -102,20 +68,15 @@ validate_instrument_region_arg(instrument_region)
 
 
 # Reformat outcome df -----------------------------------------------------
-        outcome_rsid <-
-          outcome_overlap[, c("#chrom", "pos", "rsids")]                                                              # These next couple of lines of code just wrangle the data so that the "TwoSampleMR" package can read everything and do its magic
-        # outcome_rsid <- outcome_rsid %>% mutate(rsids = strsplit(as.character(rsids), ",")) %>% unnest(rsids)
-        outcome_overlap$phen <- paste(outcome_id)
-        outcome_overlap$id <-
-          paste(
-            outcome_overlap$`#chrom`,
-            outcome_overlap$pos,
-            outcome_overlap$alt,
-            outcome_overlap$ref,
-            sep = ":"
-          )
+
+        outcome_rsid <- outcome_overlap |>
+          dplyr::select(`#chrom`, pos, rsids)) |>
+          dplyr::mutate(phenotype = paste(outcome_id)) |>
+          dplyr::mutate(ID = paste(`#chrom`, pos, alt, ref, sep = ":"))
+
+#' This will be taken out as should happen prior to run_mr() function used
         outcome_overlap <-
-          format_data(
+          TwoSampleMR::format_data(
             outcome_overlap,
             type = "outcome",
             phenotype_col = "phen",
@@ -133,27 +94,25 @@ validate_instrument_region_arg(instrument_region)
 
 # Reformat exposure df ----------------------------------------------------
 
-        exposure_overlap <-
-          exposure[exposure$GENPOS %in% outcome_overlap$pos.outcome,]                                                     # Again, we just take the overlapping variants (now in the other direction)
-        exposure_overlap_2 <-
-          exposure_overlap                                                                                           # Because the order of effect allele and other allele is random, we make a second dataframe with the opposite order of these alleles to optimize matching between sum stats
-        exposure_overlap_2$BETA <- exposure_overlap_2$BETA * -1
-        exposure_overlap_2$A1FREQ  <- 1 - exposure_overlap_2$A1FREQ
-        colnames(exposure_overlap_2)[colnames(exposure_overlap_2) %in% c("ALLELE0", "ALLELE1")] <-
-          c("ALLELE1", "ALLELE0")
-        exposure_overlap <- rbind(exposure_overlap, exposure_overlap_2)
-        exposure_overlap$ID <-
-          paste(
-            exposure_overlap$CHROM,
-            exposure_overlap$GENPOS,
-            exposure_overlap$ALLELE1,
-            exposure_overlap$ALLELE0,
-            sep = ":"
-          )
-        exposure_overlap$phen <- exposure_id
+        # Don't think we need this but have included until we make that decision
+        exposure_overlap <- exposure |>
+          dplyr::filter(POS19 %in% outcome_overlap$pos.outcome)
 
+        exposure_overlap2 <- exposure_overlap |>
+          dplyr::mutate(BETA = BETA* -1) |>
+          dplyr::mutate(A1FREQ = 1- A1FREQ) |>
+          dplyr::rename(ALLELEX = ALLELE0,
+                        ALLELE0 = ALLELE1,
+                        ALLELE1 = ALLELEX)
+
+        exposure_overlap <- dplyr::row_bind(exposure_overlap, exposure_overlap2)
+        exposure_overlap <- exposure_overlap |>
+          dplyr::mutate(ID = paste(CHROM, POS19, ALLELE1, ALLELE0, sep = ":")) |>
+          dplyr::mutate(phenotype = exposure_id)
+
+        #' This will be moved outside of the function
         exposure_overlap <-
-          format_data(
+          TwoSampleMR::format_data(
             exposure_overlap,
             type = "exposure",
             phenotype_col = "phen",
@@ -170,12 +129,12 @@ validate_instrument_region_arg(instrument_region)
             log_pval = T
           )
 
-
 # Harmonise ---------------------------------------------------------------
 
         dat_u <-
-          harmonise_data(exposure_dat = exposure_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
+          TwoSampleMR::harmonise_data(exposure_dat = exposure_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
 
+    #' To move pre-function for handling X chromosomes
         # if (sumstats_info[sumstats_info$Code == exposure_id,]$chr[1] == "X") {
         #   # This little if-else-statement just makes sure that you get the appropriate RSIDs for each variant; because the X-chromosome requires an additional file, this one is in a separate loop
         #   dat_u <-
@@ -199,11 +158,15 @@ validate_instrument_region_arg(instrument_region)
         #     )
         # }
 
-        colnames(dat_u)[colnames(dat_u) %in% c("SNP", "rsids")] <-
-          c("pos_id", "SNP")                                                  # We make sure that our reference column (which should have the name "SNP") is the RSID column
-        dat_u <-
-          dat_u[order(dat_u$pval.exposure),]                                                                                      # We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
-        dat_u <- dat_u[!duplicated(dat_u$SNP),]
+        #' Don't need to do this unless we use IDs instead of rsIDs
+        #colnames(dat_u)[colnames(dat_u) %in% c("SNP", "rsids")] <-
+        #  c("pos_id", "SNP")                                                  # We make sure that our reference column (which should have the name "SNP") is the RSID column
+
+        dat_u <- dat_u |>
+          dplyr::arrange(pval.exposure))
+                                                                                             # We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
+        dat_u <- dat_u |>
+          dplyr::filter(!duplicated(SNP))
 
         if (nrow(dat_u) == 0) {
           warning(paste0("Skipping ", exposure_id))
@@ -214,7 +177,7 @@ validate_instrument_region_arg(instrument_region)
 # Clump -------------------------------------------------------------------
 
           print("Clumping")
-          clump <-
+          ieugwasr::clump <-
             ld_clump(
               dplyr::tibble(
                 rsid = dat_u$SNP,
@@ -227,10 +190,10 @@ validate_instrument_region_arg(instrument_region)
               clump_r2 = rsq_thresh,
               bfile = "LD_ref/g1000_eur"
             )
-          dat <- dat_u[dat_u$SNP %in% clump$rsid,]
+          dat <- dat_u |>
+            dplyr::filter(dat_u$SNP %in% clump$rsid)
 
           # Note: this particular script uses the IVW method adjusted for between-variant correlation. This is not standard, but is a good method to use when using a lenient R2 threshold such as the one we use (0.1) when using proteins as the exposure.
-
 
 # Perform MR --------------------------------------------------------------
 
@@ -265,7 +228,7 @@ validate_instrument_region_arg(instrument_region)
 
               # If you have 2 variants, you can use the classic IVW method but not the MR-Egger method
               ld <-
-                ld_matrix(
+                ieugwasr::ld_matrix(
                   dat$SNP,
                   bfile = "LD_ref/g1000_eur",
                   plink_bin = genetics.binaRies::get_plink_binary()
@@ -298,7 +261,7 @@ validate_instrument_region_arg(instrument_region)
 
                # If you have more than 2 variants, you can do anything (including IVW and MR-Egger)
               ld <-
-                ld_matrix(
+                ieugwasr::ld_matrix(
                   dat$SNP,
                   bfile = "LD_ref/g1000_eur",
                   plink_bin = genetics.binaRies::get_plink_binary()
