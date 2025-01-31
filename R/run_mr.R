@@ -66,10 +66,12 @@ validate_instrument_region_arg(instrument_region)
   #   )
 
   #' Taken out sumstats_info here
+  #' To replace with tidyverse language
+  #' To move out of the run_mr function and have a specify window
   exposure <-
-    exposure[exposure$GENPOS > instrument_region$start - 200000) &
+    exposure[exposure$GENPOS > instrument_region$start - 200000 &
               # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
-              exposure$GENPOS < instrument_region$end + 200000), ]
+              exposure$GENPOS < instrument_region$end + 200000, ]
 
   exposure$P <- 10 ^ -exposure$LOG10P
 
