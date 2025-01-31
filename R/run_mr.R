@@ -61,6 +61,9 @@ validate_instrument_region_arg(instrument_region)
   #     )
   #   )
 
+
+# Filter exposure for IVs ----------------------------------------------------------
+
   #' Taken out sumstats_info here
   #' To replace with tidyverse language
   #' To move out of the run_mr function and have a specify window
@@ -78,6 +81,9 @@ validate_instrument_region_arg(instrument_region)
   #exposure$CHROM <-
     #  ifelse(exposure$CHROM == 23, "X", exposure$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
 
+
+# Get IVs from outcome ----------------------------------------------------
+
     if (is.null(exposure) || nrow(exposure) == 0) {
       warning(paste0("Skipping ", exposure_id))
       warning("No significant cis pQTLs")
@@ -93,6 +99,9 @@ validate_instrument_region_arg(instrument_region)
         warning(paste0("Skipping ", exposure_id))
         warning("No overlap between outcome and protein exposure")
       } else {
+
+
+# Reformat outcome df -----------------------------------------------------
         outcome_rsid <-
           outcome_overlap[, c("#chrom", "pos", "rsids")]                                                              # These next couple of lines of code just wrangle the data so that the "TwoSampleMR" package can read everything and do its magic
         # outcome_rsid <- outcome_rsid %>% mutate(rsids = strsplit(as.character(rsids), ",")) %>% unnest(rsids)
@@ -120,6 +129,9 @@ validate_instrument_region_arg(instrument_region)
             chr_col = "#chrom",
             pos_col = "pos"
           )
+
+
+# Reformat exposure df ----------------------------------------------------
 
         exposure_overlap <-
           exposure[exposure$GENPOS %in% outcome_overlap$pos.outcome,]                                                     # Again, we just take the overlapping variants (now in the other direction)
@@ -157,6 +169,9 @@ validate_instrument_region_arg(instrument_region)
             pos_col = "GENPOS",
             log_pval = T
           )
+
+
+# Harmonise ---------------------------------------------------------------
 
         dat_u <-
           harmonise_data(exposure_dat = exposure_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
@@ -196,6 +211,8 @@ validate_instrument_region_arg(instrument_region)
           return(NULL)
         }
 
+# Clump -------------------------------------------------------------------
+
           print("Clumping")
           clump <-
             ld_clump(
@@ -214,11 +231,17 @@ validate_instrument_region_arg(instrument_region)
 
           # Note: this particular script uses the IVW method adjusted for between-variant correlation. This is not standard, but is a good method to use when using a lenient R2 threshold such as the one we use (0.1) when using proteins as the exposure.
 
+
+# Perform MR --------------------------------------------------------------
+
           if (nrow(dat[dat$mr_keep,]) == 0) {
             warning(paste0("Skipping ", exposure_id))
             warning("No variants remaining after clumping")
             results <- NULL
           } else {
+
+## Wald ratio --------------------------------------------------------------
+
             if (nrow(dat) == 1) {
               # If the genetic instrument includes 1 variant, you use the Wald ratio as your method
               results_mr <-
@@ -236,6 +259,10 @@ validate_instrument_region_arg(instrument_region)
                   pval = results_mr$pval
                 )
             } else if (nrow(dat) == 2) {
+
+
+## 2 IVs - IVW not Egger ---------------------------------------------------
+
               # If you have 2 variants, you can use the classic IVW method but not the MR-Egger method
               ld <-
                 ld_matrix(
@@ -266,7 +293,10 @@ validate_instrument_region_arg(instrument_region)
                   pval = output_mr_ivw_corr@Pvalue
                 )
             } else {
-              # If you have more than 2 variants, you can do anything (including IVW and MR-Egger)
+
+# >2 IVs - IVW, Egger -----------------------------------------------------
+
+               # If you have more than 2 variants, you can do anything (including IVW and MR-Egger)
               ld <-
                 ld_matrix(
                   dat$SNP,
@@ -285,6 +315,9 @@ validate_instrument_region_arg(instrument_region)
                 MendelianRandomization::mr_ivw(dat2, correl = TRUE)
               output_mr_egger_corr <-
                 MendelianRandomization::mr_egger(dat2, correl = TRUE)
+
+# Return results ----------------------------------------------------------
+
               results1 <-
                 data.frame(
                   exp = exposure_id,
