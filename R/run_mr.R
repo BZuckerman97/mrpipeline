@@ -425,10 +425,10 @@ validate_instrument_region_arg(instrument_region)
   return(result)
 }
 
-# Private fuctions --------------------------------------------------------
+# Private functions --------------------------------------------------------
 
 
-validate_instrument_region_arg(instrument_region) {
+validate_instrument_region_arg <- function(instrument_region) {
 
   if (is.null(instrument_region)) {
     invisible(TRUE)
