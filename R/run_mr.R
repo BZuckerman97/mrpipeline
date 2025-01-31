@@ -4,7 +4,6 @@
 #' @param expoure data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?
 #' @param outcome data frame. Summary statistics for outcome, must be formatted as above
 #' @param outcome_id character. Name for outcome e.g. 'SjD'
-#' @param sumstats_info data frame.
 #' @param pval_thresh number. 5e-6 by default
 #' @param rsq_thresh R square clumping threshold
 #' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
@@ -13,7 +12,7 @@ run_mr <- function(expoure,
                    exposure_id,
                    outcome,
                    outcome_id,
-                   sumstats_info,
+                   # sumstats_info,
                    # downloadLocation,
                    # ref_rsid,
                    instrument_region = list(chromosome = 1L,
@@ -80,8 +79,8 @@ validate_instrument_region_arg(instrument_region)
     #  ifelse(exposure$CHROM == 23, "X", exposure$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
 
     if (is.null(exposure) || nrow(exposure) == 0) {
-      print(paste0("Skipping ", sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]))
-      print("No significant cis pQTLs")
+      warning(paste0("Skipping ", exposure_id))
+      warning("No significant cis pQTLs")
     } else {
       # Only selecting the chromosome of interest to speed up stuff downstream from here
       outcome_overlap <- outcome |>
@@ -91,8 +90,8 @@ validate_instrument_region_arg(instrument_region)
 
       if (is.null(outcome_overlap) ||
           nrow(outcome_overlap) == 0) {
-        print(paste0("Skipping ", sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]))
-        print("No overlap between outcome and protein exposure")
+        warning(paste0("Skipping ", exposure_id))
+        warning("No overlap between outcome and protein exposure")
       } else {
         outcome_rsid <-
           outcome_overlap[, c("#chrom", "pos", "rsids")]                                                              # These next couple of lines of code just wrangle the data so that the "TwoSampleMR" package can read everything and do its magic
@@ -139,8 +138,8 @@ validate_instrument_region_arg(instrument_region)
             exposure_overlap$ALLELE0,
             sep = ":"
           )
-        exposure_overlap$phen <-
-          sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]
+        exposure_overlap$phen <- exposure_id
+
         exposure_overlap <-
           format_data(
             exposure_overlap,
@@ -192,9 +191,9 @@ validate_instrument_region_arg(instrument_region)
         dat_u <- dat_u[!duplicated(dat_u$SNP),]
 
         if (nrow(dat_u) == 0) {
-          print(paste0("Skipping ", sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]))
-          print("No variants remaining after harmonising")
-          break()
+          warning(paste0("Skipping ", exposure_id))
+          warning("No variants remaining after harmonising")
+          return(NULL)
         }
 
           print("Clumping")
@@ -216,8 +215,8 @@ validate_instrument_region_arg(instrument_region)
           # Note: this particular script uses the IVW method adjusted for between-variant correlation. This is not standard, but is a good method to use when using a lenient R2 threshold such as the one we use (0.1) when using proteins as the exposure.
 
           if (nrow(dat[dat$mr_keep,]) == 0) {
-            print(paste0("Skipping ", sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]))
-            print("No variants remaining after clumping")
+            warning(paste0("Skipping ", exposure_id))
+            warning("No variants remaining after clumping")
             results <- NULL
           } else {
             if (nrow(dat) == 1) {
@@ -226,7 +225,7 @@ validate_instrument_region_arg(instrument_region)
                 mr(dat, method_list = c("mr_wald_ratio"))
               results <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1],
+                  exp = exposure_id,
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -256,7 +255,7 @@ validate_instrument_region_arg(instrument_region)
                 MendelianRandomization::mr_ivw(dat2, correl = TRUE)
               results <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1],
+                  exp = exposure_id,
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -288,7 +287,7 @@ validate_instrument_region_arg(instrument_region)
                 MendelianRandomization::mr_egger(dat2, correl = TRUE)
               results1 <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1],
+                  exp = exposure_id,
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -300,7 +299,7 @@ validate_instrument_region_arg(instrument_region)
                 )
               results2 <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1],
+                  exp = exposure_id,
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -312,7 +311,7 @@ validate_instrument_region_arg(instrument_region)
                 )
               results3 <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1],
+                  exp = exposure_id,
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -328,8 +327,8 @@ validate_instrument_region_arg(instrument_region)
           }
 
           if (is.null(results) || nrow(results) == 0) {
-            print(paste0("Skipping ", sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1]))
-            print("No results returned from MR analysis")
+            warning(paste0("Skipping ", exposure_id))
+            warning("No results returned from MR analysis")
           } else {
             df_sum <-
               data.frame(
@@ -388,9 +387,7 @@ validate_instrument_region_arg(instrument_region)
       }
     }
 
-
-  print(paste(sumstats_info[sumstats_info$Code == exposure_id,]$Assay[1], "done"))
-  # unlink(paste0(gsub("\\\\[^\\\\]*$", "", syn_code$cacheDir)), recursive=T)                    # ATTENTON !  This step deletes the map you downloaded your sum stats in - double-check that this doesn't accidentally delete important files from your desktop/server or so
+  message(paste(exposure_id, "done"))
 
   return(result)
 }
