@@ -70,7 +70,7 @@ validate_instrument_region_arg(instrument_region)
 # Reformat outcome df -----------------------------------------------------
 
         outcome_rsid <- outcome_overlap |>
-          dplyr::select(`#chrom`, pos, rsids)) |>
+          dplyr::select(`#chrom`, pos, rsids) |>
           dplyr::mutate(phenotype = paste(outcome_id)) |>
           dplyr::mutate(ID = paste(`#chrom`, pos, alt, ref, sep = ":"))
 
@@ -163,7 +163,7 @@ validate_instrument_region_arg(instrument_region)
         #  c("pos_id", "SNP")                                                  # We make sure that our reference column (which should have the name "SNP") is the RSID column
 
         dat_u <- dat_u |>
-          dplyr::arrange(pval.exposure))
+          dplyr::arrange(pval.exposure)
                                                                                              # We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
         dat_u <- dat_u |>
           dplyr::filter(!duplicated(SNP))
