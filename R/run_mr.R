@@ -1,30 +1,31 @@
 #' Performs MR
 #'
-#' @param exposure_id character. e.g. "syn52361761"
-#' @param outcome data frame. Summary statistics for outcome, must be formatted as above
-#' @param outcome_id character. Name for outcome e.g. 'sjogrens'
-#' @param sumstats_info data frame.
-#' @param downloadLocation path to folder where synapse files are downloaded
-#' @param ref_rsid data frame
-#' @param pval_thresh number. 5e-6 by default
+#' @param exposure_id character. e.g. "syn52361761" -> we should change this to the protein/gene name
 #' @param expoure TODO
+#' @param outcome data frame. Summary statistics for outcome, must be formatted as above
+#' @param outcome_id character. Name for outcome e.g. 'SjD'
+#' @param sumstats_info data frame.
+#' @param downloadLocation path to folder where cleaned exposure files exist -> do we want to rename this to exposure_location?
+#' @param ref_rsid data frame -> only for the X chromosome, think we should make sure all X chromosomes have been renamed as 23
+#' @param pval_thresh number. 5e-6 by default
 #' @param rsq_thresh R square clumping threshold
-#'
+#' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest
 #' @return List with 2 data frames - MR results and instruments
+
 run_mr <- function(expoure,
                    exposure_id,
-                       outcome,
-                       outcome_id,
-                       sumstats_info,
-                       downloadLocation,
-                       ref_rsid,
+                   outcome,
+                   outcome_id,
+                   sumstats_info,
+                   downloadLocation,
+                   ref_rsid,
                    instrument_region = list(chromosome = "1",
                                             start = 1L,
                                             end = 200L),
                    pval_thresh = 5e-6,
                    rsq_thresh = 0.1) {
 
-# Validaate arguments -----------------------------------------------------
+# Validate arguments -----------------------------------------------------
 
 validate_instrument_region_arg(instrument_region)
 
@@ -35,15 +36,15 @@ validate_instrument_region_arg(instrument_region)
   timestamp()
   print("******")
 
-  syn_code <-
-    synGet(entity = exposure_id,
-           downloadLocation = downloadLocation) # Downloading the summary statistics for the protein of interest
+  #syn_code <-
+  #  synGet(entity = exposure_id,
+  #         downloadLocation = downloadLocation) # Downloading the summary statistics for the protein of interest
 
-  if (!dir.exists(fs::path_ext_remove(syn_code$path))) {
-    untar(paste(syn_code$path),
-          list = F,
-          exdir = paste(syn_code$cacheDir))
-  }
+  #if (!dir.exists(fs::path_ext_remove(syn_code$path))) {
+  #  untar(paste(syn_code$path),
+  #        list = F,
+  #        exdir = paste(syn_code$cacheDir))
+  #}
 
   exposure <-
     fread(
