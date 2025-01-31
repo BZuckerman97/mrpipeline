@@ -11,7 +11,6 @@
 #' @param rsq_thresh R square clumping threshold
 #' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
 #' @return List with 2 data frames - MR results and instruments
-
 run_mr <- function(expoure,
                    exposure_id,
                    outcome,
@@ -67,9 +66,9 @@ validate_instrument_region_arg(instrument_region)
 
   #' Taken out sumstats_info here
   exposure <-
-    exposure[exposure$GENPOS > instrument_region$start - 200000) &
+    exposure[exposure$GENPOS > instrument_region$start &
               # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
-              exposure$GENPOS < instrument_region$end + 200000), ]
+              exposure$GENPOS < instrument_region$end, ]
 
   exposure$P <- 10 ^ -exposure$LOG10P
 
