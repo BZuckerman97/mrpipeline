@@ -1,6 +1,6 @@
 # Set up ------------------------------------------------------------------
 
-library(synapser)
+# library(synapser)
 library(R.utils)
 library(TwoSampleMR)
 library(tidyr)
