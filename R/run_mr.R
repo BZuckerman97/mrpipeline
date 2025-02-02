@@ -38,7 +38,7 @@ validate_instrument_region_arg(instrument_region)
   #' To replace with tidyverse language
   #' To move out of the run_mr function and have a specify window
   exposure <- exposure |>
-    dplyr::filter(GENPOS > instrument_region$start & GENPOS < instrument_region$end) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
+    dplyr::filter(POS19 > instrument_region$start & POS19 < instrument_region$end) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
     dplyr::mutate(P = 10 ^ -LOG10P) |>
     dplyr::filter(P < pval_thresh)                                                                                   # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
 
@@ -56,8 +56,8 @@ validate_instrument_region_arg(instrument_region)
       # Only selecting the chromosome of interest to speed up stuff downstream from here
       #' Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
       outcome_overlap <- outcome |>
-        dplyr::filter(`#chrom` %in% exposure$chr) |>
-        dplyr::filter(pos %in% exposure$GENPOS)
+        dplyr::filter(chrom %in% exposure$CHROM) |> #' CHROM needs to change to chr.exposure
+        dplyr::filter(pos %in% exposure$POS19)
       # Only selecting the variants that are overlapping between exposure and outcome sum stats
 
       if (is.null(outcome_overlap) ||
@@ -70,16 +70,18 @@ validate_instrument_region_arg(instrument_region)
 # Reformat outcome df -----------------------------------------------------
 
         outcome_rsid <- outcome_overlap |>
-          dplyr::select(`#chrom`, pos, rsids) |>
+          dplyr::select(chrom, pos, rsids)
+
+        outcome_overlap <- outcome_overlap |>
           dplyr::mutate(phenotype = paste(outcome_id)) |>
-          dplyr::mutate(ID = paste(`#chrom`, pos, alt, ref, sep = ":"))
+          dplyr::mutate(id = paste(chrom, pos, alt, ref, sep = ":"))
 
 #' This will be taken out as should happen prior to run_mr() function used
         outcome_overlap <-
           TwoSampleMR::format_data(
             outcome_overlap,
             type = "outcome",
-            phenotype_col = "phen",
+            phenotype_col = "phenotype",
             snp_col = "id",
             beta_col = "beta",
             se_col = "sebeta",
@@ -87,7 +89,7 @@ validate_instrument_region_arg(instrument_region)
             effect_allele_col = "alt",
             other_allele_col = "ref",
             pval_col = "pval",
-            chr_col = "#chrom",
+            chr_col = "chrom",
             pos_col = "pos"
           )
 
@@ -101,11 +103,11 @@ validate_instrument_region_arg(instrument_region)
         exposure_overlap2 <- exposure_overlap |>
           dplyr::mutate(BETA = BETA* -1) |>
           dplyr::mutate(A1FREQ = 1- A1FREQ) |>
-          dplyr::rename(ALLELEX = ALLELE0,
+          dplyr::mutate(ALLELEX = ALLELE0,
                         ALLELE0 = ALLELE1,
                         ALLELE1 = ALLELEX)
 
-        exposure_overlap <- dplyr::row_bind(exposure_overlap, exposure_overlap2)
+        exposure_overlap <- dplyr::bind_rows(exposure_overlap, exposure_overlap2)
         exposure_overlap <- exposure_overlap |>
           dplyr::mutate(ID = paste(CHROM, POS19, ALLELE1, ALLELE0, sep = ":")) |>
           dplyr::mutate(phenotype = exposure_id)
@@ -115,17 +117,17 @@ validate_instrument_region_arg(instrument_region)
           TwoSampleMR::format_data(
             exposure_overlap,
             type = "exposure",
-            phenotype_col = "phen",
+            phenotype_col = "phenotype",
             snp_col = "ID",
             beta_col = "BETA",
             se_col = "SE",
             eaf_col = "A1FREQ",
             effect_allele_col = "ALLELE1",
             other_allele_col = "ALLELE0",
-            pval_col = "LOG10P",
+            pval_col = "P",
             chr_col = "CHROM",
             samplesize_col = "N",
-            pos_col = "GENPOS",
+            pos_col = "POS19",
             log_pval = T
           )
 
@@ -146,7 +148,7 @@ validate_instrument_region_arg(instrument_region)
         #       all.x = T
         #     )
         #   colnames(dat_u)[colnames(dat_u) %in% c("V1", "V3")] <-
-        #     c("#chrom", "rsids")
+        #     c("chrom", "rsids")
         # } else {
         #   dat_u <-
         #     merge(
@@ -177,8 +179,8 @@ validate_instrument_region_arg(instrument_region)
 # Clump -------------------------------------------------------------------
 
           print("Clumping")
-          ieugwasr::clump <-
-            ld_clump(
+          clump <-
+            ieugwasr::ld_clump(
               dplyr::tibble(
                 rsid = dat_u$SNP,
                 pval = dat_u$pval.exposure,
@@ -208,7 +210,7 @@ validate_instrument_region_arg(instrument_region)
             if (nrow(dat) == 1) {
               # If the genetic instrument includes 1 variant, you use the Wald ratio as your method
               results_mr <-
-                mr(dat, method_list = c("mr_wald_ratio"))
+                TwoSampleMR::mr(dat, method_list = c("mr_wald_ratio"))
               results <-
                 data.frame(
                   exp = exposure_id,
