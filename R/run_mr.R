@@ -178,7 +178,7 @@ validate_instrument_region_arg(instrument_region)
         }
 
 # Clump -------------------------------------------------------------------
-
+          browser()
           print("Clumping")
           clump <-
             ieugwasr::ld_clump(
