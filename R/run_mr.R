@@ -19,7 +19,8 @@ run_mr <- function(exposure,
                                             start = 1L,
                                             end = 200L),
                    pval_thresh = 5e-6,
-                   rsq_thresh = 0.1) {
+                   rsq_thresh = 0.1,
+                   bfile,) {
 
 # Validate arguments -----------------------------------------------------
 
@@ -190,7 +191,7 @@ validate_instrument_region_arg(instrument_region)
               plink_bin = genetics.binaRies::get_plink_binary(),
               clump_kb = 10000,
               clump_r2 = rsq_thresh,
-              bfile = "LD_ref/g1000_eur"
+              bfile = bfile
             )
           dat <- dat_u |>
             dplyr::filter(dat_u$SNP %in% clump$rsid)
