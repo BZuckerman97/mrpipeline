@@ -74,8 +74,8 @@ validate_instrument_region_arg(instrument_region)
           dplyr::select(chrom, pos, rsids)
 
         outcome_overlap <- outcome_overlap |>
-          dplyr::mutate(phenotype = paste(outcome_id)) |>
-          dplyr::mutate(id = paste(chrom, pos, alt, ref, sep = ":"))
+          dplyr::mutate(phenotype = paste(outcome_id)) #|>
+          #dplyr::mutate(id = paste(chrom, pos, alt, ref, sep = ":"))
 
 #' This will be taken out as should happen prior to run_mr() function used
         outcome_overlap <-
