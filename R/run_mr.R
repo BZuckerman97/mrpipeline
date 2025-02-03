@@ -94,7 +94,6 @@ validate_instrument_region_arg(instrument_region)
             pos_col = "pos"
           )
 
-
 # Reformat exposure df ----------------------------------------------------
 
         # Don't think we need this but have included until we make that decision
@@ -178,7 +177,7 @@ validate_instrument_region_arg(instrument_region)
         }
 
 # Clump -------------------------------------------------------------------
-          print("Clumping")
+        print("Clumping")
           clump <-
             ieugwasr::ld_clump(
               dplyr::tibble(
