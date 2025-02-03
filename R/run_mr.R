@@ -20,7 +20,7 @@ run_mr <- function(exposure,
                                             end = 200L),
                    pval_thresh = 5e-6,
                    rsq_thresh = 0.1,
-                   bfile,) {
+                   bfile) {
 
 # Validate arguments -----------------------------------------------------
 
