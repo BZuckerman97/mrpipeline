@@ -178,7 +178,6 @@ validate_instrument_region_arg(instrument_region)
         }
 
 # Clump -------------------------------------------------------------------
-          browser()
           print("Clumping")
           clump <-
             ieugwasr::ld_clump(
@@ -233,7 +232,7 @@ validate_instrument_region_arg(instrument_region)
               ld <-
                 ieugwasr::ld_matrix(
                   dat$SNP,
-                  bfile = "LD_ref/g1000_eur",
+                  bfile = bfile,
                   plink_bin = genetics.binaRies::get_plink_binary()
                 )
               dat2 <-
@@ -266,7 +265,7 @@ validate_instrument_region_arg(instrument_region)
               ld <-
                 ieugwasr::ld_matrix(
                   dat$SNP,
-                  bfile = "LD_ref/g1000_eur",
+                  bfile = bfile,
                   plink_bin = genetics.binaRies::get_plink_binary()
                 )
               dat2 <-

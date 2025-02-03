@@ -5,7 +5,7 @@ run_mr(exposure = cd40_sumstats,
        instrument_region = list(chromosome = 20, start = 44746911, end = 44758502),
        pval_thresh = 5e-06,
        rsq_thresh = 0.1,
-       bfile = "/Users/benzuckerman/Library/Mobile Documents/com~apple~CloudDocs/Research/mr_work/LD_ref/")
+       bfile = "LD_folder/g1000_eur")
 
 run_mr(exposure = cd40,
        exposure_id = "CD40",
@@ -14,4 +14,4 @@ run_mr(exposure = cd40,
        instrument_region = list(chromosome = 20, start = 44746911, end = 44758502),
        pval_thresh = 5e-06,
        rsq_thresh = 0.1,
-       bfile = "~/LD_folder/g1000_eur")
+       bfile = "LD_folder/g1000_eur")
