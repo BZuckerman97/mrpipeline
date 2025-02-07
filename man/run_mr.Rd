@@ -5,17 +5,18 @@
 \title{Performs MR}
 \usage{
 run_mr(
-  expoure,
+  exposure,
   exposure_id,
   outcome,
   outcome_id,
   instrument_region = list(chromosome = 1L, start = 1L, end = 200L),
   pval_thresh = 5e-06,
-  rsq_thresh = 0.1
+  rsq_thresh = 0.1,
+  bfile
 )
 }
 \arguments{
-\item{expoure}{data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?}
+\item{exposure}{data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?}
 
 \item{exposure_id}{character. e.g. "syn52361761" -> we should change this to the protein/gene name}
 
@@ -28,15 +29,20 @@ run_mr(
 \item{pval_thresh}{number. 5e-6 by default}
 
 \item{rsq_thresh}{R square clumping threshold}
+
+\item{bfile}{path to the LD_folder containing 1000 genome files (g1000_eur)}
 }
 \value{
 List with 2 data frames - MR results and instruments
-TO DELETE
-TO DELETE CAN BE READ IN BEFORE THE FUNCTION
 Taken out sumstats_info here
 To replace with tidyverse language
 To move out of the run_mr function and have a specify window
 This needs to be done before the function starts
+Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
+This will be taken out as should happen prior to run_mr() function used
+This will be moved outside of the function
+To move pre-function for handling X chromosomes
+Don't need to do this unless we use IDs instead of rsIDs
 }
 \description{
 Performs MR

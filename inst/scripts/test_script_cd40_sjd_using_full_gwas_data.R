@@ -14,11 +14,11 @@
 #sjd_1 <- as.data.frame(sjd_1)
 #cd40 <- as.data.frame(cd40)
 
-#run_mr(exposure = cd40,
-#       exposure_id = "CD40",
-#       outcome = sjd_1,
-#       outcome_id = "SjD",
-#       instrument_region = list(chromosome = 20, start = 44746911, end = 44758502),
-#       pval_thresh = 5e-06,
-#       rsq_thresh = 0.1,
-#       bfile = "/Users/benzuckerman/LD_folder/g1000_eur")
+run_mr(exposure = cd40,
+       exposure_id = "CD40",
+       outcome = sjd_1,
+       outcome_id = "SjD",
+       instrument_region = list(chromosome = 20, start = 44746911, end = 44758502),
+       pval_thresh = 5e-06,
+       rsq_thresh = 0.1,
+       bfile = "/Users/benzuckerman/LD_folder/g1000_eur")

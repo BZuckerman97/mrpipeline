@@ -1,12 +1,13 @@
 #' Performs MR
 #'
 #' @param exposure_id character. e.g. "syn52361761" -> we should change this to the protein/gene name
-#' @param expoure data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?
+#' @param exposure data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?
 #' @param outcome data frame. Summary statistics for outcome, must be formatted as above
 #' @param outcome_id character. Name for outcome e.g. 'SjD'
 #' @param pval_thresh number. 5e-6 by default
 #' @param rsq_thresh R square clumping threshold
 #' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
+#' @param bfile path to the LD_folder containing 1000 genome files (g1000_eur)
 #' @return List with 2 data frames - MR results and instruments
 run_mr <- function(exposure,
                    exposure_id,
@@ -25,7 +26,6 @@ run_mr <- function(exposure,
 # Validate arguments -----------------------------------------------------
 
 validate_instrument_region_arg(instrument_region)
-
 
   result <- NULL
 
@@ -127,8 +127,7 @@ validate_instrument_region_arg(instrument_region)
             pval_col = "P",
             chr_col = "CHROM",
             samplesize_col = "N",
-            pos_col = "POS19",
-            log_pval = T
+            pos_col = "POS19"
           )
 
 # Harmonise ---------------------------------------------------------------

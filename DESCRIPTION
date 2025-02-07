@@ -1,12 +1,25 @@
 Package: mrpipeline
-Title: What the Package Does (One Line, Title Case)
+Title: Functions to set up a pipeline for performing Mendelian randomization
 Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Authors@R: c(
+    person("Benjamin", "Zuckerman", , "benjamin.zuckerman@kcl.ac.uk", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-0077-6074")),
+    person("Alasdair", "Warwick", role = "aut", comment = c(ORCID = "0000-0002-0800-2890"))
+    )
+Description: Pipeline to perform forward mendelian randomization analyses, including multiple comparison assessments and colocalization analyses. This package provides manuscript ready tables and figures.
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+Imports: 
+    dplyr,
+    genetics.binaRies,
+    ieugwasr,
+    MendelianRandomization,
+    tibble,
+    TwoSampleMR,
+    utils
+Remotes:
+  mrcieu::TwoSampleMR,
+  mrcieu::ieugwasr,
+  mrcieu::genetics.binaRies
