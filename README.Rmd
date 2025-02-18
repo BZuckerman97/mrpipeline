@@ -1,0 +1,59 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# mrpipeline
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of mrpipeline is to ...
+
+## Installation
+
+You can install the development version of mrpipeline from [GitHub](https://github.com/) with:
+
+``` r
+# install.packages("pak")
+pak::pak("BZuckerman97/mrpipeline")
+```
+
+## Example
+
+This is a basic example which shows you how to solve a common problem:
+
+```{r example}
+library(mrpipeline)
+## basic example code
+```
+
+## .Rprofile
+
+This is a file which runs at the start of the R session, creating a customisable environment. For mrpipeline the file contains the sources for all of the packages needed for the package to install. 
+
+What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+
+```{r cars}
+summary(cars)
+```
+
+You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
+
+You can also embed plots, for example:
+
+```{r pressure, echo = FALSE}
+plot(pressure)
+```
+
+In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
