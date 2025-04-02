@@ -5,130 +5,80 @@
 #' chromosomes, standardizes column names, and formats the data
 #' for use with the TwoSampleMR package.
 #'
-#' @param olink_linker_file Data frame containing linker information
-#'   for Olink proteins. Must contain columns: `Code`, `Docname`, `chr`,
-#'   `UKBPPP_ProteinID`, `Panel`, `Assay`.
-#' @param exposure Character, the UKBPPP_ProteinID of the exposure protein.
-#' @param outcome_file_path Character, file path to the outcome data.
-#' @param outcome_id Character, ID of the outcome trait.
-#' @param ref_rsid Data frame of reference rsIDs for non-Mendelian
-#'   chromosomes. Must contain columns: `rsid`, `chr`, `pos`, `ref`, `alt`.
+#' @param ukbppp Dataframe, the ukbppp data
+#' @param ukbppp_rsid Dataframe, of ukbppp rsids
+#' @param pqtl_assay String, of the ukbppp protein assayed
 #'
 #' @return A list with two elements:
 #'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
-#'   - `outcome`: Formatted outcome data frame (output of TwoSampleMR::format_data).
 #'
 #' @export
 #'
 #' @examples
 #' # See the test script for example usage.
-#'
-format_pqtl_ukbppp <- function(olink_linker_file,
-                               exposure,
-                               outcome_file_path,
-                               outcome_id,
-                               ref_rsid) {
+format_pqtl_ukbppp <- function(ukbppp,
+                               ukbppp_rsid,
+                               pqtl_assay) {
 
-    ukbppp_pqtl_file_name <- function(olink_linker_file, synapse_id, olink_dir = "/tmp/olink") {
-      file.path(olink_dir,
-                paste0(gsub(".tar", "", olink_linker_file[olink_linker_file$Code == synapse_id, ]$Docname[1]),
-                       "/",
-                       "discovery_chr",
-                       olink_linker_file[olink_linker_file$Code == synapse_id, ]$chr[1],
-                       "_",
-                       olink_linker_file[olink_linker_file$Code == synapse_id, ]$UKBPPP_ProteinID[1],
-                       ":",
-                       olink_linker_file[olink_linker_file$Code == synapse_id, ]$Panel[1],
-                       ".gz"
-                )
-      )
-    }
+  # read from filepath
+  if (is.character(ukbppp)) {
+    # Read in files using data.table::fread()
+    stopifnot(file.exists(ukbppp))
 
-  ukbppp_rsid_file_name <- function(olink_linker_file, metadata_dir = "/tmp/metadata") {
-    file.path(metadata_dir,
-              paste0(olink_linker_file$chr,
-                     "_patched_v2.tsv.gz"))
+    ukbppp <- ukbppp |>
+      purrr::map(\(x) data.table::fread(x, nThread = parallel::detectCores())) |>
+      dplyr::bind_rows()
+  } else {
+    stopifnot(is.data.frame(ukbppp))
   }
 
-  # 1. & 2. Create file paths using the ukbppp functions
-  exposure_synapse_id <- olink_linker_file[olink_linker_file$UKBPPP_ProteinID == exposure, ]$Code[1]
-  if (length(exposure_synapse_id) == 0) {
-    stop("Exposure ID not found in linker file. Ensure the UKBPPP_ProteinID is present in the linker file")
+  if (is.character(ukbppp_rsid)) {
+    # Read in files using data.table::fread()
+    ukbppp_rsid <- ukbppp_rsid |>
+      purrr::map(\(x) data.table::fread(x, nThread = parallel::detectCores())) |>
+      dplyr::bind_rows()
+  } else {
+    stopifnot(is.data.frame(ukbppp_rsid))
   }
 
-  exposure_file_path <- ukbppp_pqtl_file_name(olink_linker_file, exposure_synapse_id)
-  exposure_chr <- olink_linker_file[olink_linker_file$UKBPPP_ProteinID == exposure, ]$chr[1]
-  rsid_file_path <- ukbppp_rsid_file_name(olink_linker_file[olink_linker_file$UKBPPP_ProteinID == exposure, ])
-
-  # 3. Read in files using data.table::fread()
-  exposure_data <- data.table::fread(exposure_file_path, nThread = parallel::detectCores())
-  rsid_data <- data.table::fread(rsid_file_path, nThread = parallel::detectCores())
-
-  if (!"Assay" %in% colnames(olink_linker_file)) {
-    stop("Assay variable not present in the linker file")
-  }
-
-  #create the exposure_id variable
-  exposure_id <- olink_linker_file[olink_linker_file$UKBPPP_ProteinID == exposure,]$Assay[1]
-
-  # 4. Standardize column names
-  exposure_data <- exposure_data %>%
+  # Standardise column names
+  ukbppp <- ukbppp %>%
     dplyr::rename(
-      phenotype = dplyr::all_of("Assay"), # using all_of to prevent errors if column is missing
-      rsid = dplyr::all_of("rsid"),
+      phenotype = dplyr::all_of(pqtl_assay), # using all_of to prevent errors if column is missing
       beta = dplyr::all_of("BETA"),
-      sebeta = dplyr::coalesce(dplyr::all_of(c("SE","sebeta","se"))), #coalesce is used to select the first non-NA value from the list of columns
+      sebeta = dplyr::all_of("SE"),
       af_alt = dplyr::all_of("A1FREQ"),
-      effect_allele = dplyr::coalesce(dplyr::all_of(c("ALLELE1","alt"))),
-      other_allele = dplyr::coalesce(dplyr::all_of(c("ALLELE0","ref"))),
+      effect_allele = dplyr::all_of("ALLELE1"),
+      other_allele = dplyr::all_of("ALLELE0"),
       pval = dplyr::all_of("P"),
       chr = dplyr::all_of("CHROM"),
-      pos = dplyr::coalesce(dplyr::all_of(c("POS19","GENPOS","pos")))
+      pos = dplyr::all_of("GENPOS") #' Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) %>%
-    dplyr::mutate(phenotype = exposure_id) %>%
     dplyr::select(phenotype, rsid, beta, sebeta, af_alt, effect_allele, other_allele, pval, chr, pos) %>%
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", chr)) #change 23 to X if needed
+    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", chr)) %>% #change 23 to X if needed
+    dplyr::mutate(pval = 10 ^ -pval) # Convert LOG10P into P
 
-   # 5. Handle non-Mendelian chromosomes
-  if (exposure_chr %in% c("X", "Y")) {
-    exposure_data <- dplyr::inner_join(exposure_data, ref_rsid, by = c("chr", "pos"))
+  # Handle non-Mendelian chromosomes
+  # To complete
+  if ("chr" %in% colnames(ukbppp) == "X"){
+
   }
-    # Match by ID or create it
-  if ("ID" %in% colnames(exposure_data) & "ID" %in% colnames(rsid_data)) {
-    exposure_data <- dplyr::inner_join(exposure_data, rsid_data, by = "ID")
+
+  # Match by ID or create it
+  if ("ID" %in% colnames(ukbppp) & "ID" %in% colnames(ukbppp_rsid)) {
+    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
   } else {
-    exposure_data <- exposure_data %>%
+    ukbppp <- ukbppp %>%
       dplyr::mutate(ID = paste(chr, pos, effect_allele, other_allele, sep = ":"))
-    rsid_data <- rsid_data %>%
+    ukbppp_rsid <- ukbppp_rsid %>%
       dplyr::mutate(ID = paste(chr, pos, alt, ref, sep = ":"))
 
-    exposure_data <- dplyr::inner_join(exposure_data, rsid_data, by = "ID")
+    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
   }
 
-  # Read in outcome data using data.table::fread()
-  outcome_data <- data.table::fread(outcome_file_path, nThread = parallel::detectCores())
-  outcome_data$outcome <- outcome_id
-
-  # 4. Standardize column names
-  outcome_data <- outcome_data %>%
-    dplyr::rename(
-      rsid = dplyr::all_of("rsid"),
-      beta = dplyr::all_of("beta"),
-      sebeta = dplyr::coalesce(dplyr::all_of(c("sebeta", "SE", "se"))),
-      af_alt = dplyr::all_of("A1FREQ"),
-      effect_allele = dplyr::coalesce(dplyr::all_of(c("ALLELE1","alt"))),
-      other_allele = dplyr::coalesce(dplyr::all_of(c("ALLELE0","ref"))),
-      pval = dplyr::all_of("P"),
-      chr = dplyr::all_of("CHROM"),
-      pos = dplyr::coalesce(dplyr::all_of(c("GENPOS", "POS19","pos")))
-    ) %>%
-    dplyr::select(outcome, rsid, beta, sebeta, af_alt, effect_allele, other_allele, pval, chr, pos) %>%
-    dplyr::rename(phenotype = outcome) %>%
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", chr)) #change 23 to X if needed
-
-  # 5. Format data using TwoSampleMR::format_data()
-  exposure_formatted <- TwoSampleMR::format_data(
-    exposure_data,
+  # Format data using TwoSampleMR::format_data()
+  result <- TwoSampleMR::format_data(
+    ukbppp,
     type = "exposure",
     phenotype_col = "phenotype",
     snp_col = "rsid",
@@ -142,20 +92,64 @@ format_pqtl_ukbppp <- function(olink_linker_file,
     pos_col = "pos"
   )
 
-  outcome_formatted <- TwoSampleMR::format_data(
-    outcome_data,
-    type = "outcome",
-    phenotype_col = "phenotype",
-    snp_col = "rsid",
-    beta_col = "beta",
-    se_col = "sebeta",
-    eaf_col = "af_alt",
-    effect_allele_col = "effect_allele",
-    other_allele_col = "other_allele",
-    pval_col = "pval",
-    chr_col = "chr",
-    pos_col = "pos"
-  )
-
-  return(list(exposure = exposure_formatted, outcome = outcome_formatted))
+  return(result)
 }
+
+#' UKBPPP_PQTL_FILE_NAME
+#'
+#' @param synapse_id String, synapse id to access from olink linker file
+#' @param olink_linker_file String or Dataframe, file containing the olink linker file, or the dataframe of the linker file
+#' @param olink_dir String, directory of the olink files
+#' @param olink_rsid_dir String, directory of the olink rsid files
+#'
+#' @returns a list of the 2 filepaths, one for the ukbppp_pqtl data and the other is
+#' the corresponding rsID metadata file, as well as the name of the assay
+#' @export
+#'
+#' @examples
+ukbppp_pqtl_file_name <- function(synapse_id, olink_linker_file, olink_dir, olink_rsid_dir) {
+
+  if (rlang::is_string(olink_linker_file)) {
+    stopifnot(file.exists(olink_linker_file))
+    olink_linker_file <- data.table::fread(olink_linker_file)
+  } else {
+    stopifnot(is.data.frame(olink_linker_file))
+  }
+
+  # get relevant metadata
+  metadata <- olink_linker_file[olink_linker_file$Code == synapse_id, ]
+  stopifnot(identical(nrow(metadata), 1L))
+  metadata <- as.list(metadata)
+
+  # result
+  list(
+    ukbppp = file.path(olink_dir,
+                       paste0(gsub(".tar", "", metadata$Docname),
+                              "/",
+                              "discovery_chr",
+                              metadata$chr,
+                              "_",
+                              metadata$UKBPPP_ProteinID,
+                              ":",
+                              metadata$Panel,
+                              ".gz"
+                       )
+    ),
+    ukbppp_rsid = file.path(olink_rsid_dir,
+                            paste0("olink_rsid_map_mac4_info03_b0_7_chr", metadata$chr, "_patched_v2.tsv.gz")
+    ),
+    id = metadata$Assay
+  )
+}
+
+# A---------
+# This code was not part of any function and has now been removed:
+# # TEMP workflow
+#  synapse_id <- c("A", "B")
+
+#  synapse_id |>
+#    purrr::set_names() |>
+#    purrr::map(\(x) ukbppp_pqtl_file_name(synapse_id = x, olink_linker_file = olink_linker_file, olink_dir = "TODO", olink_rsid_dir = "TODO") |>
+#    dplyr::bind_rows() |>
+#    purrr::pmap(format_pqtl_ukbppp) # this bit to be amended
+# A---------
