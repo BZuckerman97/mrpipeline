@@ -42,7 +42,8 @@ format_pqtl_ukbppp <- function(ukbppp,
   }
 
   # Standardise column names
-  ukbppp <- ukbppp %>%
+  # UKB-PPP
+  ukbppp <- ukbppp |>
     dplyr::rename(
       phenotype = dplyr::all_of(pqtl_assay), # using all_of to prevent errors if column is missing
       beta = dplyr::all_of("BETA"),
@@ -55,13 +56,41 @@ format_pqtl_ukbppp <- function(ukbppp,
       pos = dplyr::all_of("GENPOS") #' Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) %>%
     dplyr::select(phenotype, rsid, beta, sebeta, af_alt, effect_allele, other_allele, pval, chr, pos) %>%
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", chr)) %>% #change 23 to X if needed
+    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", chr)) |>  #change 23 to X if needed
     dplyr::mutate(pval = 10 ^ -pval) # Convert LOG10P into P
 
-  # Handle non-Mendelian chromosomes
-  # To complete
-  if ("chr" %in% colnames(ukbppp) == "X"){
+  # UKB-PPP RSID
+  ukbppp_rsid <- ukbppp_rsid |>
+    dplyr::rename(
+      effect_allele = dplyr::all_of("ALT"),
+      other_allele = dplyr::all_of("REF")
+      chr = dplyr::mutate(chr = as.numeric(gsub("chr", "", chr))),
+      pos = dplyr::all_of("GENPOS")
+    )
 
+  # Handle non-Mendelian chromosomes
+  # Handle X chromosome rsIDs
+  # Check if the chromosome is X
+  if (!is.null(ref_rsid_file)) {
+    stopifnot(file.exists(ref_rsid_file))
+    if ("X" %in% unique(ukbppp$chr)) {
+      # Load ref_rsid
+      ref_rsid <- data.table::fread(ref_rsid_file)
+      # Rename columns to match
+      ref_rsid <- ref_rsid |>
+        dplyr::rename(
+          pos = dplyr::all_of("V2"),
+          rsids = dplyr::all_of("V3"),
+          chr = dplyr::all_of("V1")
+        )
+      # Merge with ukbppp by position
+      ukbppp <- dplyr::left_join(ukbppp, ref_rsid[, c("pos", "rsids")], by = "pos")
+
+      # Update rsid column with rsids from ref_rsid
+      ukbppp <- ukbppp |>
+        dplyr::mutate(rsid = dplyr::coalesce(rsids, rsid)) |>
+        dplyr::select(-rsids)
+    }
   }
 
   # Match by ID or create it
