@@ -63,7 +63,7 @@ format_pqtl_ukbppp <- function(ukbppp,
   ukbppp_rsid <- ukbppp_rsid |>
     dplyr::rename(
       effect_allele = dplyr::all_of("ALT"),
-      other_allele = dplyr::all_of("REF")
+      other_allele = dplyr::all_of("REF"),
       chr = dplyr::mutate(chr = as.numeric(gsub("chr", "", chr))),
       pos = dplyr::all_of("GENPOS")
     )
