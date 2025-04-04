@@ -41,7 +41,7 @@ validate_instrument_region_arg(instrument_region)
   #' To replace with tidyverse language
   #' To move out of the run_mr function and have a specify window
   exposure <- exposure |>
-    dplyr::filter(POS19 > instrument_region$start & POS19 < instrument_region$end) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
+    dplyr::filter(POS19 > instrument_region$start & POS19 < instrument_region$end) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region), uses build 37 positions
     dplyr::mutate(P = 10 ^ -LOG10P) |>
     dplyr::filter(P < pval_thresh)                                                                                   # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
 
