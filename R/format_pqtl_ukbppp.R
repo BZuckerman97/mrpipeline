@@ -8,6 +8,7 @@
 #' @param ukbppp Dataframe, the ukbppp data
 #' @param ukbppp_rsid Dataframe, of ukbppp rsids
 #' @param pqtl_assay String, of the ukbppp protein assayed
+#' @param x_y_chr_file String, file path to the file containing rsids for X and Y chromosomes
 #'
 #' @return A list with two elements:
 #'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
@@ -18,7 +19,8 @@
 #' # See the test script for example usage.
 format_pqtl_ukbppp <- function(ukbppp,
                                ukbppp_rsid,
-                               pqtl_assay) {
+                               pqtl_assay,
+                               x_y_chr_file = NULL) {
 
   # read from filepath
   if (is.character(ukbppp)) {
@@ -68,25 +70,24 @@ format_pqtl_ukbppp <- function(ukbppp,
       pos = dplyr::all_of("GENPOS")
     )
 
-  # Handle non-Mendelian chromosomes
-  # Handle X chromosome rsIDs
+  # Handle non-Mendelian chromosomes rsIDs
   # Check if the chromosome is X
-  if (!is.null(ref_rsid_file)) {
-    stopifnot(file.exists(ref_rsid_file))
+  if (!is.null(x_y_chr_file)) {
+    stopifnot(file.exists(x_y_chr_file))
     if ("X" %in% unique(ukbppp$chr)) {
-      # Load ref_rsid
-      ref_rsid <- data.table::fread(ref_rsid_file)
+      # Load x_y_rsid
+      x_y_rsid <- data.table::fread(x_y_chr_file)
       # Rename columns to match
-      ref_rsid <- ref_rsid |>
+      x_y_rsid <- x_y_rsid |>
         dplyr::rename(
           pos = dplyr::all_of("V2"),
           rsids = dplyr::all_of("V3"),
           chr = dplyr::all_of("V1")
         )
       # Merge with ukbppp by position
-      ukbppp <- dplyr::left_join(ukbppp, ref_rsid[, c("pos", "rsids")], by = "pos")
+      ukbppp <- dplyr::left_join(ukbppp, x_y_rsid[, c("pos", "rsids")], by = "pos")
 
-      # Update rsid column with rsids from ref_rsid
+      # Update rsid column with rsids from x_y_rsid
       ukbppp <- ukbppp |>
         dplyr::mutate(rsid = dplyr::coalesce(rsids, rsid)) |>
         dplyr::select(-rsids)
@@ -136,7 +137,10 @@ format_pqtl_ukbppp <- function(ukbppp,
 #' @export
 #'
 #' @examples
-ukbppp_pqtl_file_name <- function(synapse_id, olink_linker_file, olink_dir, olink_rsid_dir) {
+ukbppp_pqtl_file_name <- function(synapse_id,
+                                  olink_linker_file,
+                                  olink_dir,
+                                  olink_rsid_dir) {
 
   if (rlang::is_string(olink_linker_file)) {
     stopifnot(file.exists(olink_linker_file))
@@ -170,15 +174,3 @@ ukbppp_pqtl_file_name <- function(synapse_id, olink_linker_file, olink_dir, olin
     id = metadata$Assay
   )
 }
-
-# A---------
-# This code was not part of any function and has now been removed:
-# # TEMP workflow
-#  synapse_id <- c("A", "B")
-
-#  synapse_id |>
-#    purrr::set_names() |>
-#    purrr::map(\(x) ukbppp_pqtl_file_name(synapse_id = x, olink_linker_file = olink_linker_file, olink_dir = "TODO", olink_rsid_dir = "TODO") |>
-#    dplyr::bind_rows() |>
-#    purrr::pmap(format_pqtl_ukbppp) # this bit to be amended
-# A---------
