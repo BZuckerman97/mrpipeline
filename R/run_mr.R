@@ -13,7 +13,7 @@
 
 run_mr <- function(exposure,
                    exposure_id,
-                   outcome,
+                   outcome, #' this needs to be the formatted summary statistics for the outcome GWAS
                    outcome_id,
                    # sumstats_info,
                    # downloadLocation,
@@ -77,97 +77,16 @@ validate_instrument_region_arg(instrument_region)
 
         outcome_overlap <- outcome_overlap |>
           dplyr::mutate(phenotype = paste(outcome_id)) #|>
-          #dplyr::mutate(id = paste(chrom, pos, alt, ref, sep = ":"))
-
-#' This will be taken out as should happen prior to run_mr() function used
-        outcome_overlap <-
-          TwoSampleMR::format_data(
-            outcome_overlap,
-            type = "outcome",
-            phenotype_col = "phenotype",
-            snp_col = "rsids",
-            beta_col = "beta",
-            se_col = "sebeta",
-            eaf_col = "af_alt",
-            effect_allele_col = "alt",
-            other_allele_col = "ref",
-            pval_col = "pval",
-            chr_col = "chrom",
-            pos_col = "pos"
-          )
-
-# Reformat exposure df ----------------------------------------------------
-
-        # Don't think we need this but have included until we make that decision
-        exposure_overlap <- exposure |>
-          dplyr::filter(POS19 %in% outcome_overlap$pos.outcome)
-
-        exposure_overlap2 <- exposure_overlap |>
-          dplyr::mutate(BETA = BETA* -1) |>
-          dplyr::mutate(A1FREQ = 1- A1FREQ) |>
-          dplyr::mutate(ALLELEX = ALLELE0,
-                        ALLELE0 = ALLELE1,
-                        ALLELE1 = ALLELEX)
-
-        exposure_overlap <- dplyr::bind_rows(exposure_overlap, exposure_overlap2)
-        exposure_overlap <- exposure_overlap |>
-          dplyr::mutate(ID = paste(CHROM, POS19, ALLELE1, ALLELE0, sep = ":")) |>
-          dplyr::mutate(phenotype = exposure_id)
-
-        #' This will be moved outside of the function
-        exposure_overlap <-
-          TwoSampleMR::format_data(
-            exposure_overlap,
-            type = "exposure",
-            phenotype_col = "phenotype",
-            snp_col = "rsid",
-            beta_col = "BETA",
-            se_col = "SE",
-            eaf_col = "A1FREQ",
-            effect_allele_col = "ALLELE1",
-            other_allele_col = "ALLELE0",
-            pval_col = "P",
-            chr_col = "CHROM",
-            samplesize_col = "N",
-            pos_col = "POS19"
-          )
+          #dplyr::mutate(id = paste(chrom, pos, alt, ref, sep = ":")) no longer need this as using rsIDs/SNPs not ID
 
 # Harmonise ---------------------------------------------------------------
 
         dat_u <-
           TwoSampleMR::harmonise_data(exposure_dat = exposure_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
 
-    #' To move pre-function for handling X chromosomes
-        # if (sumstats_info[sumstats_info$Code == exposure_id,]$chr[1] == "X") {
-        #   # This little if-else-statement just makes sure that you get the appropriate RSIDs for each variant; because the X-chromosome requires an additional file, this one is in a separate loop
-        #   dat_u <-
-        #     merge(
-        #       dat_u,
-        #       ref_rsid[, c("V1", "V2", "V3")],
-        #       by.x = "pos.exposure",
-        #       by.y = "V2",
-        #       all.x = T
-        #     )
-        #   colnames(dat_u)[colnames(dat_u) %in% c("V1", "V3")] <-
-        #     c("chrom", "rsids")
-        # } else {
-        #   dat_u <-
-        #     merge(
-        #       dat_u,
-        #       outcome_rsid,
-        #       by.x = "pos.exposure",
-        #       by.y = "pos",
-        #       all.x = T
-        #     )
-        # }
-
-        #' Don't need to do this unless we use IDs instead of rsIDs
-        #colnames(dat_u)[colnames(dat_u) %in% c("SNP", "rsids")] <-
-        #  c("pos_id", "SNP")                                                  # We make sure that our reference column (which should have the name "SNP") is the RSID column
-
         dat_u <- dat_u |>
           dplyr::arrange(pval.exposure)
-                                                                                             # We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
+# We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
         dat_u <- dat_u |>
           dplyr::filter(!duplicated(SNP))
 
