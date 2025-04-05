@@ -46,9 +46,9 @@ format_pqtl_ukbppp <- function(ukbppp,
   # Standardise column names
   # UKB-PPP
   ukbppp <- ukbppp |>
+    dplyr::mutate(phenotype = pqtl_assay)
     dplyr::rename(
-      phenotype = dplyr::all_of(pqtl_assay), # using all_of to prevent errors if column is missing
-      beta = dplyr::all_of("BETA"),
+      beta = dplyr::all_of("BETA"), # using all_of to prevent errors if column is missing
       sebeta = dplyr::all_of("SE"),
       af_alt = dplyr::all_of("A1FREQ"),
       effect_allele = dplyr::all_of("ALLELE1"),
@@ -56,8 +56,8 @@ format_pqtl_ukbppp <- function(ukbppp,
       pval = dplyr::all_of("P"),
       chr = dplyr::all_of("CHROM"),
       pos = dplyr::all_of("GENPOS") #' Is there a way of altering this dependent on whether you use a build37 or build38 data
-    ) %>%
-    dplyr::select(phenotype, rsid, beta, sebeta, af_alt, effect_allele, other_allele, pval, chr, pos) %>%
+    ) |>
+    dplyr::select(phenotype, rsid, beta, sebeta, af_alt, effect_allele, other_allele, pval, chr, pos) |>
     dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", chr)) |>  #change 23 to X if needed
     dplyr::mutate(pval = 10 ^ -pval) # Convert LOG10P into P
 
@@ -98,9 +98,9 @@ format_pqtl_ukbppp <- function(ukbppp,
   if ("ID" %in% colnames(ukbppp) & "ID" %in% colnames(ukbppp_rsid)) {
     ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
   } else {
-    ukbppp <- ukbppp %>%
+    ukbppp <- ukbppp |>
       dplyr::mutate(ID = paste(chr, pos, effect_allele, other_allele, sep = ":"))
-    ukbppp_rsid <- ukbppp_rsid %>%
+    ukbppp_rsid <- ukbppp_rsid |>
       dplyr::mutate(ID = paste(chr, pos, alt, ref, sep = ":"))
 
     ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")

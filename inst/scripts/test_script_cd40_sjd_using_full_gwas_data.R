@@ -22,3 +22,7 @@ run_mr(exposure = cd40,
        pval_thresh = 5e-06,
        rsq_thresh = 0.1,
        bfile = "/Users/benzuckerman/LD_folder/g1000_eur")
+
+test <- format_pqtl_ukbppp(ukbppp = "data/CD40_data_50.csv",
+                   ukbppp_rsid = "data/CHR20_data_50.csv",
+                   pqtl_assay = "CD40")
