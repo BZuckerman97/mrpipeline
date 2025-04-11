@@ -1,3 +1,7 @@
+#' This test script needs to be altered to incorporate format_pqtl_ukbppp() and run_mr()
+#' The main thing I need to do is get the cd40_sumstats set up appropriately for format_pqtl_ukbppp
+
+
 run_mr(exposure = cd40_sumstats,
        exposure_id = "CD40",
        outcome = sjogren_sumstats,
