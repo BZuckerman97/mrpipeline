@@ -19,6 +19,9 @@ Imports:
     MendelianRandomization,
     tibble,
     TwoSampleMR,
-    utils
+    utils,
+    data.table,
+    rlang,
+    purrr
 Additional_repositories: 
   https://mrcieu.r-universe.dev

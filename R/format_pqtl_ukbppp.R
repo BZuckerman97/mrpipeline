@@ -46,29 +46,27 @@ format_pqtl_ukbppp <- function(ukbppp,
   # Standardise column names
   # UKB-PPP
   ukbppp <- ukbppp |>
-    dplyr::mutate(phenotype = pqtl_assay)
+    dplyr::mutate(phenotype = pqtl_assay) |>
     dplyr::rename(
       beta = dplyr::all_of("BETA"), # using all_of to prevent errors if column is missing
       sebeta = dplyr::all_of("SE"),
       af_alt = dplyr::all_of("A1FREQ"),
       effect_allele = dplyr::all_of("ALLELE1"),
       other_allele = dplyr::all_of("ALLELE0"),
-      pval = dplyr::all_of("P"),
+      pval = dplyr::all_of("LOG10P"),
       chr = dplyr::all_of("CHROM"),
       pos = dplyr::all_of("GENPOS") #' Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) |>
-    dplyr::select(phenotype, rsid, beta, sebeta, af_alt, effect_allele, other_allele, pval, chr, pos) |>
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", chr)) |>  #change 23 to X if needed
+    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr))) |>  #change 23 to X if needed
     dplyr::mutate(pval = 10 ^ -pval) # Convert LOG10P into P
 
   # UKB-PPP RSID
   ukbppp_rsid <- ukbppp_rsid |>
     dplyr::rename(
-      effect_allele = dplyr::all_of("ALT"),
-      other_allele = dplyr::all_of("REF"),
-      chr = dplyr::mutate(chr = as.numeric(gsub("chr", "", chr))),
-      pos = dplyr::all_of("GENPOS")
-    )
+      effect_allele_rsid_file = dplyr::all_of("ALT"),
+      other_allele_rsid_file = dplyr::all_of("REF"),
+      pos_rsid_file = dplyr::all_of("POS38")) |>
+      dplyr::mutate(chr_rsid_file = as.character(gsub("chr", "", chr)))
 
   # Handle non-Mendelian chromosomes rsIDs
   # Check if the chromosome is X
@@ -101,15 +99,19 @@ format_pqtl_ukbppp <- function(ukbppp,
     ukbppp <- ukbppp |>
       dplyr::mutate(ID = paste(chr, pos, effect_allele, other_allele, sep = ":"))
     ukbppp_rsid <- ukbppp_rsid |>
-      dplyr::mutate(ID = paste(chr, pos, alt, ref, sep = ":"))
+      dplyr::mutate(ID = paste(chr_rsid_file, pos_rsid_file, effect_allele_rsid_file, other_allele_rsid_file, sep = ":"))
 
     ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
   }
+
+  # Convert data table to data frame for format_data()
+  ukbppp <- as.data.frame(ukbppp)
 
   # Format data using TwoSampleMR::format_data()
   result <- TwoSampleMR::format_data(
     ukbppp,
     type = "exposure",
+    header = TRUE,
     phenotype_col = "phenotype",
     snp_col = "rsid",
     beta_col = "beta",
@@ -119,7 +121,8 @@ format_pqtl_ukbppp <- function(ukbppp,
     other_allele_col = "other_allele",
     pval_col = "pval",
     chr_col = "chr",
-    pos_col = "pos"
+    pos_col = "pos",
+    log_pval = FALSE
   )
 
   return(result)

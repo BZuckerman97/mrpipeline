@@ -39,10 +39,6 @@ To replace with tidyverse language
 To move out of the run_mr function and have a specify window
 This needs to be done before the function starts
 Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
-This will be taken out as should happen prior to run_mr() function used
-This will be moved outside of the function
-To move pre-function for handling X chromosomes
-Don't need to do this unless we use IDs instead of rsIDs
 }
 \description{
 Performs MR
