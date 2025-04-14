@@ -23,3 +23,17 @@ format_decode_pqtl <- function(decode_proteomic_gwas_file_path,
 
 
 }
+
+#' Title
+#'
+#' @param unique_id
+#' @param decode_linker_file
+#' @param decode_dir
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+decode_pqtl_file_name <- function(unique_id,
+                                  decode_linker_file,
+                                  decode_dir){}

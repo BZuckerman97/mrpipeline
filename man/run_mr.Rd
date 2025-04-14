@@ -34,12 +34,14 @@ run_mr(
 }
 \value{
 List with 2 data frames - MR results and instruments
+}
+\description{
+Performs MR
+}
+\examples{
 Taken out sumstats_info here
 To replace with tidyverse language
 To move out of the run_mr function and have a specify window
 This needs to be done before the function starts
 Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
-}
-\description{
-Performs MR
 }
