@@ -5,9 +5,9 @@
 #' chromosomes, standardizes column names, and formats the data
 #' for use with the TwoSampleMR package.
 #'
-#' @param ukbppp Dataframe, the ukbppp data
-#' @param ukbppp_rsid Dataframe, of ukbppp rsids
-#' @param pqtl_assay String, of the ukbppp protein assayed
+#' @param ukbppp Dataframe, file path to the file containing the ukbppp GWAS data
+#' @param ukbppp_rsid Dataframe, file path to the file containing the ukbppp GWAS data rsids
+#' @param pqtl_assay String, of the ukbppp protein assay
 #' @param x_y_chr_file String, file path to the file containing rsids for X and Y chromosomes
 #'
 #' @return A list with two elements:
