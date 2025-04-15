@@ -172,7 +172,7 @@ ukbppp_pqtl_file_name <- function(synapse_id,
                        )
     ),
     ukbppp_rsid = file.path(olink_rsid_dir,
-                            paste0("olink_rsid_map_mac4_info03_b0_7_chr", metadata$chr, "_patched_v2.tsv.gz")
+                            paste0("olink_rsid_map_mac5_info03_b0_7_chr", metadata$chr, "_patched_v2.tsv.gz")
     ),
     id = metadata$Assay
   )
