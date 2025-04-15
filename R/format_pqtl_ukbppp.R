@@ -66,7 +66,7 @@ format_pqtl_ukbppp <- function(ukbppp,
       effect_allele_rsid_file = dplyr::all_of("ALT"),
       other_allele_rsid_file = dplyr::all_of("REF"),
       pos_rsid_file = dplyr::all_of("POS38")) |>
-      dplyr::mutate(chr_rsid_file = as.character(gsub("chr", "", chr)))
+    dplyr::mutate(chr_rsid_file = sub(":.*", "", ID))
 
   # Handle non-Mendelian chromosomes rsIDs
   # Check if the chromosome is X
