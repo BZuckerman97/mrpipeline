@@ -104,7 +104,7 @@ validate_instrument_region_arg(instrument_region)
 # Harmonise ---------------------------------------------------------------
 
         harmonised_data_frame <-
-          TwoSampleMR::harmonise_data(exposure_dat = exposure, outcome_dat = outcome_overlap)                                             # This is where the matching happens
+          TwoSampleMR::harmonise_data(exposure_dat = exposure, outcome_dat = outcome_data)                                             # This is where the matching happens
 
         harmonised_data_frame <- harmonised_data_frame |>
           dplyr::arrange(pval.exposure)
