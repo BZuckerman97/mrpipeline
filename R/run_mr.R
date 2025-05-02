@@ -112,7 +112,7 @@ validate_instrument_region_arg(instrument_region)
         harmonised_data_frame <- harmonised_data_frame |>
           dplyr::filter(!duplicated(SNP))
 
-        if (nrow(dat_u) == 0) {
+        if (nrow(harmonised_data_frame) == 0) {
           warning(paste0("Skipping ", exposure_id))
           warning("No variants remaining after harmonising")
           return(NULL)
