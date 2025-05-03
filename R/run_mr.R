@@ -25,6 +25,7 @@ run_mr <- function(exposure,
                    instrument_region = list(chromosome = 1L,
                                             start = 1L,
                                             end = 200L),
+                   window = 1L,
                    pval_thresh = 5e-6,
                    rsq_thresh = 0.1,
                    bfile) {
@@ -45,7 +46,7 @@ validate_instrument_region_arg(instrument_region)
   #' To replace with tidyverse language
   #' To move out of the run_mr function and have a specify window
   exposure <- exposure |>
-    dplyr::filter(pos.exposure > instrument_region$start & pos.exposure < instrument_region$end) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region), uses build 37 positions
+    dplyr::filter(pos.exposure > (instrument_region$start - window) & pos.exposure < (instrument_region$end + window)) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region), uses build 37 positions
     dplyr::filter(pval.exposure < pval_thresh)                                                                                   # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
 
   #' This needs to be done before the function starts
