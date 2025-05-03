@@ -6,9 +6,10 @@
 #' @param exposure data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?
 #' @param outcome data frame. Summary statistics for outcome, must be formatted as above
 #' @param outcome_id character. Name for outcome e.g. 'SjD'
+#' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
+#' @param window integer. Set to cis region if required
 #' @param pval_thresh number. 5e-6 by default
 #' @param rsq_thresh R square clumping threshold
-#' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
 #' @param bfile path to the LD_folder containing 1000 genome files (g1000_eur)
 #'
 #' @return List with 2 data frames - MR results and instruments
