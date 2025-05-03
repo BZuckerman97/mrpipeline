@@ -105,7 +105,7 @@ validate_instrument_region_arg(instrument_region)
 # Harmonise ---------------------------------------------------------------
 
         harmonised_data_frame <-
-          TwoSampleMR::harmonise_data(exposure_dat = exposure, outcome_dat = outcome_overlap)                                             # This is where the matching happens
+          TwoSampleMR::harmonise_data(exposure_dat = exposure, outcome_dat = outcome_data)                                             # This is where the matching happens
 
         harmonised_data_frame <- harmonised_data_frame |>
           dplyr::arrange(pval.exposure)
@@ -113,7 +113,7 @@ validate_instrument_region_arg(instrument_region)
         harmonised_data_frame <- harmonised_data_frame |>
           dplyr::filter(!duplicated(SNP))
 
-        if (nrow(dat_u) == 0) {
+        if (nrow(harmonised_data_frame) == 0) {
           warning(paste0("Skipping ", exposure_id))
           warning("No variants remaining after harmonising")
           return(NULL)
