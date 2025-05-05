@@ -178,6 +178,11 @@ validate_instrument_region_arg(instrument_region)
                   bfile = bfile,
                   plink_bin = genetics.binaRies::get_plink_binary()
                 )
+
+              # To make sure the LD matrix columns match the SNP order precisely
+              ld <- ld[match(harmonised_final_data_frame$SNP, sub("_.*", "", rownames(ld))),
+                       match(harmonised_final_data_frame$SNP, sub("_.*", "", colnames(ld)))]
+
               harmonised_final_data_frame2 <-
                 MendelianRandomization::mr_input(
                   bx = harmonised_final_data_frame$beta.exposure,
@@ -211,6 +216,11 @@ validate_instrument_region_arg(instrument_region)
                   bfile = bfile,
                   plink_bin = genetics.binaRies::get_plink_binary()
                 )
+
+              # To make sure the LD matrix columns match the SNP order precisely
+              ld <- ld[match(harmonised_final_data_frame$SNP, sub("_.*", "", rownames(ld))),
+                       match(harmonised_final_data_frame$SNP, sub("_.*", "", colnames(ld)))]
+
               harmonised_final_data_frame2 <-
                 MendelianRandomization::mr_input(
                   bx = harmonised_final_data_frame$beta.exposure,
