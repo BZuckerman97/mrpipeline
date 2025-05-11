@@ -4,10 +4,14 @@
 #' processes the data to clean the column headings and uses TwoSampleMR::format_data() to prepare
 #' the exposure dataset before run_mr()
 #'
-#' @param decode_proteomic_gwas_file_path Dataframe, the file path to the file containing deCODE GWAS data
-#' @param decode_included_variants_file_path Dataframe, the file path to the file containing the deCODE GWAS data for variants to include with suitable quality control
+#' @param decode_proteomic_gwas_file_path Character vector of file path(s) to deCODE GWAS data,
+#'   or a single pre-loaded data.frame. If multiple paths are provided, data will be combined.
+#' @param decode_included_variants_file_path Character vector of file path(s) to the deCODE
+#'   included variants data, or a single pre-loaded data.frame. If multiple paths are provided,
+#'   data will be combined.
 #' @param pqtl_assay String, name of the deCODE genetics protein assayed
-#' @param x_y_chr_file String, file path to the file containing rsids for X and Y chromosomes
+#' @param x_y_chr_file String, optional file path to a file containing rsids for X and Y
+#'   chromosomes. This file should be tab-separated with columns: Chromosome, Position, RSID.
 #'
 #' @return A list with two elements:
 #'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
@@ -19,47 +23,49 @@ format_decode_pqtl <- function(decode_proteomic_gwas_file_path,
                                pqtl_assay,
                                x_y_chr_file = NULL){
 
-  #' Read from file path
-  if(is.character(decode_proteomic_gwas_file_path)){
-    #' Read in deCODE proteomic files using data.table::fread()
-    stopifnot(file.exists(decode_proteomic_gwas_file_path))
-    decode <- decode |>
-      purr::map(\(x)data.table::fread(x, nThread = parallel::detectCores())) |>
+  # Read and combine deCODE proteomic GWAS data
+  if (is.character(decode_proteomic_gwas_file_path)) {
+    stopifnot(all(sapply(decode_proteomic_gwas_file_path, file.exists)))
+    decode_raw_data <- decode_proteomic_gwas_file_path |>
+      purrr::map(\(path) data.table::fread(path, nThread = parallel::detectCores())) |>
       dplyr::bind_rows()
-  }else{
+  } else {
     stopifnot(is.data.frame(decode_proteomic_gwas_file_path))
+    decode_raw_data <- decode_proteomic_gwas_file_path
   }
 
-  #' Read from file path
-  if(is.character(decode_included_variants_file_path)){
-    #' Read in deCODE included variants file
-    stopifnot(file.exists(decode_variants_file_path))
-    decode_included_variants <- decode_included_variants |>
-      purr::map(\(x)data.table::fread(x, nThread = parallel::detectCores())) |>
+  # Read and combine deCODE included variants data
+  if (is.character(decode_included_variants_file_path)) {
+    stopifnot(all(sapply(decode_included_variants_file_path, file.exists)))
+    included_variants_df <- decode_included_variants_file_path |>
+      purrr::map(\(path) data.table::fread(path, nThread = parallel::detectCores())) |>
       dplyr::bind_rows()
-  }else{
-    stopifnot(is.data.frame(decode_included_variants))
+  } else {
+    stopifnot(is.data.frame(decode_included_variants_file_path))
+    included_variants_df <- decode_included_variants_file_path
   }
 
-  #' Join decode_included_variants_file so that only the correct variants are included
+  # Join GWAS data with included variants (which contains effectAlleleFreq)
+  # Assuming 'Name' is the common SNP identifier column (e.g., rsID)
+  decode_filtered <- decode_raw_data |>
+    dplyr::inner_join(included_variants_df |>
+                        dplyr::select(dplyr::all_of("Name"), dplyr::all_of("effectAlleleFreq")),
+                      by = "Name") #' To find out if Name and rsid are similar
 
-  decode_correct_variants <- decode |>
-    dplyr::inner_join(decode_included_variants |>
-                 dplyr::select(Name, effectAlleleFreq), by = "Name")
-
-  decode_correct_variants <- decode_correct_variants |>
+  decode_processed <- decode_filtered |>
     dplyr::mutate(phenotype_col = pqtl_assay) |>  #' Create a phenotype_col
     #' Rename columns
-    dpylr::rename(
+    dplyr::rename(
       rsid = dplyr::all_of("rsids"),
       beta = dplyr::all_of("Beta"),
       sebeta = dplyr::all_of("SE"),
-      af_alt = dplyr::all_of("effectAlleleFreq"),
+      af_alt = dplyr::all_of("effectAlleleFreq"), # This column comes from included_variants_df
       effect_allele = dplyr::all_of("effectAllele"),
       other_allele = dplyr::all_of("otherAllele"),
       pos = dplyr::all_of("Pos"),
       chr = dplyr::all_of("Chrom"),
-      pval = dplyr::all_of("Pval") |>
+      pval = dplyr::all_of("Pval")
+    ) |>
   #' Edit chromosome variable to change it from "chr3" to 3
     dplyr::mutate(chr = gsub("chr", "", chr)) |>
   #' Rename 23rd chromosome to X for consistency
@@ -69,41 +75,38 @@ format_decode_pqtl <- function(decode_proteomic_gwas_file_path,
   #' Check if the chromosome is X
   if(!is.null(x_y_chr_file)){
     stopifnot(file.exists(x_y_chr_file))
-    if("X" %in% unique(decode_correct_variants$chr)){
+    if("X" %in% unique(decode_processed$chr)){
       #' Load x_y_rsid
-      x_y_rsid <- data.table::fread(x_y_chr_file)
+      x_y_info_df <- data.table::fread(x_y_chr_file)
       #' Rename columns to match
-      x_y_rsid <- x_y_rsid |>
+      x_y_info_df <- x_y_info_df |>
         dplyr::rename(
+          chr_xy = dplyr::all_of("V1"), # Avoid name clash if 'chr' already exists
           pos = dplyr::all_of("V2"),
-          rsids = dplyr::all_of("V3"),
-          chr = dplyr::all_of("V1")
+          rsids_xy = dplyr::all_of("V3") # Use a distinct name for rsids from this file
         )
       #' Merge with decode_corect_variants by position
       #' deCODE data is in build37 how should we handle this?
-      decode_correct_variants <- dplyr::left_join(decode_correct_variants, x_y_rsid[,c("pos","rsids")], by = "pos")
+      decode_processed <- dplyr::left_join(decode_processed,
+                                           x_y_info_df |> dplyr::select(dplyr::all_of("pos"), dplyr::all_of("rsids_xy")),
+                                           by = "pos")
 
       #' Update rsid column with rsids from x_y_rsid
-      decode_correct_variants <- decode_correct_variants |>
-        dplyr::mutate(rsid = dplyr::coalesce(rsids, rsid)) |>
-        dplyr::select(-rsids)
+      decode_processed <- decode_processed |>
+        dplyr::mutate(rsid = dplyr::coalesce(rsids_xy, rsid)) |>
+        dplyr::select(-dplyr::all_of("rsids_xy")) # Remove temporary column
     }
   }
 
-  #' Filter for the correct chromosome - can't remember why I had this in the original script I wrote
-  #' Vague memory of having instances where there were multiple chromosomes in one file, but maybe this
-  #' was a fever dream
-
   #' Convert to a data frame
+  decode_final_df <- as.data.frame(decode_processed)
 
-  decode_correct_variants <- as.data.frame(decode_correct_variants)
   #' Apply format_data()
-
   result <- TwoSampleMR::format_data(
-    decode_correct_variants,
+    decode_final_df,
     type = "exposure",
-    header = "TRUE",
-    phenotype_col = "phenotpye_col",
+    header = TRUE,
+    phenotype_col = "phenotype_col",
     snp_col = "rsid",
     beta_col = "beta",
     se_col = "sebeta",
@@ -116,7 +119,7 @@ format_decode_pqtl <- function(decode_proteomic_gwas_file_path,
     log_pval = FALSE
   )
 
-  return(result)
+  return(list(exposure = result)) # Return as a list as per roxygen docs
   }
 
 
@@ -146,10 +149,9 @@ decode_pqtl_file_name <- function(unique_id,
   stopifnot(identical(nrow(metadata), 1L))
   metadata <- as.list(metadata)
 
-  # result
+  # Construct file path using the identifier from metadata
   list(
-    decode = file.path(decode_dir,
-                       paste0(decode_linker_file$identifier[decode_linker_file$seqID == unique_id])),
+    decode = file.path(decode_dir, metadata$identifier),
     id = metadata$seqID
   )
 }
