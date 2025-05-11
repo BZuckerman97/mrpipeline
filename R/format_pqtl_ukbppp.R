@@ -153,7 +153,8 @@ ukbppp_pqtl_file_name <- function(synapse_id,
   }
 
   # get relevant metadata
-  metadata <- olink_linker_file[olink_linker_file$Code == synapse_id, ]
+  metadata <- olink_linker_file |>
+    dpylr::filter(Code == synapse_id)
   stopifnot(identical(nrow(metadata), 1L))
   metadata <- as.list(metadata)
 
