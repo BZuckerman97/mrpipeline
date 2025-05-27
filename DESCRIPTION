@@ -22,6 +22,7 @@ Imports:
     utils,
     data.table,
     rlang,
-    purrr
+    purrr,
+    Rmpfr
 Additional_repositories: 
   https://mrcieu.r-universe.dev

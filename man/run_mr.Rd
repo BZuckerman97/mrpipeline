@@ -10,6 +10,7 @@ run_mr(
   outcome,
   outcome_id,
   instrument_region = list(chromosome = 1L, start = 1L, end = 200L),
+  window = 1L,
   pval_thresh = 5e-06,
   rsq_thresh = 0.1,
   bfile
@@ -25,6 +26,8 @@ run_mr(
 \item{outcome_id}{character. Name for outcome e.g. 'SjD'}
 
 \item{instrument_region}{list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file}
+
+\item{window}{integer. Set to cis region if required}
 
 \item{pval_thresh}{number. 5e-6 by default}
 
