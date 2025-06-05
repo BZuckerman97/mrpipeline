@@ -141,7 +141,7 @@ format_pqtl_ukbppp <- function(ukbppp,
 #'
 #' @examples
 #' \dontrun{
-#' # Assuming you have a linker file and the deCODE data directory
+#' Assuming you have a linker file and the deCODE data directory
 #' synapse_id
 #' olink_linker_file <- "path/to/your/olink_linker_file.csv"
 #' olink_dir <- "path/to/olink_dir"
