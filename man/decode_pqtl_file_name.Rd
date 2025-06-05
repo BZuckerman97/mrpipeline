@@ -2,13 +2,20 @@
 % Please edit documentation in R/format_pqtl_decode.R
 \name{decode_pqtl_file_name}
 \alias{decode_pqtl_file_name}
-\title{Title}
+\title{DECODE_PQTL_FILE_NAME}
 \usage{
 decode_pqtl_file_name(unique_id, decode_linker_file, decode_dir)
 }
 \arguments{
-\item{decode_dir}{}
+\item{unique_id}{String, unique sequence associated with each protein assayed}
+
+\item{decode_linker_file}{String or Dataframe, the file path to the file containing the deCDOE metadata}
+
+\item{decode_dir}{String, the file path to the directory where the deCODE summary statistics are present}
+}
+\value{
+a list of file paths for the deCODE proteomic summary statistics
 }
 \description{
-Title
+DECODE_PQTL_FILE_NAME
 }

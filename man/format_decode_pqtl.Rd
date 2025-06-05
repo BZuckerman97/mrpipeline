@@ -12,13 +12,17 @@ format_decode_pqtl(
 )
 }
 \arguments{
-\item{decode_proteomic_gwas_file_path}{Dataframe, the file path to the file containing deCODE GWAS data}
+\item{decode_proteomic_gwas_file_path}{Character vector of file path(s) to deCODE GWAS data,
+or a single pre-loaded data.frame. If multiple paths are provided, data will be combined.}
 
-\item{decode_included_variants_file_path}{Dataframe, the file path to the file containing the deCODE GWAS data for variants to include with suitable quality control}
+\item{decode_included_variants_file_path}{Character vector of file path(s) to the deCODE
+included variants data, or a single pre-loaded data.frame. If multiple paths are provided,
+data will be combined.}
 
-\item{pqtl_assay}{String, the deCODE genetics protein assay}
+\item{pqtl_assay}{String, name of the deCODE genetics protein assayed}
 
-\item{x_y_chr_file}{String, file path to the file containing rsids for X and Y chromosomes}
+\item{x_y_chr_file}{String, optional file path to a file containing rsids for X and Y
+chromosomes. This file should be tab-separated with columns: Chromosome, Position, RSID.}
 }
 \value{
 A list with two elements:
@@ -30,4 +34,18 @@ A list with two elements:
 This function filters deCODE genetics GWAS by the deCODE included variants file,
 processes the data to clean the column headings and uses TwoSampleMR::format_data() to prepare
 the exposure dataset before run_mr()
+}
+\examples{
+Rename columns
+Edit chromosome variable to change it from "chr3" to 3
+Rename 23rd chromosome to X for consistency
+Handle non-Mendelian chromsosome rsIDs/SNPs
+Check if the chromosome is X
+Load x_y_rsid
+Rename columns to match
+Merge with decode_corect_variants by position
+deCODE data is in build37 how should we handle this?
+Update rsid column with rsids from x_y_rsid
+Convert to a data frame
+Apply format_data()
 }
