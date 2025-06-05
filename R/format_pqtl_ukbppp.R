@@ -140,6 +140,18 @@ format_pqtl_ukbppp <- function(ukbppp,
 #' @export
 #'
 #' @examples
+#' \dontrun{
+#' # Assuming you have a linker file and the deCODE data directory
+#' synapse_id
+#' olink_linker_file <- "path/to/your/olink_linker_file.csv"
+#' olink_dir <- "path/to/olink_dir"
+#' olink_rsid_dir <- "path/to/olink_rsid_dir
+#' file_paths <- ukbppp_pqtl_file_name(synapse_id = synapse_id,
+#'                                   olink_linker_file = olink_linker_file,
+#'                                   olink_dir = olink_dir,
+#'                                   olink_rsid_dir = olink_rsid_dir)
+#' print(file_paths)
+#' }
 ukbppp_pqtl_file_name <- function(synapse_id,
                                   olink_linker_file,
                                   olink_dir,
