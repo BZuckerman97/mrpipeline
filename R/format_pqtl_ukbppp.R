@@ -145,7 +145,7 @@ format_pqtl_ukbppp <- function(ukbppp,
 #' synapse_id
 #' olink_linker_file <- "path/to/your/olink_linker_file.csv"
 #' olink_dir <- "path/to/olink_dir"
-#' olink_rsid_dir <- "path/to/olink_rsid_dir
+#' olink_rsid_dir <- "path/to/olink_rsid_dir"
 #' file_paths <- ukbppp_pqtl_file_name(synapse_id = synapse_id,
 #'                                   olink_linker_file = olink_linker_file,
 #'                                   olink_dir = olink_dir,
