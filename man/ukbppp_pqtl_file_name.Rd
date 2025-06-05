@@ -22,3 +22,17 @@ the corresponding rsID metadata file, as well as the name of the assay
 \description{
 UKBPPP_PQTL_FILE_NAME
 }
+\examples{
+\dontrun{
+Assuming you have a linker file and the deCODE data directory
+synapse_id
+olink_linker_file <- "path/to/your/olink_linker_file.csv"
+olink_dir <- "path/to/olink_dir"
+olink_rsid_dir <- "path/to/olink_rsid_dir"
+file_paths <- ukbppp_pqtl_file_name(synapse_id = synapse_id,
+                                  olink_linker_file = olink_linker_file,
+                                  olink_dir = olink_dir,
+                                  olink_rsid_dir = olink_rsid_dir)
+print(file_paths)
+}
+}
