@@ -151,7 +151,8 @@ decode_pqtl_file_name <- function(unique_id,
 
   # Construct file path using the identifier from metadata
   list(
-    decode = file.path(decode_dir, metadata$identifier),
-    id = metadata$seqID
+    # Ensure components are single character strings
+    decode = file.path(decode_dir, unlist(metadata$identifier)[1]),
+    id = unlist(metadata$seqID)[1]
   )
 }
