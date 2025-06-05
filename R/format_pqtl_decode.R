@@ -18,7 +18,7 @@
 #' @export
 #'
 #' @examples
-format_decode_pqtl <- function(decode_proteomic_gwas_file_path,
+format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
                                decode_included_variants_file_path,
                                pqtl_assay,
                                x_y_chr_file = NULL){
