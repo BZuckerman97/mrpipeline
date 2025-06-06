@@ -55,6 +55,7 @@ format_pqtl_ukbppp <- function(ukbppp,
       other_allele = dplyr::all_of("ALLELE0"),
       pval = dplyr::all_of("LOG10P"),
       chr = dplyr::all_of("CHROM"),
+      n = dplyr::all_of("N"),
       pos = dplyr::all_of("GENPOS") #' Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) |>
     dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr))) |>  #change 23 to X if needed

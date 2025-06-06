@@ -41,8 +41,8 @@ validate_instrument_region_arg(instrument_region)
   df_sum <- data.frame(exp=character(), outc=character(), nsnp=integer(), method=character(), b=numeric(), se=numeric(), pval=numeric())
   # Define instrument columns explicitly based on expected harmonised data output
   instrument_cols <- c(
-    "SNP", "effect_allele.exposure", "other_allele.exposure", "beta.exposure", "se.exposure", "eaf.exposure", "pval.exposure", "id.exposure", "exposure", "mr_keep.exposure", "pval_origin.exposure", "chr.exposure", "pos.exposure",
-    "effect_allele.outcome", "other_allele.outcome", "beta.outcome", "se.outcome", "eaf.outcome", "pval.outcome", "id.outcome", "outcome", "mr_keep.outcome", "pval_origin.outcome", "chr.outcome", "pos.outcome",
+    "SNP", "effect_allele.exposure", "other_allele.exposure", "beta.exposure", "se.exposure", "eaf.exposure", "samplesize.exposure", "pval.exposure", "id.exposure", "exposure", "mr_keep.exposure", "pval_origin.exposure", "chr.exposure", "pos.exposure",
+    "effect_allele.outcome", "other_allele.outcome", "beta.outcome", "se.outcome", "eaf.outcome", "samplesize.exposure", "pval.outcome", "id.outcome", "outcome", "mr_keep.outcome", "pval_origin.outcome", "chr.outcome", "pos.outcome",
     "mr_keep", "action", "palindromic", "ambiguous"
   )
   df_instr <- data.frame(matrix(ncol = length(instrument_cols), nrow = 0))
@@ -111,6 +111,7 @@ validate_instrument_region_arg(instrument_region)
           eaf_col = "eaf",
           beta_col = "beta",
           se_col = "se",
+          samplesize_col = "n",
           pval_col = "pval",
           pos_col = "pos",
           log_pval = FALSE
