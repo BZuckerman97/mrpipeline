@@ -258,6 +258,14 @@ harmonised_data_frame <- harmonised_data_frame %>%
               # This logic should also be applied here if necessary before mr_input.
 
               # Re-applying the SNP ordering and allele flipping logic for > 2 IVs
+              # Calculate ld_correlation_matrix for the >2 IVs case
+              ld_correlation_matrix <-
+                ieugwasr::ld_matrix(
+                  harmonised_clumped_final_data_frame$SNP,
+                  bfile = bfile,
+                  plink_bin = genetics.binaRies::get_plink_binary()
+                )
+
               # This is duplicated from the nrow == 2 block and should ideally be refactored.
               rownames(ld_correlation_matrix) <- gsub("\\_.*", "", rownames(ld_correlation_matrix))
               harmonised_clumped_final_data_frame_duplicate <- harmonised_clumped_final_data_frame[!(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
