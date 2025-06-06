@@ -1,6 +1,6 @@
 Package: mrpipeline
 Title: Functions to set up a pipeline for performing Mendelian randomization
-Version: 0.1.2
+Version: 0.1.3
 Authors@R: c(
     person("Benjamin", "Zuckerman", , "benjamin.zuckerman@kcl.ac.uk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-0077-6074")),
