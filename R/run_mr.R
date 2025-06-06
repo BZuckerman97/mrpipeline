@@ -32,8 +32,21 @@ run_mr <- function(exposure,
                    bfile) {
 
 # Validate arguments -----------------------------------------------------
-
+# Note: The validation function is currently commented out.
+# It should be implemented to check the structure and types of instrument_region.
 validate_instrument_region_arg(instrument_region)
+
+  # Initialize result containers
+  # Use explicit column types for clarity and safety
+  df_sum <- data.frame(exp=character(), outc=character(), nsnp=integer(), method=character(), b=numeric(), se=numeric(), pval=numeric())
+  # Define instrument columns explicitly based on expected harmonised data output
+  instrument_cols <- c(
+    "SNP", "effect_allele.exposure", "other_allele.exposure", "beta.exposure", "se.exposure", "eaf.exposure", "pval.exposure", "samplesize.exposure", "id.exposure", "exposure", "mr_keep.exposure", "pval_origin.exposure", "chr.exposure", "pos.exposure",
+    "effect_allele.outcome", "other_allele.outcome", "beta.outcome", "se.outcome", "eaf.outcome", "pval.outcome", "samplesize.outcome", "id.outcome", "outcome", "mr_keep.outcome", "pval_origin.outcome", "chr.outcome", "pos.outcome",
+    "mr_keep", "action", "palindromic", "ambiguous"
+  )
+  df_instr <- data.frame(matrix(ncol = length(instrument_cols), nrow = 0))
+  colnames(df_instr) <- instrument_cols
 
   result <- NULL
 
@@ -211,8 +224,8 @@ harmonised_data_frame <- harmonised_data_frame %>%
               harmonised_clumped_final_data_frame$marker_ld <- paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_")
 
               harmonised_final_data_frame2 <-
-                MendelianRandomization::mr_input(
-                  bx = harmonised_final_data_frame$beta.exposure,
+                MendelianRandomization::mr_input( # This variable name is inconsistent, consider renaming
+                  bx = harmonised_clumped_final_data_frame$beta.exposure, # Use harmonised_clumped_final_data_frame
                   bxse = harmonised_final_data_frame$se.exposure,
                   by = harmonised_final_data_frame$beta.outcome,
                   byse = harmonised_final_data_frame$se.outcome,
@@ -232,36 +245,12 @@ harmonised_data_frame <- harmonised_data_frame %>%
                   se = output_mr_ivw_corr@StdError,
                   pval = output_mr_ivw_corr@Pvalue
                 )
-            } else {
+            }
 
-# >2 IVs - IVW, Egger -----------------------------------------------------
-
-               # If you have more than 2 variants, you can do anything (including IVW and MR-Egger)
+            else { # nrow >= 2 IVs (combining the previous == 2 and > 2 blocks)
+              # Perform IVW with correlation for 2 or more IVs
               ld_correlation_matrix <-
                 ieugwasr::ld_matrix(
-                  harmonised_clumped_final_data_frame$SNP,
-                  bfile = bfile,
-                  plink_bin = genetics.binaRies::get_plink_binary()
-                )
-
-              # To make sure the LD matrix columns match the SNP order precisely
-              # Art's code to solve the order issues of SNPid in LD matix
-              rownames(ld_correlation_matrix) <- gsub("\\_.*", "", rownames(ld_correlation_matrix))
-              harmonised_clumped_final_data_frame_duplicate <- harmonised_clumped_final_data_frame[!(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
-              colnames(harmonised_clumped_final_data_frame_duplicate)[which(colnames(harmonised_clumped_final_data_frame_duplicate) %in% c("effect_allele.exposure", "other_allele.exposure", "effect_allele.outcome", "other_allele.outcome"))] <- c("other_allele.exposure", "effect_allele.exposure", "other_allele.outcome", "effect_allele.outcome")
-              harmonised_clumped_final_data_frame_duplicate$beta.exposure <- harmonised_clumped_final_data_frame_duplicate$beta.exposure*-1
-              harmonised_clumped_final_data_frame_duplicate$beta.outcome <- harmonised_clumped_final_data_frame_duplicate$beta.outcome*-1
-              harmonised_clumped_final_data_frame_duplicate$eaf.exposure <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.exposure
-              harmonised_clumped_final_data_frame_duplicate$eaf.outcome <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.outcome
-              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
-              harmonised_clumped_final_data_frame <- rbind(harmonised_clumped_final_data_frame, harmonised_clumped_final_data_frame_duplicate)
-              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[ order(match(harmonised_clumped_final_data_frame$SNP, rownames(ld_correlation_matrix))), ]
-              harmonised_clumped_final_data_frame$marker_ld <- paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_")
-
-# Return results ----------------------------------------------------------
-
-              results1 <-
-                data.frame(
                   exp = exposure_id,
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
@@ -272,32 +261,40 @@ harmonised_data_frame <- harmonised_data_frame %>%
                   se = output_mr_ivw_corr@StdError,
                   pval = output_mr_ivw_corr@Pvalue
                 )
-              results2 <-
-                data.frame(
-                  exp = exposure_id,
-                  outc = paste(outcome_id),
-                  pvalthreshold = pval_thresh,
-                  rsqthreshold = rsq_thresh,
-                  nsnp = output_mr_egger_corr@SNPs,
-                  method = "Egger (correlation inc)",
-                  b = output_mr_egger_corr@Estimate,
-                  se = output_mr_egger_corr@StdError.Est,
-                  pval = output_mr_egger_corr@Pvalue.Est
-                )
-              results3 <-
-                data.frame(
-                  exp = exposure_id,
-                  outc = paste(outcome_id),
-                  pvalthreshold = pval_thresh,
-                  rsqthreshold = rsq_thresh,
-                  nsnp = output_mr_egger_corr@SNPs,
-                  method = "Egger intercept (correlation inc)",
-                  b = output_mr_egger_corr@Intercept,
-                  se = output_mr_egger_corr@StdError.Int,
-                  pval = output_mr_egger_corr@Pvalue.Int
-                )
-              results <- rbind(results1, results2, results3)
 
+              # To make sure the LD matrix columns match the SNP order precisely
+              # Art's code to solve the order issues of SNPid in LD matix
+              rownames(ld_correlation_matrix) <- gsub("\\_.*", "", rownames(ld_correlation_matrix))
+              harmonised_clumped_final_data_frame_duplicate <- harmonised_clumped_final_data_frame[!(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
+              colnames(harmonised_clumped_final_data_frame_duplicate)[which(colnames(harmonised_clumped_final_data_frame_duplicate) %in% c("effect_allele.exposure", "other_allele.exposure", "effect_allele.outcome", "other_allele.outcome"))] <- c("other_allele.exposure", "effect_allele.exposure", "other_allele.outcome", "other_allele.outcome")
+              harmonised_clumped_final_data_frame_duplicate$beta.exposure <- harmonised_clumped_final_data_frame_duplicate$beta.exposure*-1
+              harmonised_clumped_final_data_frame_duplicate$beta.outcome <- harmonised_clumped_final_data_frame_duplicate$beta.outcome*-1
+              harmonised_clumped_final_data_frame_duplicate$eaf.exposure <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.exposure
+              harmonised_clumped_final_data_frame_duplicate$eaf.outcome <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.outcome
+              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
+              harmonised_clumped_final_data_frame <- rbind(harmonised_clumped_final_data_frame, harmonised_clumped_final_data_frame_duplicate)
+              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[ order(match(harmonised_clumped_final_data_frame$SNP, rownames(ld_correlation_matrix))), ]
+              harmonised_clumped_final_data_frame$marker_ld <- paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_")
+
+              # Define mr_input object for >= 2 IVs
+              harmonised_clumped_final_data_frame_mr_input <- # Consistent variable name
+                MendelianRandomization::mr_input(
+                  bx = harmonised_clumped_final_data_frame$beta.exposure,
+                  bxse = harmonised_clumped_final_data_frame$se.exposure,
+                  by = harmonised_clumped_final_data_frame$beta.outcome,
+                  byse = harmonised_clumped_final_data_frame$se.outcome,
+                  correlation = ld_correlation_matrix # Use the LD matrix calculated for >= 2 IVs
+                )
+              # Perform IVW MR
+              output_mr_ivw_corr <-
+                MendelianRandomization::mr_ivw(harmonised_clumped_final_data_frame_mr_input, correl = TRUE)
+
+              # Format IVW results
+              results <- data.frame(
+                exp = exposure_id, outc = paste(outcome_id), pvalthreshold = pval_thresh, rsqthreshold = rsq_thresh,
+                nsnp = output_mr_ivw_corr@SNPs, method = "Inverse variance weighted (correlation inc)",
+                b = output_mr_ivw_corr@Estimate, se = output_mr_ivw_corr@StdError, pval = output_mr_ivw_corr@Pvalue
+              )
             }
           }
 
@@ -306,55 +303,9 @@ harmonised_data_frame <- harmonised_data_frame %>%
             warning("No results returned from MR analysis")
           } else {
             df_sum <-
-              data.frame(
-                exp = NA,
-                outc = NA,
-                nsnp = NA,
-                method = NA,
-                b = NA,
-                se = NA,
-                pval = NA
-              )[-1,]
-            df_instr <-
-              data.frame(
-                pos.exposure = NA,
-                pos_id = NA,
-                effect_allele.exposure = NA,
-                other_allele.exposure = NA,
-                effect_allele.outcome = NA,
-                other_allele.outcome = NA,
-                beta.exposure = NA,
-                beta.outcome = NA,
-                eaf.exposure = NA,
-                eaf.outcome = NA,
-                remove = NA,
-                palindromic = NA,
-                ambiguous = NA,
-                id.outcome = NA,
-                chr.outcome = NA,
-                pos.outcome = NA,
-                pval.outcome = NA,
-                se.outcome = NA,
-                outcome = NA,
-                mr_keep.outcome = NA,
-                pval_origin.outcome = NA,
-                chr.exposure = NA,
-                samplesize.exposure = NA,
-                se.exposure = NA,
-                pval.exposure = NA,
-                exposure = NA,
-                pval = NA,
-                mr_keep.exposure = NA,
-                pval_origin.exposure = NA,
-                id.exposure = NA,
-                action = NA,
-                mr_keep = NA,
-                samplesize.outcome = NA,
-                SNP = NA
-              )[-1,]
-
             df_sum <- rbind(df_sum, results)
-            df_instr <- rbind(df_instr, harmonised_final_data_frame[,-c(34)])
+            df_instr <-
+              rbind(df_instr, harmonised_clumped_final_data_frame |> dplyr::select(dplyr::all_of(instrument_cols))) # Append instruments, selecting required columns
 
             result <- list(results = df_sum,
                            instruments = df_instr)
