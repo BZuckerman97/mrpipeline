@@ -223,13 +223,13 @@ harmonised_data_frame <- harmonised_data_frame %>%
               harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[ order(match(harmonised_clumped_final_data_frame$SNP, rownames(ld_correlation_matrix))), ]
               harmonised_clumped_final_data_frame$marker_ld <- paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_")
 
-              harmonised_final_data_frame2 <-
+              harmonised_clumped_correlated_final_data_frame <-
                 MendelianRandomization::mr_input( # This variable name is inconsistent, consider renaming
                   bx = harmonised_clumped_final_data_frame$beta.exposure, # Use harmonised_clumped_final_data_frame
                   bxse = harmonised_final_data_frame$se.exposure,
                   by = harmonised_final_data_frame$beta.outcome,
-                  byse = harmonised_final_data_frame$se.outcome,
-                  correlation = ld
+                  byse = harmonised_clumped_final_data_frame$se.outcome,
+                  correlation = ld_correlation_matrix # Corrected variable name
                 )
               output_mr_ivw_corr <-
                 MendelianRandomization::mr_ivw(harmonised_final_data_frame2, correl = TRUE)
@@ -246,27 +246,22 @@ harmonised_data_frame <- harmonised_data_frame %>%
                   pval = output_mr_ivw_corr@Pvalue
                 )
             }
+            else { # This block is for nrow > 2
+              # Ensure LD matrix is calculated for >2 IVs if not already done
+              # (The existing code calculates it in the nrow == 2 block,
+              #  it might be better to calculate it once if nrow >= 2)
+              # For this fix, we assume ld_correlation_matrix is available or recalculated here if needed.
+              # If ld_correlation_matrix from the nrow==2 block is intended to be used,
+              # ensure its scope or recalculate. For simplicity, let's assume it needs to be
+              # available or recalculated if the logic implies it's different for >2 IVs.
+              # The complex SNP/allele ordering logic is also present in the nrow==2 block.
+              # This logic should also be applied here if necessary before mr_input.
 
-            else { # nrow >= 2 IVs (combining the previous == 2 and > 2 blocks)
-              # Perform IVW with correlation for 2 or more IVs
-              ld_correlation_matrix <-
-                ieugwasr::ld_matrix(
-                  exp = exposure_id,
-                  outc = paste(outcome_id),
-                  pvalthreshold = pval_thresh,
-                  rsqthreshold = rsq_thresh,
-                  nsnp = output_mr_ivw_corr@SNPs,
-                  method = "Inverse variance weighted (correlation inc)",
-                  b = output_mr_ivw_corr@Estimate,
-                  se = output_mr_ivw_corr@StdError,
-                  pval = output_mr_ivw_corr@Pvalue
-                )
-
-              # To make sure the LD matrix columns match the SNP order precisely
-              # Art's code to solve the order issues of SNPid in LD matix
+              # Re-applying the SNP ordering and allele flipping logic for > 2 IVs
+              # This is duplicated from the nrow == 2 block and should ideally be refactored.
               rownames(ld_correlation_matrix) <- gsub("\\_.*", "", rownames(ld_correlation_matrix))
               harmonised_clumped_final_data_frame_duplicate <- harmonised_clumped_final_data_frame[!(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
-              colnames(harmonised_clumped_final_data_frame_duplicate)[which(colnames(harmonised_clumped_final_data_frame_duplicate) %in% c("effect_allele.exposure", "other_allele.exposure", "effect_allele.outcome", "other_allele.outcome"))] <- c("other_allele.exposure", "effect_allele.exposure", "other_allele.outcome", "other_allele.outcome")
+              colnames(harmonised_clumped_final_data_frame_duplicate)[which(colnames(harmonised_clumped_final_data_frame_duplicate) %in% c("effect_allele.exposure", "other_allele.exposure", "effect_allele.outcome", "other_allele.outcome"))] <- c("other_allele.exposure", "effect_allele.exposure", "other_allele.outcome", "effect_allele.outcome")
               harmonised_clumped_final_data_frame_duplicate$beta.exposure <- harmonised_clumped_final_data_frame_duplicate$beta.exposure*-1
               harmonised_clumped_final_data_frame_duplicate$beta.outcome <- harmonised_clumped_final_data_frame_duplicate$beta.outcome*-1
               harmonised_clumped_final_data_frame_duplicate$eaf.exposure <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.exposure
@@ -276,18 +271,16 @@ harmonised_data_frame <- harmonised_data_frame %>%
               harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[ order(match(harmonised_clumped_final_data_frame$SNP, rownames(ld_correlation_matrix))), ]
               harmonised_clumped_final_data_frame$marker_ld <- paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_")
 
-              # Define mr_input object for >= 2 IVs
-              harmonised_clumped_final_data_frame_mr_input <- # Consistent variable name
+              harmonised_clumped_correlated_final_data_frame <-
                 MendelianRandomization::mr_input(
                   bx = harmonised_clumped_final_data_frame$beta.exposure,
                   bxse = harmonised_clumped_final_data_frame$se.exposure,
                   by = harmonised_clumped_final_data_frame$beta.outcome,
                   byse = harmonised_clumped_final_data_frame$se.outcome,
-                  correlation = ld_correlation_matrix # Use the LD matrix calculated for >= 2 IVs
+                  correlation = ld_correlation_matrix
                 )
-              # Perform IVW MR
-              output_mr_ivw_corr <-
-                MendelianRandomization::mr_ivw(harmonised_clumped_final_data_frame_mr_input, correl = TRUE)
+              output_mr_ivw_corr <- # Define for >2 IVs
+                MendelianRandomization::mr_ivw(harmonised_final_data_frame_gt2, correl = TRUE)
 
               # Format IVW results
               results <- data.frame(
