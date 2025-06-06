@@ -305,8 +305,7 @@ harmonised_data_frame <- harmonised_data_frame %>%
           } else {
             df_sum <-
             df_sum <- rbind(df_sum, results)
-            df_instr <-
-              rbind(df_instr, harmonised_clumped_final_data_frame |> dplyr::select(dplyr::all_of(instrument_cols))) # Append instruments, selecting required columns
+            df_instr <- dplyr::bind_rows(df_instr, harmonised_clumped_final_data_frame |> dplyr::select(dplyr::any_of(instrument_cols))) # Append instruments, selecting available columns
 
             result <- list(results = df_sum,
                            instruments = df_instr)
