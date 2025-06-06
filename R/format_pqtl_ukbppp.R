@@ -121,6 +121,7 @@ format_pqtl_ukbppp <- function(ukbppp,
     effect_allele_col = "effect_allele",
     other_allele_col = "other_allele",
     pval_col = "pval",
+    samplesize_col = "n",
     chr_col = "chr",
     pos_col = "pos",
     log_pval = FALSE
