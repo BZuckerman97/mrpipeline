@@ -119,6 +119,9 @@ format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
     log_pval = FALSE
   )
 
+# Remove the "exposure." prefix from column names to match run_mr.R expectations
+  colnames(result) <- sub("^exposure\\.", "", colnames(result))
+
   return(list(exposure = result)) # Return as a list as per roxygen docs
   }
 
