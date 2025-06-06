@@ -340,8 +340,8 @@ harmonised_data_frame <- harmonised_data_frame %>%
                 SNP = NA
               )[-1,]
 
-            df_sum <- dplyr::bind_rows(df_sum, results) # Use bind_rows for consistency
-            df_instr <- dplyr::bind_rows(df_instr, harmonised_clumped_final_data_frame)
+            df_sum <- rbind(df_sum, results)
+            df_instr <- rbind(df_instr, harmonised_clumped_final_data_frame)
             result <- list(results = df_sum,
                            instruments = df_instr)
           }
