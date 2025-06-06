@@ -36,18 +36,6 @@ run_mr <- function(exposure,
 # It should be implemented to check the structure and types of instrument_region.
 validate_instrument_region_arg(instrument_region)
 
-  # Initialize result containers
-  # Use explicit column types for clarity and safety
-  df_sum <- data.frame(exp=character(), outc=character(), nsnp=integer(), method=character(), b=numeric(), se=numeric(), pval=numeric())
-  # Define instrument columns explicitly based on expected harmonised data output
-  instrument_cols <- c(
-    "SNP", "effect_allele.exposure", "other_allele.exposure", "beta.exposure", "se.exposure", "eaf.exposure", "samplesize.exposure", "pval.exposure", "id.exposure", "exposure", "mr_keep.exposure", "pval_origin.exposure", "chr.exposure", "pos.exposure",
-    "effect_allele.outcome", "other_allele.outcome", "beta.outcome", "se.outcome", "eaf.outcome", "samplesize.outcome", "pval.outcome", "id.outcome", "outcome", "mr_keep.outcome", "pval_origin.outcome", "chr.outcome", "pos.outcome",
-    "mr_keep", "action", "palindromic", "ambiguous"
-  )
-  df_instr <- data.frame(matrix(ncol = length(instrument_cols), nrow = 0))
-  colnames(df_instr) <- instrument_cols
-
   result <- NULL
 
   print(exposure_id)
@@ -306,8 +294,8 @@ harmonised_data_frame <- harmonised_data_frame %>%
           } else {
             df_sum <-
               data.frame(
-                exp = NA,
-                outc = NA,
+                exp = as.character(NA),
+                outc = as.character(NA),
                 nsnp = NA,
                 method = NA,
                 b = NA,
@@ -353,7 +341,7 @@ harmonised_data_frame <- harmonised_data_frame %>%
               )[-1,]
 
             df_sum <- dplyr::bind_rows(df_sum, results) # Use bind_rows for consistency
-            df_instr <- dplyr::bind_rows(df_instr, harmonised_clumped_final_data_frame |> dplyr::select(dplyr::any_of(instrument_cols)))
+            df_instr <- dplyr::bind_rows(df_instr, harmonised_clumped_final_data_frame)
             result <- list(results = df_sum,
                            instruments = df_instr)
           }
