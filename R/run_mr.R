@@ -304,9 +304,56 @@ harmonised_data_frame <- harmonised_data_frame %>%
             warning(paste0("Skipping ", exposure_id))
             warning("No results returned from MR analysis")
           } else {
-            df_sum <- rbind(df_sum, results)
-            df_instr <- dplyr::bind_rows(df_instr, harmonised_clumped_final_data_frame |> dplyr::select(dplyr::any_of(instrument_cols))) # Append instruments, selecting available columns
+            df_sum <-
+              data.frame(
+                exp = NA,
+                outc = NA,
+                nsnp = NA,
+                method = NA,
+                b = NA,
+                se = NA,
+                pval = NA
+              )[-1,]
+            df_instr <-
+              data.frame(
+                pos.exposure = NA,
+                pos_id = NA,
+                effect_allele.exposure = NA,
+                other_allele.exposure = NA,
+                effect_allele.outcome = NA,
+                other_allele.outcome = NA,
+                beta.exposure = NA,
+                beta.outcome = NA,
+                eaf.exposure = NA,
+                eaf.outcome = NA,
+                remove = NA,
+                palindromic = NA,
+                ambiguous = NA,
+                id.outcome = NA,
+                chr.outcome = NA,
+                pos.outcome = NA,
+                pval.outcome = NA,
+                se.outcome = NA,
+                outcome = NA,
+                mr_keep.outcome = NA,
+                pval_origin.outcome = NA,
+                chr.exposure = NA,
+                samplesize.exposure = NA,
+                se.exposure = NA,
+                pval.exposure = NA,
+                exposure = NA,
+                pval = NA,
+                mr_keep.exposure = NA,
+                pval_origin.exposure = NA,
+                id.exposure = NA,
+                action = NA,
+                mr_keep = NA,
+                samplesize.outcome = NA,
+                SNP = NA
+              )[-1,]
 
+            df_sum <- dplyr::bind_rows(df_sum, results) # Use bind_rows for consistency
+            df_instr <- dplyr::bind_rows(df_instr, harmonised_clumped_final_data_frame |> dplyr::select(dplyr::any_of(instrument_cols)))
             result <- list(results = df_sum,
                            instruments = df_instr)
           }
