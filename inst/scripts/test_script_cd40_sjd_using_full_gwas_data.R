@@ -11,6 +11,7 @@ run_mr(exposure = cd40,
        outcome = sjd,
        outcome_id = "SjD",
        instrument_region = list(chromosome = 20, start = 44746911, end = 44758502),
+       window = 200000,
        pval_thresh = 5e-6,
        rsq_thresh = 0.1,
        bfile = "/Users/benzuckerman/LD_folder/g1000_eur")

@@ -232,7 +232,7 @@ harmonised_data_frame <- harmonised_data_frame %>%
                   correlation = ld_correlation_matrix # Corrected variable name
                 )
               output_mr_ivw_corr <-
-                MendelianRandomization::mr_ivw(harmonised_final_data_frame2, correl = TRUE)
+                MendelianRandomization::mr_ivw(harmonised_clumped_correlated_final_data_frame, correl = TRUE)
               results <-
                 data.frame(
                   exp = exposure_id,
@@ -280,7 +280,7 @@ harmonised_data_frame <- harmonised_data_frame %>%
                   correlation = ld_correlation_matrix
                 )
               output_mr_ivw_corr <- # Define for >2 IVs
-                MendelianRandomization::mr_ivw(harmonised_final_data_frame_gt2, correl = TRUE)
+                MendelianRandomization::mr_ivw(harmonised_clumped_correlated_final_data_frame, correl = TRUE)
 
               # Format IVW results
               results <- data.frame(
