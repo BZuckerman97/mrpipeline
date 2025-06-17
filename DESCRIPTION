@@ -23,6 +23,7 @@ Imports:
     data.table,
     rlang,
     purrr,
-    Rmpfr
+    Rmpfr,
+    magrittr
 Additional_repositories: 
   https://mrcieu.r-universe.dev

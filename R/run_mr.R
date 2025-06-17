@@ -124,7 +124,7 @@ validate_instrument_region_arg(instrument_region)
 
 # The code below calculates the absolute p-values and generates pseudo p-values to ensure that each SNP is properly ranked by PLINK.
 harmonised_data_frame <- harmonised_data_frame %>%
-  mutate(
+  dplyr::mutate(
     z = beta.exposure / se.exposure,
     log10p = sapply(
       -log10(2 * Rmpfr::pnorm(
@@ -136,8 +136,8 @@ harmonised_data_frame <- harmonised_data_frame %>%
   )
 
 harmonised_data_frame <- harmonised_data_frame %>%
-  arrange(desc(log10p)) %>%
-  mutate(pseudo_p = seq(from = 1e-100, to = 0.9, length.out = n()))
+  dplyr::arrange(desc(log10p)) %>%
+  dplyr::mutate(pseudo_p = seq(from = 1e-100, to = 0.9, length.out = n()))
 
 # Clump -------------------------------------------------------------------
         print("Clumping")
@@ -145,7 +145,7 @@ harmonised_data_frame <- harmonised_data_frame %>%
             ieugwasr::ld_clump(
               dplyr::tibble(
                 rsid = harmonised_data_frame$SNP,
-                pval = harmonised_data_frame$pval.exposure,
+                pval = harmonised_data_frame$pseudo_p,
                 id = harmonised_data_frame$id.exposure
               ),
               # Clumping (i.e., excluding the variants that are correlated with each other); you'll need the 1000G LD reference file for this
