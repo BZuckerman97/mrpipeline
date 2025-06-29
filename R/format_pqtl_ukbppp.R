@@ -168,7 +168,22 @@ ukbppp_pqtl_file_name <- function(synapse_id,
   # get relevant metadata
   metadata <- olink_linker_file |>
     dplyr::filter(Code == synapse_id)
-  stopifnot(identical(nrow(metadata), 1L))
+
+  if (nrow(metadata) == 0) {
+    stop(paste0("No entry found for synapse_id '", synapse_id, "' in the linker file."))
+  }
+
+  # Handle cases where one synapse ID maps to multiple proteins (e.g. AMY1A/B/C).
+  # As long as the file paths and assay name are the same, we can proceed.
+  if (nrow(metadata) > 1) {
+    # Check for consistency in columns required for file paths and ID.
+    cols_to_check <- c("Docname", "chr", "UKBPPP_ProteinID", "Panel", "Assay")
+    if (!all(sapply(metadata[, cols_to_check], function(x) length(unique(x)) == 1))) {
+      stop(paste0("Multiple entries for synapse_id '", synapse_id, "' have conflicting metadata. Cannot determine a unique file path or assay name."))
+    }
+    # All good, just take the first row.
+    metadata <- metadata[1, ]
+  }
   metadata <- as.list(metadata)
 
   # result
