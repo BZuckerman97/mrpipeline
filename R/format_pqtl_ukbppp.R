@@ -69,6 +69,18 @@ format_pqtl_ukbppp <- function(ukbppp,
       pos_rsid_file = dplyr::all_of("POS38")) |>
     dplyr::mutate(chr_rsid_file = sub(":.*", "", ID))
 
+  # Match by ID or create it
+  if ("ID" %in% colnames(ukbppp) & "ID" %in% colnames(ukbppp_rsid)) {
+    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
+  } else {
+    ukbppp <- ukbppp |>
+      dplyr::mutate(ID = paste(chr, pos, effect_allele, other_allele, sep = ":"))
+    ukbppp_rsid <- ukbppp_rsid |>
+      dplyr::mutate(ID = paste(chr_rsid_file, pos_rsid_file, effect_allele_rsid_file, other_allele_rsid_file, sep = ":"))
+
+    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
+  }
+
   # Handle non-Mendelian chromosomes rsIDs
   # Check if the chromosome is X
   if (!is.null(x_y_chr_file)) {
@@ -92,19 +104,6 @@ format_pqtl_ukbppp <- function(ukbppp,
         dplyr::select(-rsids)
     }
   }
-
-  # Match by ID or create it
-  if ("ID" %in% colnames(ukbppp) & "ID" %in% colnames(ukbppp_rsid)) {
-    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
-  } else {
-    ukbppp <- ukbppp |>
-      dplyr::mutate(ID = paste(chr, pos, effect_allele, other_allele, sep = ":"))
-    ukbppp_rsid <- ukbppp_rsid |>
-      dplyr::mutate(ID = paste(chr_rsid_file, pos_rsid_file, effect_allele_rsid_file, other_allele_rsid_file, sep = ":"))
-
-    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
-  }
-
   # Convert data table to data frame for format_data()
   ukbppp <- as.data.frame(ukbppp)
 
