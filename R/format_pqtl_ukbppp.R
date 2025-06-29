@@ -176,10 +176,18 @@ ukbppp_pqtl_file_name <- function(synapse_id,
   # Handle cases where one synapse ID maps to multiple proteins (e.g. AMY1A/B/C).
   # As long as the file paths and assay name are the same, we can proceed.
   if (nrow(metadata) > 1) {
-    # Check for consistency in columns required for file paths and ID.
+    # Check for consistency in columns required for file paths and phenotype ID.
     cols_to_check <- c("Docname", "chr", "UKBPPP_ProteinID", "Panel", "Assay")
-    if (!all(sapply(metadata[, cols_to_check], function(x) length(unique(x)) == 1))) {
-      stop(paste0("Multiple entries for synapse_id '", synapse_id, "' have conflicting metadata. Cannot determine a unique file path or assay name."))
+
+    # Use vapply for a safer and more explicit check for consistency.
+    is_consistent <- vapply(metadata[, cols_to_check], function(x) data.table::uniqueN(x) == 1, logical(1))
+
+    if (!all(is_consistent)) {
+      inconsistent_cols <- names(is_consistent)[!is_consistent]
+      stop(paste0("Multiple entries for synapse_id '", synapse_id,
+                  "' have conflicting metadata. Inconsistent columns: ",
+                  paste(inconsistent_cols, collapse = ", "),
+                  ". Cannot determine a unique file path or assay name."))
     }
     # All good, just take the first row.
     metadata <- metadata[1, ]
