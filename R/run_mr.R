@@ -215,8 +215,8 @@ harmonised_data_frame <- harmonised_data_frame %>%
               harmonised_clumped_correlated_final_data_frame <-
                 MendelianRandomization::mr_input( # This variable name is inconsistent, consider renaming
                   bx = harmonised_clumped_final_data_frame$beta.exposure, # Use harmonised_clumped_final_data_frame
-                  bxse = harmonised_final_data_frame$se.exposure,
-                  by = harmonised_final_data_frame$beta.outcome,
+                  bxse = harmonised_clumped_final_data_frame$se.exposure,
+                  by = harmonised_clumped_final_data_frame$beta.outcome,
                   byse = harmonised_clumped_final_data_frame$se.outcome,
                   correlation = ld_correlation_matrix # Corrected variable name
                 )

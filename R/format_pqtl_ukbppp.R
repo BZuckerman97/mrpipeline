@@ -132,7 +132,11 @@ format_pqtl_ukbppp <- function(ukbppp,
 #' UKBPPP_PQTL_FILE_NAME
 #'
 #' @param synapse_id String, synapse id to access from olink linker file
-#' @param olink_linker_file String or Dataframe, file containing the olink linker file, or the dataframe of the linker file
+#' @param olink_linker_file String or Dataframe, file containing the olink linker file,
+#' or the dataframe of the linker file. This function is designed to handle the
+#' full linker file and will perform the necessary filtering and validation internally.
+#' It can handle cases where a single `synapse_id` maps to multiple rows (e.g., for
+#' protein complexes), as long as the underlying file paths are consistent.
 #' @param olink_dir String, directory of the olink files
 #' @param olink_rsid_dir String, directory of the olink rsid files
 #'
