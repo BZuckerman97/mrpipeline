@@ -78,7 +78,7 @@ format_pqtl_ukbppp <- function(ukbppp,
     ukbppp_rsid <- ukbppp_rsid |>
       dplyr::mutate(ID = paste(chr_rsid_file, pos_rsid_file, effect_allele_rsid_file, other_allele_rsid_file, sep = ":"))
 
-    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
+    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid[, c("ID", "rsid")], by = "ID")
   }
 
   # Handle non-Mendelian chromosomes rsIDs
