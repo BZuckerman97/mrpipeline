@@ -1,5 +1,5 @@
-https://github.com/DeepVasc-Lab/3-step_sceQTLMR/blob/main/README.md
-https://github.com/MRCIEU/MRInstruments
+#https://github.com/DeepVasc-Lab/3-step_sceQTLMR/blob/main/README.md
+#https://github.com/MRCIEU/MRInstruments
 
 install.packages(c(
   "readxl", "readr", "dplyr", "data.table", "writexl", "meta",
@@ -8,9 +8,9 @@ install.packages(c(
 # For coloc.susie:
 remotes::install_github("chr1swallace/coloc")
 
-data sources:
-  https://onek1k.org
-https://eqtlgen.org/sc/datasets/1m-scbloodnl.html
+#data sources:
+#  https://onek1k.org
+#https://eqtlgen.org/sc/datasets/1m-scbloodnl.html
 # Pipeline Overview: Single-cell MR Discovery, Replication, and Colocalization
 
 # ----------------------------
