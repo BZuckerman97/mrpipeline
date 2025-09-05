@@ -48,9 +48,7 @@ format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
   # Join GWAS data with included variants (which contains effectAlleleFreq)
   # Assuming 'Name' is the common SNP identifier column (e.g., rsID)
   decode_filtered <- decode_raw_data |>
-    dplyr::inner_join(included_variants_df |>
-                        dplyr::select(dplyr::all_of("Name"), dplyr::all_of("effectAlleleFreq")),
-                      by = "Name") #' To find out if Name and rsid are similar
+    dplyr::inner_join(included_variants_df, by = "Name") #' included variants data frame should only contain Name and EAF
 
   decode_processed <- decode_filtered |>
     dplyr::mutate(phenotype_col = pqtl_assay) |>  #' Create a phenotype_col

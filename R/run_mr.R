@@ -20,6 +20,7 @@ run_mr <- function(exposure,
                    exposure_id,
                    outcome, #' this needs to be the formatted summary statistics for the outcome GWAS
                    outcome_id,
+                   mhc_remove,
                    # sumstats_info,
                    # downloadLocation,
                    # ref_rsid,
@@ -44,9 +45,35 @@ validate_instrument_region_arg(instrument_region)
 
 # Filter exposure for IVs ----------------------------------------------------------
 
-  #' Taken out sumstats_info here
-  #' To replace with tidyverse language
-  #' To move out of the run_mr function and have a specify window
+  #' To filter out MHC region
+  if (mhc_remove == 1 && "chr.exposure" %in% colnames(exposure)) {
+    message("Assessing whether MHC region is present and should be removed")
+
+    mhc_chr <- "6"
+    mhc_start <- 26000000
+    mhc_end <- 34000000
+
+    # Check if all SNPs are within MHC region
+    if (all(exposure$chr.exposure == mhc_chr &
+            exposure$pos.exposure >= mhc_start &
+            exposure$pos.exposure <= mhc_end)) {
+      message("All SNPs for this protein are within MHC region - skipping analysis")
+      return(NULL)
+    }
+
+    # Filter out any SNPs in MHC region
+    exposure <- exposure %>%
+      dplyr::filter(!(chr.exposure == mhc_chr &
+                        pos.exposure >= mhc_start &
+                        pos.exposure <= mhc_end))
+
+    message("Filtered out SNPs in MHC region (chr6:26-34Mb)")
+
+  } else if (!("chr.exposure" %in% colnames(exposure))) {
+    warning("chr.exposure column not found in exposure data - MHC filter skipped")
+  }
+
+  #' To filer for appropriate gene window
   exposure <- exposure |>
     dplyr::filter(pos.exposure > (instrument_region$start - window) & pos.exposure < (instrument_region$end + window)) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region), uses build 37 positions
     dplyr::filter(pval.exposure < pval_thresh)                                                                                   # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
