@@ -2,15 +2,37 @@
 % Please edit documentation in R/format_single_cell_onek1k.R
 \name{format_single_cell_onek1k}
 \alias{format_single_cell_onek1k}
-\title{Formats single-cell RNA eQTL data frame}
+\title{Format single-cell RNA eQTL data for analysis}
 \usage{
 format_single_cell_onek1k(mapping_file, cell_type, eqtl_dir)
 }
+\arguments{
+\item{mapping_file}{Character. File path to the mapping file containing eQTL data paths.}
+
+\item{cell_type}{Character. Name of the cell type to subset the eQTL data.}
+
+\item{eqtl_dir}{Character or data.frame. Either the path to the eQTL data directory or a pre-loaded data frame.}
+}
+\value{
+A formatted data frame suitable for Mendelian randomization analysis.
+}
 \description{
-Purpose of this script of functions are to create the pathway to
-the eQTL data and then format the eQTL data ready for analysis
-Make sure list of cell_types are created/called from the mapping file
-Read in eQTL data for individual cell type using mapping_file pathway
-Rename variables and keep only ones of interest
-Applying format_data()
+This function reads in eQTL data for a specified cell type using a provided mapping file
+and formats the data frame to prepare it for downstream analysis.
+The function expects the eQTL data directory path and uses \code{TwoSampleMR::format_data}
+to structure the data in a standardized format.
+}
+\details{
+The function reads eQTL data files using \code{data.table::fread()}, computes standard errors,
+renames and selects relevant columns, and formats the dataset using \code{TwoSampleMR::format_data()}.
+Ensure that the list of cell types is consistent with the mapping file.
+}
+\examples{
+\dontrun{
+mapping_file <- "path/to/mapping_file.txt"
+cell_type <- "T_cells"
+eqtl_dir <- "path/to/eqtl_data/"
+formatted_data <- format_single_cell_onek1k(mapping_file, cell_type, eqtl_dir)
+}
+
 }

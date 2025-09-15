@@ -9,27 +9,12 @@
 #' @param cell_type Character. Name of the cell type to subset the eQTL data.
 #' @param eqtl_dir Character or data.frame. Either the path to the eQTL data directory or a pre-loaded data frame.
 #'
-#' @return A formatted data frame suitable for Mendelian randomization analysis.
-#'
-#' @details
-#' The function reads eQTL data files using `data.table::fread()`, computes standard errors,
-#' renames and selects relevant columns, and formats the dataset using `TwoSampleMR::format_data()`.
-#' Ensure that the list of cell types is consistent with the mapping file.
-#'
-#' @importFrom data.table fread
-#' @importFrom dplyr mutate select
-#' @importFrom purrr map
-#' @importFrom TwoSampleMR format_data
-#'
-#' @examples
-#' \dontrun{
-#' mapping_file <- "path/to/mapping_file.txt"
-#' cell_type <- "T_cells"
-#' eqtl_dir <- "path/to/eqtl_data/"
-#' formatted_data <- format_single_cell_onek1k(mapping_file, cell_type, eqtl_dir)
-#' }
+#' @return A list with one data frame containing the formatted single cell RNA data
 #'
 #' @export
+#'
+#' @examples
+#' # See the test script for example usage.
 format_single_cell_onek1k <- function(mapping_file,
                                       cell_type,
                                       eqtl_dir){
