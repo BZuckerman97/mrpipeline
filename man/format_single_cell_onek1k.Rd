@@ -4,27 +4,37 @@
 \alias{format_single_cell_onek1k}
 \title{Format single-cell RNA eQTL data for analysis}
 \usage{
-format_single_cell_onek1k(mapping_file, cell_type, eqtl_dir)
+format_single_cell_onek1k(onek1k_mapping, onek1k_cell_type)
 }
 \arguments{
-\item{mapping_file}{Character. File path to the mapping file containing eQTL data paths.}
+\item{onek1k_mapping}{A data frame containing mapping information for OneK1K
+eQTL data. Must contain 'cell_type' and 'path_to_eqtl_file' columns.}
 
-\item{cell_type}{Character. Name of the cell type to subset the eQTL data.}
-
-\item{eqtl_dir}{Character or data.frame. Either the path to the eQTL data directory or a pre-loaded data frame.}
+\item{onek1k_cell_type}{Character string. The name of the cell type to be
+processed (e.g., "CD4 Naive"). This must correspond to an entry in the
+'cell_type' column of \code{onek1k_mapping}.}
 }
 \value{
-A list with one data frame containing the formatted single cell RNA data
+A data frame of the formatted eQTL data, ready for use as an
+"exposure" dataset in \code{TwoSampleMR}.
 }
 \description{
-This function reads in eQTL data for a specified cell type using a provided mapping file
-and formats the data frame to prepare it for downstream analysis.
-The function expects the eQTL data directory path and uses \code{TwoSampleMR::format_data}
-to structure the data in a standardized format.
+This function processes single-cell eQTL data from the OneK1K project for a
+specific cell type. It uses a mapping data frame to find the path to the
+relevant eQTL summary statistics file, reads the data, and formats it
+for use with the \code{TwoSampleMR} package.
 }
 \examples{
-# See the test script for example usage.
-Read in eQTL data for individual cell type using mapping_file pathway
-Rename variables and keep only ones of interest
-Applying format_data()
+\dontrun{
+# Create a dummy mapping data frame
+mapping_df <- data.frame(
+  cell_type = "CD4 Naive",
+  path_to_eqtl_file = "path/to/your/eqtl_data.tsv.gz"
+)
+# Run the function
+formatted_eqtls <- format_single_cell_onek1k(
+  onek1k_mapping = mapping_df,
+  onek1k_cell_type = "CD4 Naive"
+)
+}
 }

@@ -1,49 +1,78 @@
 #' Format single-cell RNA eQTL data for analysis
 #'
-#' This function reads in eQTL data for a specified cell type using a provided mapping file
-#' and formats the data frame to prepare it for downstream analysis.
-#' The function expects the eQTL data directory path and uses `TwoSampleMR::format_data`
-#' to structure the data in a standardized format.
+#' This function processes single-cell eQTL data from the OneK1K project for a
+#' specific cell type. It uses a mapping data frame to find the path to the
+#' relevant eQTL summary statistics file, reads the data, and formats it
+#' for use with the `TwoSampleMR` package.
 #'
-#' @param mapping_file Character. File path to the mapping file containing eQTL data paths.
-#' @param cell_type Character. Name of the cell type to subset the eQTL data.
-#' @param eqtl_dir Character or data.frame. Either the path to the eQTL data directory or a pre-loaded data frame.
+#' @param onek1k_mapping A data frame containing mapping information for OneK1K
+#'   eQTL data. Must contain 'cell_type' and 'path_to_eqtl_file' columns.
+#' @param onek1k_cell_type Character string. The name of the cell type to be
+#'   processed (e.g., "CD4 Naive"). This must correspond to an entry in the
+#'   'cell_type' column of `onek1k_mapping`.
 #'
-#' @return A list with one data frame containing the formatted single cell RNA data
+#' @return A data frame of the formatted eQTL data, ready for use as an
+#'   "exposure" dataset in `TwoSampleMR`.
 #'
 #' @export
 #'
 #' @examples
-#' # See the test script for example usage.
-format_single_cell_onek1k <- function(mapping_file,
-                                      cell_type,
-                                      eqtl_dir){
-  #' Read in eQTL data for individual cell type using mapping_file pathway
-  if (is.character(eqtl_dir)) {
-    # Read in files using data.table::fread()
-    stopifnot(file.exists(eqtl_dir))
+#' \dontrun{
+#' # Create a dummy mapping data frame
+#' mapping_df <- data.frame(
+#'   cell_type = "CD4 Naive",
+#'   path_to_eqtl_file = "path/to/your/eqtl_data.tsv.gz"
+#' )
+#' # Run the function
+#' formatted_eqtls <- format_single_cell_onek1k(
+#'   onek1k_mapping = mapping_df,
+#'   onek1k_cell_type = "CD4 Naive"
+#' )
+#' }
+format_single_cell_onek1k <- function(onek1k_mapping,
+                                      onek1k_cell_type){
 
-    scRNA_data_frame <- scRNA_data_frame |>
-      purrr::map(\(x) data.table::fread(x, nThread = parallel::detectCores())) |>
-      dplyr::bind_rows()
-  } else {
-    stopifnot(is.data.frame(scRNA_data_frame))
+  # Input validation
+  stopifnot(is.data.frame(onek1k_mapping))
+  stopifnot(is.character(onek1k_cell_type) && length(onek1k_cell_type) == 1)
+  stopifnot(all(c("cell_type", "path_to_eqtl_file") %in% names(onek1k_mapping)))
+
+  # Filter mapping file for the specified cell type
+  cell_type_info <- onek1k_mapping |>
+    dplyr::filter(cell_type == onek1k_cell_type)
+
+  if (nrow(cell_type_info) == 0) {
+    stop("The specified `onek1k_cell_type` was not found in the mapping data frame.")
+  }
+  if (nrow(cell_type_info) > 1) {
+    warning("Multiple entries found for the specified `onek1k_cell_type`. Using the first one.")
+    cell_type_info <- cell_type_info[1, ]
   }
 
-  #' Rename variables and keep only ones of interest
-  scRNA_data_frame_pre_format_data <- scRNA_data_frame |>
-    dplyr::mutate(
-      se            = abs(`rho correlation coefficient` / qnorm(pvalue/2)),
-      beta          = `rho correlation coefficient`,
-      pval          = pvalue,
-      cell          = `Cell type`,
-      phenotype     = `Gene ID`,
-      effect_allele = `SNP assessed allele`) |>
-    dplyr::select(cell, phenotype, SNP, effect_allele, beta, se, pval) #' Missing columns to ask why excluded are the other_allele_col
+  eqtl_file_path <- cell_type_info$path_to_eqtl_file
 
-  #' Applying format_data()
-  scRNA_data_frame_formatted <- TwoSampleMR::format_data(
-    dat = scRNA_data_frame_pre_format_data,
+  # Read eQTL data
+  eqtl_data <- data.table::fread(eqtl_file_path, nThread = parallel::detectCores())
+
+  # Rename variables, calculate standard error, and select columns
+  eqtl_data_prepped <- eqtl_data |>
+    dplyr::rename(
+      SNP = RSID,
+      beta = SPEARMANS_RHO,
+      pval = P_VALUE ,
+      phenotype = GENE,
+      effect_allele = A1,
+      other_allele = A2
+    ) |>
+    dplyr::mutate(
+      # Calculate standard error from beta and p-value, do I need to do anything to handle p=0 or p=1 ie case_when(pval == 0 | pval == 1 ~ 0, TRUE ~
+      se = dplyr::mutate(abs(beta / qnorm(pval / 2)))) |>
+    dplyr::select(cell, phenotype, SNP, effect_allele, other_allele, beta, se, pval) #' Missing columns to ask why excluded are the other_allele_col
+
+  # Format data using TwoSampleMR
+  # Do I need to add in the other_allele column?
+  formatted_data <- TwoSampleMR::format_data(
+    dat = eqtl_data_prepped,
     type = "exposure",
     phenotype_col = "phenotype",
     snp_col = "SNP",
@@ -53,5 +82,6 @@ format_single_cell_onek1k <- function(mapping_file,
     pval_col = "pval"
   )
 
-  return(scRNA_data_frame_formatted)
+  return(formatted_data)
 }
+
