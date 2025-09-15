@@ -4,7 +4,7 @@
 #' the eQTL data and then format the eQTL data ready for analysis
 #' Make sure list of cell_types are created/called from the mapping file
 
-format_sc_RNA_eqtl <- function(mapping_file,
+format_single_cell_onek1k <- function(mapping_file,
                                cell_type,
                                eqtl_dir){
   #' Read in eQTL data for individual cell type using mapping_file pathway

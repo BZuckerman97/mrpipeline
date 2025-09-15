@@ -9,6 +9,7 @@ run_mr(
   exposure_id,
   outcome,
   outcome_id,
+  mhc_remove,
   instrument_region = list(chromosome = 1L, start = 1L, end = 200L),
   window = 1L,
   pval_thresh = 5e-06,
@@ -42,9 +43,8 @@ List with 2 data frames - MR results and instruments
 Performs MR
 }
 \examples{
-Taken out sumstats_info here
-To replace with tidyverse language
-To move out of the run_mr function and have a specify window
+To filter out MHC region
+To filer for appropriate gene window
 This needs to be done before the function starts
 Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
 }
