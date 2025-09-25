@@ -146,23 +146,13 @@ validate_instrument_region_arg(instrument_region)
 
 #' Make sure no NA present in the exposure or outcome SNPs beta or se columns
 
-        dropped <- harmonised_data_frame %>%
-          dplyr::filter(dplyr::if_any(
-            c(beta.exposure, se.exposure, beta.outcome, se.outcome),
-            ~ is.na(.x) | !is.finite(.x)
-          ))
-
-        if (nrow(dropped) > 0) {
-          message("Dropping ", nrow(dropped), " SNPs due to missing/invalid beta or se: ",
-                  paste(dropped$SNP, collapse = ", "))
-        }
-
-        harmonised_data_frame <- harmonised_data_frame %>%
-          dplyr::filter(dplyr::if_all(
-            c(beta.exposure, se.exposure, beta.outcome, se.outcome),
-            ~ !is.na(.x) & is.finite(.x)
-          ))
-
+        dharmonised_data_frame <- harmonised_data_frame %>%
+          dplyr::filter(
+            !is.na(beta.exposure),
+            !is.na(se.exposure),
+            !is.na(beta.outcome),
+            !is.na(se.outcome)
+          )
 
         if (nrow(harmonised_data_frame) == 0) {
           warning(paste0("Skipping ", exposure_id))
@@ -204,6 +194,10 @@ harmonised_data_frame <- harmonised_data_frame %>%
             )
           harmonised_clumped_final_data_frame <- harmonised_data_frame |>
             dplyr::filter(harmonised_data_frame$SNP %in% clump$rsid)
+
+          #' Filtering mr_keep for TRUE
+          harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame |>
+            dplyr::filter(mr_keep == "TRUE")
 
           # Note: this particular script uses the IVW method adjusted for between-variant correlation. This is not standard, but is a good method to use when using a lenient R2 threshold such as the one we use (0.1) when using proteins as the exposure.
 
