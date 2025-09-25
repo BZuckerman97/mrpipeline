@@ -26,6 +26,8 @@ run_mr(
 
 \item{outcome_id}{character. Name for outcome e.g. 'SjD'}
 
+\item{mhc_remove}{Logical, whether to remove the MHC region}
+
 \item{instrument_region}{list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file}
 
 \item{window}{integer. Set to cis region if required}

@@ -1,159 +1,112 @@
-# Colocalization ----------------------------------------------------------
-library(coloc)
-library(data.table)
-library(dplyr)
+#' Script which will run single-cell MR analyses
+#' I have a folder which contains all the outcome GWAS data I want to use
+#' I want to create a function which will read in 1 outcome GWAS file
+#' Ensure uniform column headings of SNP, beta, se, pval, effect_allele, other_allele, n (where available)
+#' Use the format_single_cell_onek1k() to create a formatted exposure data frame
+#' harmonise the data using TwoSampleMR::harmonise_data()
+#' run the mr analysis using TwoSampleMR::mr(, method_list = c("inverse variance weighted",|"wald ratio"))
+#' output the result into a list I can then compile later
+#' I want to use purrr to map through all the onek1k files and the outcome gwas files saving each MR analysis for each outcome GWAS
+
+# Load necessary libraries
 library(TwoSampleMR)
+library(purrr)
+library(dplyr)
+library(readr)
+library(mrpipeline) # Assuming format_single_cell_onek1k is here
 
-# Assuming these files exist and are accessible
-listformr <- fread("output/decode_sjd_proteins_robust_from_egger_and_bhp_0103225.csv")
-decode_sumstats <- fread("data/decode_sumstats_weij_bz_comb.csv")
-incl_decode_variants <- fread("~/Shared2/rmgpbzu/deCODE/assocvariants.annotated.txt.gz") #' Add in effectAllelefreq
-outcome <- fread("data/h38_sjogrens_6098_34928.tsv.gz") # Assuming this file exists
-ref_rsid <- fread("hg38_common_chrpos_X.txt") # Assuming this file exists
+#' Run Single-Cell MR Analysis for one exposure and one outcome
+#'
+#' This function takes a single exposure GWAS file and a single outcome GWAS file,
+#' formats them, harmonises them, and performs a Two-Sample MR analysis.
+#'
+#' @param exposure_file Path to the exposure data file (e.g., a onek1k file).
+#' @param outcome_file Path to the outcome GWAS data file.
+#'
+#' @return A data frame with the MR results from TwoSampleMR::mr(), or NULL if an error occurs.
+#'         The result is augmented with exposure and outcome file names.
+run_single_mr <- function(exposure_file, outcome_file) {
+  tryCatch({
+    # 1. Format exposure data using the provided function
+    # Assuming format_single_cell_onek1k() reads the file and formats it correctly
+    # into the TwoSampleMR exposure data format.
+    exposure_dat <- format_single_cell_onek1k(exposure_file)
 
-# Filter for IL11RA
-decode_sumstats_filter <- decode_sumstats %>%
-  filter(Symbol %in% listformr$exp) %>%
-  filter(Symbol == "IL11RA")
+    # 2. Read and format outcome data
+    # This assumes the outcome GWAS has standard headers.
+    # If not, you might need to add column mapping logic here.
+    # The function `read_outcome_data` from TwoSampleMR is flexible.
+    outcome_dat <- read_outcome_data(
+      filename = outcome_file,
+      sep = "\t", # Assuming tab-separated, adjust if needed
+      snp_col = "SNP",
+      beta_col = "beta",
+      se_col = "se",
+      effect_allele_col = "effect_allele",
+      other_allele_col = "other_allele",
+      pval_col = "pval",
+      n_col = "n" # Optional, will be used if present
+    )
 
-if (nrow(decode_sumstats_filter) == 0) {
-  stop("No data found for IL11RA in decode_sumstats_filter.")
+    # 3. Harmonise exposure and outcome data
+    dat <- harmonise_data(
+      exposure_dat = exposure_dat,
+      outcome_dat = outcome_dat
+    )
+
+    # If no SNPs are left after harmonisation, return NULL
+    if (nrow(dat) == 0) {
+      warning(paste("No harmonised SNPs for exposure:", basename(exposure_file), "and outcome:", basename(outcome_file)))
+      return(NULL)
+    }
+
+    # 4. Run MR analysis
+    # Use "Wald ratio" for single-SNP instruments, and "Inverse variance weighted" for multiple.
+    methods <- if (nrow(dat) == 1) "wald_ratio" else "mr_ivw"
+    res <- mr(dat, method_list = methods)
+
+    # 5. Augment results with file info and return
+    res %>%
+      mutate(
+        exposure_file = basename(exposure_file),
+        outcome_file = basename(outcome_file)
+      )
+
+  }, error = function(e) {
+    # Log the error and return NULL for this pair
+    message(sprintf("Error processing exposure '%s' and outcome '%s': %s",
+                    basename(exposure_file), basename(outcome_file), e$message))
+    return(NULL)
+  })
 }
 
-i <- decode_sumstats_filter$seqID
+# --- Main Script ---
 
-print(i)
-timestamp()
-print("******")
+# Define paths to your data folders
+# Please update these paths to point to your actual data folders.
+exposure_dir <- "path/to/your/onek1k/files"
+outcome_dir <- "path/to/your/outcome/gwas/files"
 
-exposure <- fread(paste0("~/Shared2/rmgpbzu/deCODE/", decode_sumstats$identifier[decode_sumstats$seqID == i]))
-exposure <- exposure |>
-  inner_join(incl_decode_variants %>% select(Name, effectAlleleFreq), by = "Name")
+# Get lists of all exposure and outcome files
+exposure_files <- list.files(exposure_dir, full.names = TRUE, pattern = "\\.tsv\\.gz$") # Adjust pattern as needed
+outcome_files <- list.files(outcome_dir, full.names = TRUE, pattern = "\\.tsv\\.gz$") # Adjust pattern as needed
 
-exposure <- exposure %>%
-  mutate(phen = decode_sumstats$proteinID[decode_sumstats$seqID == i])
-
-#' Cleaning exposure
-
-exposure <- exposure %>%
-  rename(P = Pval)
-
-exposure <- exposure %>%
-  rename(
-    chr = Chrom,
-    pos = Pos,
-    effect_allele = effectAllele,
-    other_allele = otherAllele,
-    beta = Beta,
-    se = SE,
-    eaf = effectAlleleFreq
-  ) %>%
-  mutate(chr = gsub("chr", "", chr))
-
-exposure <- exposure %>%
-  dplyr::filter(chr == decode_sumstats[decode_sumstats$seqID == i,]$chr)
-
-exposure <- exposure[exposure$pos > (decode_sumstats[decode_sumstats$seqID == i,]$gene_start[1] - 200000) &
-                       exposure$pos < (decode_sumstats[decode_sumstats$seqID ==
-                                                         i,]$gene_end[1] + 200000), ]
-
-outcome <- outcome |>
-  mutate(phen = "SjD") |>
-  rename(
-    rsids = SNP,
-    chr = CHR,
-    sebeta = SE,
-    af_alt = FRQ,
-    alt = A2,
-    ref = A1,
-    beta = BETA,
-    pval = P,
-    pos = BP
-  )
-
-outcome_overlap <- outcome %>%
-  dplyr::filter(chr %in% exposure$chr)
-outcome_overlap <- outcome_overlap %>%
-  dplyr::filter(pos %in% exposure$pos)
-
-outcome_overlap <- as.data.frame(outcome_overlap)
-
-outcome_overlap <- format_data(outcome_overlap,
-                               type = "outcome",
-                               phenotype_col = "phen",
-                               snp_col = "rsids",
-                               beta_col = "beta",
-                               se_col = "sebeta",
-                               eaf_col = "af_alt",
-                               effect_allele_col = "alt",
-                               other_allele_col = "ref",
-                               pval_col = "pval",
-                               chr_col = "chr",
-                               pos_col = "pos")
-
-exposure <- as.data.frame(exposure)
-exposure <-
-  format_data(
-    exposure,
-    type = "exposure",
-    phenotype_col = "phen",
-    snp_col = "rsids",
-    beta_col = "beta",
-    se_col = "se",
-    eaf_col = "eaf",
-    effect_allele_col = "effect_allele",
-    other_allele_col = "other_allele",
-    pval_col = "P",
-    chr_col = "chr",
-    samplesize_col = "N",
-    pos_col = "pos"
-  )
-
-dat <- harmonise_data(exposure_dat = exposure, outcome_dat = outcome_overlap)
-
-if (decode_sumstats_filter[decode_sumstats_filter$seqID == i,]$chr[1] == "X") {
-  dat <- merge(dat, ref_rsid[, c("V1", "V2", "V3")], by.x = "pos.exposure", by.y = "V2", all.x = T)
-  colnames(dat)[colnames(dat) %in% c("V1", "V3")] <- c("chr", "SNP")
-}
-
-dat <- dat[order(dat$pval.exposure),]
-dat <- dat[!duplicated(dat$SNP),]
-ld <- ld_matrix(dat$SNP, bfile = "LD_ref/g1000_eur", plink_bin = genetics.binaRies::get_plink_binary())
-rownames(ld) <- gsub("_.*", "", rownames(ld))
-colnames(ld) <- gsub("_.*", "", colnames(ld))
-dat <- dat[dat$SNP %in% rownames(ld),]
-dat <- dat[match(rownames(ld), dat$SNP),]
-
-dat_exp <- list(beta = dat$beta.exposure, varbeta = dat$se.exposure^2, snp = dat$SNP, position = dat$pos.exposure, type = "quant", sdY = 1, LD = ld, N = 35350)
-dat_outc <- list(beta = dat$beta.outcome, varbeta = dat$se.outcome^2, snp = dat$SNP, position = dat$pos.outcome, type = "cc", LD = ld, N = 41420)
-
-s1 <- runsusie(dat_exp)
-s2 <- runsusie(dat_outc)
-
-susie_res <- coloc.susie(s1, s2)
-
-coloc_outc <- coloc::coloc.abf(dataset1 = dat_exp, dataset2 = dat_outc)
-
-results <- data.frame(
-  exp = decode_sumstats_filter[decode_sumstats_filter$seqID == i,]$Symbol[1],
-  outc = "SjD",
-  nsnps = coloc_outc$summary["nsnps"],
-  pp_h0 = coloc_outc$summary["PP.H0.abf"],
-  pp_h1 = coloc_outc$summary["PP.H1.abf"],
-  pp_h2 = coloc_outc$summary["PP.H2.abf"],
-  pp_h3 = coloc_outc$summary["PP.H3.abf"],
-  pp_h4 = coloc_outc$summary["PP.H4.abf"]
+# Create a grid of all combinations of exposure and outcome files
+file_grid <- expand.grid(
+  exposure_file = exposure_files,
+  outcome_file = outcome_files,
+  stringsAsFactors = FALSE
 )
 
-# Initialize Data Frames Correctly
-if (!exists("df_sum")) {
-  df_sum <- data.frame(exp = character(), outc = character(), nsnps = numeric(),
-                       pp_h0 = numeric(), pp_h1 = numeric(), pp_h2 = numeric(),
-                       pp_h3 = numeric(), pp_h4 = numeric())
-}
+# Use purrr::map2 to iterate over the file pairs and run the analysis
+all_mr_results <- map2(file_grid$exposure_file, file_grid$outcome_file, run_single_mr)
 
-df_sum <- rbind(df_sum, results)
+# Combine the list of results into a single data frame
+# The `compact()` function removes any NULL elements from the list (from pairs that failed)
+final_results_df <- bind_rows(compact(all_mr_results))
 
-write.csv(df_sum, paste0("output/coloc_h38_pqtl_sjd_decode_", Sys.Date(), ".csv"), row.names = FALSE)
-rm(results,  dat, dat_exp, dat_outc, coloc_outc, ld)
-print(paste(decode_sumstats[decode_sumstats$seqID == i,]$Symbol[1], "done"))
+# You can now view or save the final results
+print(head(final_results_df))
+
+# To save the results to a CSV file:
+# write_csv(final_results_df, "all_single_cell_mr_results.csv")

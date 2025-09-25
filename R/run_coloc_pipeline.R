@@ -8,8 +8,8 @@
 #'                      Expected to have columns like SNP, beta.exposure, se.exposure,
 #'                      eaf.exposure, effect_allele.exposure, other_allele.exposure,
 #'                      pval.exposure, chr.exposure, pos.exposure, samplesize.exposure (optional).
-#'                      This can be the output of functions like `format_pqtl_decode` or `format_pqtl_ukbppp`.
-#' @param outcome_gwas_path Path to the outcome GWAS summary statistics file.
+#'                      This can be the output of functions like `format_pqtl_decode` or `format_pqtl_ukbppp` or `format_single_cell_onek1k`.
+#' @param outcome_gwas A data frame containing the outcome GWAS summary statistics file.
 #' @param exposure_name Character string, name for the exposure trait.
 #' @param outcome_name Character string, name for the outcome trait.
 #' @param exposure_type Character, type of exposure trait ("quant" or "cc").
@@ -36,7 +36,7 @@
 #' @param perform_susie Logical, whether to run SuSiE, `coloc.susie`, and `coloc.signals`.
 #' @param perform_coloc_prop_test Logical, whether to run `colocPropTest`.
 #'                                 Requires `perform_susie` to be TRUE.
-#'
+#' @param mhc_remove Logical, whether to remove the MHC region
 #' @param gene_chr Character or Integer, chromosome of the gene/region of interest.
 #' @param gene_start Integer, start position of the gene/region.
 #' @param gene_end Integer, end position of the gene/region.
@@ -116,23 +116,23 @@
 #' }
 run_coloc_pipeline <- function(
   exposure_data, outcome_gwas_path,
-  exposure_name = "Exposure", outcome_name = "Outcome",
+  exposure_name, outcome_name,
   exposure_type = "quant", outcome_type = "cc",
   exposure_n = NULL, outcome_n, outcome_s = NULL, exposure_sdY = 1,
 
-  out_snp_col = "SNP", out_beta_col = "BETA", out_se_col = "SE",
-  out_eaf_col = "EAF", out_effect_allele_col = "A1", out_other_allele_col = "A2",
-  out_pval_col = "PVAL", out_chr_col = "CHR", out_pos_col = "BP", out_n_col = NULL,
+  out_snp_col, out_beta_col, out_se_col,
+  out_eaf_col, out_effect_allele_col, out_other_allele_col,
+  out_pval_col, out_chr_col, out_pos_col, out_n_col = NULL,
 
   perform_coloc_abf = TRUE, perform_susie = TRUE, perform_coloc_prop_test = TRUE,
-
+  mhc_remove = FALSE,
   gene_chr, gene_start, gene_end, window_kb = 200,
   ld_bfile_path,
   plink_bin_path = NULL,
 
-  coloc_p1 = 1e-4, coloc_p2 = 1e-4, coloc_p12 = 1e-5,
+  coloc_p1, coloc_p2, coloc_p12,
 
-  output_dir = "coloc_susie_results",
+  output_dir,
   verbose = TRUE
 ) {
 
@@ -193,15 +193,42 @@ run_coloc_pipeline <- function(
   outcome_dat_formatted$phenotype <- outcome_name # Ensure phenotype column is correctly named
 
 
-  # --- 3. Filter by Region and Harmonize ---
-  if (verbose) message("Filtering by region and harmonizing data...")
+  # --- 3. Optionally remove MHC, filter by region and Harmonize ---
+  # Optional: Filter out MHC region from the already region-filtered data
+  if (isTRUE(mhc_remove)) {
+    if ("chr.exposure" %in% colnames(exposure_dat)) {
+      if (verbose) message("Assessing whether MHC region is present and should be removed...")
+
+      mhc_chr <- "6"
+      mhc_start <- 26000000
+      mhc_end <- 34000000
+
+      # Check if all SNPs in the region are within MHC
+      if (all(exposure_dat$chr.exposure == mhc_chr &
+              exposure_dat$pos.exposure >= mhc_start &
+              exposure_dat$pos.exposure <= mhc_end)) {
+        if (verbose) message("All SNPs for this protein in the specified region are within MHC. Skipping analysis.")
+        return(NULL)
+      }
+
+      # Filter out any SNPs in MHC region
+      initial_snp_count <- nrow(exposure_dat)
+      exposure_dat <- exposure_dat |>
+        dplyr::filter(!(as.character(chr.exposure) == mhc_chr & pos.exposure >= mhc_start & pos.exposure <= mhc_end))
+      if (verbose && nrow(exposure_dat) < initial_snp_count) message("Filtered out SNPs in MHC region (chr6:26-34Mb).")
+    } else {
+      warning("`mhc_remove` is TRUE, but 'chr.exposure' column not found in exposure data. MHC filter skipped.")
+    }
+  }
+
+  if (verbose) message("Filtering data by region and harmonizing...")
   current_chr_val <- gsub("chr", "", as.character(gene_chr))
   min_pos <- gene_start - (window_kb * 1000)
   max_pos <- gene_end + (window_kb * 1000)
 
   # Ensure column names for filtering are correct for pre-formatted exposure_dat
   exposure_filt <- exposure_dat |>
-    dplyr::filter(chr.exposure == current_chr_val & pos.exposure >= min_pos & pos.exposure <= max_pos)
+    dplyr::filter(as.character(chr.exposure) == current_chr_val & pos.exposure >= min_pos & pos.exposure <= max_pos)
 
   outcome_filt <- outcome_dat_formatted |>
     dplyr::filter(chr == current_chr_val & pos >= min_pos & pos <= max_pos)
@@ -215,7 +242,7 @@ run_coloc_pipeline <- function(
   # TwoSampleMR::harmonise_data expects columns like SNP, beta.exposure, se.exposure etc.
   # The pre-formatted exposure_data should already have these.
 
-  harmonized_data <- TwoSampleMR::harmonise_data(exposure_filt, outcome_filt, action = 2)
+  harmonized_data <- TwoSampleMR::harmonise_data(exposure_filt, outcome_filt)
   harmonized_data <- harmonized_data |> dplyr::filter(mr_keep == TRUE)
 
   if (nrow(harmonized_data) == 0) {
@@ -248,7 +275,7 @@ run_coloc_pipeline <- function(
         # Ensure harmonized_data matches ld_matrix (allele flipping and reordering)
         # This complex block aligns alleles between summary stats and LD matrix
         temp_harmonized_data <- harmonized_data
-        
+
         # Identify SNPs in harmonized_data that need allele flipping to match LD matrix conventions
         # This assumes LD matrix from ieugwasr might have specific allele orders in its _A_G suffix (though we removed it)
         # The core idea is to match the SNP IDs first.

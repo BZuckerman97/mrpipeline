@@ -7,37 +7,38 @@
 run_coloc_pipeline(
   exposure_data,
   outcome_gwas_path,
-  exposure_name = "Exposure",
-  outcome_name = "Outcome",
+  exposure_name,
+  outcome_name,
   exposure_type = "quant",
   outcome_type = "cc",
   exposure_n = NULL,
   outcome_n,
   outcome_s = NULL,
   exposure_sdY = 1,
-  out_snp_col = "SNP",
-  out_beta_col = "BETA",
-  out_se_col = "SE",
-  out_eaf_col = "EAF",
-  out_effect_allele_col = "A1",
-  out_other_allele_col = "A2",
-  out_pval_col = "PVAL",
-  out_chr_col = "CHR",
-  out_pos_col = "BP",
+  out_snp_col,
+  out_beta_col,
+  out_se_col,
+  out_eaf_col,
+  out_effect_allele_col,
+  out_other_allele_col,
+  out_pval_col,
+  out_chr_col,
+  out_pos_col,
   out_n_col = NULL,
   perform_coloc_abf = TRUE,
   perform_susie = TRUE,
   perform_coloc_prop_test = TRUE,
+  mhc_remove = FALSE,
   gene_chr,
   gene_start,
   gene_end,
   window_kb = 200,
   ld_bfile_path,
   plink_bin_path = NULL,
-  coloc_p1 = 1e-04,
-  coloc_p2 = 1e-04,
-  coloc_p12 = 1e-05,
-  output_dir = "coloc_susie_results",
+  coloc_p1,
+  coloc_p2,
+  coloc_p12,
+  output_dir,
   verbose = TRUE
 )
 }
@@ -46,9 +47,7 @@ run_coloc_pipeline(
 Expected to have columns like SNP, beta.exposure, se.exposure,
 eaf.exposure, effect_allele.exposure, other_allele.exposure,
 pval.exposure, chr.exposure, pos.exposure, samplesize.exposure (optional).
-This can be the output of functions like \code{format_pqtl_decode} or \code{format_pqtl_ukbppp}.}
-
-\item{outcome_gwas_path}{Path to the outcome GWAS summary statistics file.}
+This can be the output of functions like \code{format_pqtl_decode} or \code{format_pqtl_ukbppp} or \code{format_single_cell_onek1k}.}
 
 \item{exposure_name}{Character string, name for the exposure trait.}
 
@@ -95,6 +94,8 @@ Assumed to be 1 if betas are standardized. Default 1.}
 \item{perform_coloc_prop_test}{Logical, whether to run \code{colocPropTest}.
 Requires \code{perform_susie} to be TRUE.}
 
+\item{mhc_remove}{Logical, whether to remove the MHC region}
+
 \item{gene_chr}{Character or Integer, chromosome of the gene/region of interest.}
 
 \item{gene_start}{Integer, start position of the gene/region.}
@@ -116,6 +117,8 @@ Requires \code{perform_susie} to be TRUE.}
 \item{output_dir}{Path to a directory where results and logs might be saved.}
 
 \item{verbose}{Logical, whether to print progress messages.}
+
+\item{outcome_gwas}{A data frame containing the outcome GWAS summary statistics file.}
 }
 \value{
 A list containing results from the requested analyses.
