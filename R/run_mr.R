@@ -144,6 +144,26 @@ validate_instrument_region_arg(instrument_region)
         harmonised_data_frame <- harmonised_data_frame |>
           dplyr::filter(!duplicated(SNP))
 
+#' Make sure no NA present in the exposure or outcome SNPs beta or se columns
+
+        dropped <- harmonised_data_frame %>%
+          dplyr::filter(dplyr::if_any(
+            c(beta.exposure, se.exposure, beta.outcome, se.outcome),
+            ~ is.na(.x) | !is.finite(.x)
+          ))
+
+        if (nrow(dropped) > 0) {
+          message("Dropping ", nrow(dropped), " SNPs due to missing/invalid beta or se: ",
+                  paste(dropped$SNP, collapse = ", "))
+        }
+
+        harmonised_data_frame <- harmonised_data_frame %>%
+          dplyr::filter(dplyr::if_all(
+            c(beta.exposure, se.exposure, beta.outcome, se.outcome),
+            ~ !is.na(.x) & is.finite(.x)
+          ))
+
+
         if (nrow(harmonised_data_frame) == 0) {
           warning(paste0("Skipping ", exposure_id))
           warning("No variants remaining after harmonising")
