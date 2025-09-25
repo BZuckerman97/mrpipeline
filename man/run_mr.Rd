@@ -50,4 +50,5 @@ To filer for appropriate gene window
 This needs to be done before the function starts
 Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
 Make sure no NA present in the exposure or outcome SNPs beta or se columns
+Filtering mr_keep for TRUE
 }
