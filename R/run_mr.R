@@ -188,7 +188,7 @@ harmonised_data_frame <- harmonised_data_frame %>%
               ),
               # Clumping (i.e., excluding the variants that are correlated with each other); you'll need the 1000G LD reference file for this
               plink_bin = genetics.binaRies::get_plink_binary(),
-              clump_kb = 10000,
+              clump_kb = 10000, #put in the argument for run_mr() can put clump_kb = 10000
               clump_r2 = rsq_thresh,
               bfile = bfile
             )
