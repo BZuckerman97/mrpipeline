@@ -9,7 +9,7 @@
 #'                      eaf.exposure, effect_allele.exposure, other_allele.exposure,
 #'                      pval.exposure, chr.exposure, pos.exposure, samplesize.exposure (optional).
 #'                      This can be the output of functions like `format_pqtl_decode` or `format_pqtl_ukbppp` or `format_single_cell_onek1k`.
-#' @param outcome_gwas A data frame containing the outcome GWAS summary statistics file.
+#' @param outcome_gwas_path A data frame containing the outcome GWAS summary statistics file.
 #' @param exposure_name Character string, name for the exposure trait.
 #' @param outcome_name Character string, name for the outcome trait.
 #' @param exposure_type Character, type of exposure trait ("quant" or "cc").
@@ -382,7 +382,9 @@ run_coloc_pipeline <- function(
           if (!is.null(coloc_signals_res) && nrow(coloc_signals_res$summary) > 0) {
             if(requireNamespace("colocPropTest", quietly = TRUE)) {
                 # coloc.prop.test expects the output of coloc.signals
-                coloc_prop_res <- colocPropTest::coloc.prop.test(coloc_signals_res)
+                coloc_prop_fn <- get("coloc.prop.test",
+                                     envir = asNamespace("colocPropTest"))
+                coloc_prop_res <- coloc_prop_fn(coloc_signals_res)
                 results_list$coloc_prop_test_results <- coloc_prop_res
             } else {
                 warning("colocPropTest package not installed. Skipping this step.")

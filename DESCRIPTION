@@ -10,22 +10,29 @@ Description: Pipeline to perform forward mendelian randomization analyses, inclu
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
-Depends: R (>= 4.0.0)
-Imports: 
-    dplyr,
-    genetics.binaRies,
-    ieugwasr,
-    MendelianRandomization,
-    tibble,
-    TwoSampleMR,
+RoxygenNote: 7.3.3
+Depends: R (>= 4.1.0)
+Imports:
     coloc,
-    colocPropTest,
-    utils,
     data.table,
-    rlang,
+    dplyr,
+    genetics.binaRies (>= 0.1.1),
+    ieugwasr (>= 1.0.2),
+    MendelianRandomization (>= 0.10.0),
     purrr,
+    rlang,
     Rmpfr,
-    magrittr
-Additional_repositories: 
+    TwoSampleMR (>= 0.6.8),
+    utils
+Additional_repositories:
   https://mrcieu.r-universe.dev
+Suggests:
+    biomaRt,
+    cli (>= 3.6.3),
+    colocPropTest,
+    knitr,
+    rmarkdown,
+    stringr (>= 1.5.1),
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3

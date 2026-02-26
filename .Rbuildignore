@@ -4,3 +4,9 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^README\.Rmd$
+^\.claude$
+^\.devcontainer$
+^\.vscode$
+^CLAUDE\.md$
+^Dockerfile$
+^history_database$

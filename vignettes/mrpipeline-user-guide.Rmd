@@ -1,0 +1,85 @@
+---
+title: "mrpipeline User Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{mrpipeline User Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+<!-- TODO: brief package description and when to use it -->
+
+## Setting Up an LD Reference Panel
+
+<!-- TODO: explain when a local bfile is needed (batch, ld_correct, coloc) vs API -->
+<!-- TODO: download instructions for 1000 Genomes EUR panel -->
+<!-- TODO: expected file structure (bfile prefix: .bed/.bim/.fam) -->
+
+## Formatting Exposure Data
+
+<!-- TODO: format_pqtl_decode() example -->
+<!-- TODO: format_pqtl_ukbppp() example -->
+<!-- TODO: format_single_cell_onek1k() example -->
+<!-- TODO: TwoSampleMR::format_data() for other sources -->
+<!-- TODO: required outcome columns: rsids, chr, pos, beta, se, eaf, pval, n, effect_allele, other_allele -->
+
+## Running MR Analyses
+
+### Cis-MR (quick start with API clumping)
+
+<!-- TODO: minimal example without bfile -->
+
+### Cis-MR with local LD reference (recommended)
+
+<!-- TODO: full example with bfile -->
+
+### Sensitivity analyses
+
+<!-- TODO: Egger, weighted median, PRESSO, ConMix, Steiger examples -->
+
+### LD-corrected IVW
+
+<!-- TODO: ld_correct = TRUE example with bfile -->
+
+### Genome-wide MR
+
+<!-- TODO: genome-wide example -->
+
+### Manual instrument sets
+
+<!-- TODO: instruments = c("rs...") example -->
+
+## Interpreting MR Results
+
+<!-- TODO: print/summary methods -->
+<!-- TODO: F-statistics and what they mean -->
+<!-- TODO: Steiger filtering -->
+<!-- TODO: methods_skipped -->
+
+## Colocalization
+
+### Quick colocalization (ABF only)
+
+<!-- TODO: run_coloc(..., methods = "abf") -->
+
+### Full colocalization (SuSiE + signals)
+
+<!-- TODO: run_coloc() full example -->
+
+### Case-control outcomes
+
+<!-- TODO: outcome_type = "cc", outcome_s = ... -->
+
+## Two-Stage Batch Workflow
+
+<!-- TODO: Stage 1 (IVW screen, all proteins) → Stage 2 (sensitivity + coloc, p < 0.05) -->
+<!-- TODO: reference run_decode_iop_pipeline.R pattern -->

@@ -56,7 +56,7 @@ format_pqtl_ukbppp <- function(ukbppp,
       pval = dplyr::all_of("LOG10P"),
       chr = dplyr::all_of("CHROM"),
       n = dplyr::all_of("N"),
-      pos = dplyr::all_of("GENPOS") #' Is there a way of altering this dependent on whether you use a build37 or build38 data
+      pos = dplyr::all_of("GENPOS") # Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) |>
     dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr))) |>  #change 23 to X if needed
     dplyr::mutate(pval = 10 ^ -pval) # Convert LOG10P into P
@@ -146,8 +146,8 @@ format_pqtl_ukbppp <- function(ukbppp,
 #'
 #' @examples
 #' \dontrun{
-#' Assuming you have a linker file and the deCODE data directory
-#' synapse_id
+#' # Assuming you have a linker file and the deCODE data directory
+#' synapse_id <- "syn12345678"
 #' olink_linker_file <- "path/to/your/olink_linker_file.csv"
 #' olink_dir <- "path/to/olink_dir"
 #' olink_rsid_dir <- "path/to/olink_rsid_dir"
