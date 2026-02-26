@@ -1,0 +1,135 @@
+---
+title: "mrpipeline Developer Guide"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{mrpipeline Developer Guide}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Package Architecture
+
+<!-- TODO: diagram/description of run_mr() → helpers → TwoSampleMR/ieugwasr -->
+<!-- TODO: diagram/description of run_coloc() → helpers → coloc/SuSiE -->
+
+## S3 Classes
+
+### `mr_result`
+
+<!-- TODO: full structure documentation (results, instruments, f_stats, steiger, methods_skipped, ld_matrix, params) -->
+<!-- TODO: print.mr_result() and summary.mr_result() -->
+
+### `coloc_result`
+
+<!-- TODO: full structure documentation -->
+<!-- TODO: print.coloc_result() and summary.coloc_result() -->
+
+## Internal Helper Functions
+
+All helpers live in `R/helpers.R`, are tagged `@keywords internal`, and are not exported.
+
+### `harmonise_and_filter()`
+
+<!-- TODO: document purpose, inputs, outputs -->
+
+### `compute_ld_matrix()`
+
+<!-- TODO: document purpose, inputs, outputs, why bfile is always required -->
+
+### `clump_instruments()`
+
+<!-- TODO: document pseudo-p-value approach, API vs local mode, session-level message suppression -->
+
+### `align_to_ld_matrix()`
+
+<!-- TODO: document intersect-and-reorder approach (simplified from allele-flip logic) -->
+
+### `in_mhc_region()`, `eaf_to_maf()`, `resolve_sample_size()`
+
+<!-- TODO: brief documentation for each -->
+
+## Code Conventions
+
+### Messages, Warnings, and Errors
+
+Always use the `cli` package. Never use `message()`, `warning()`, or `stop()` directly.
+
+```r
+cli::cli_inform("Processing {protein}...")      # informational (goes to stderr)
+cli::cli_warn("Only {n} SNP(s) available.")     # warning
+cli::cli_abort("bfile is required for coloc.")  # error (stops execution)
+```
+
+The `verbose` parameter is a **planned future feature**. When implemented, all `cli::cli_inform()` calls should be gated behind it.
+
+### Pipe
+
+Use the native `|>` pipe exclusively. Never use `%>%` from magrittr.
+
+### String Operations
+
+Prefer `stringr` functions over base R equivalents:
+
+```r
+# Good
+stringr::str_remove(x, "_.*")
+stringr::str_detect(x, "^chr")
+stringr::str_replace(x, "chr", "")
+
+# Avoid
+gsub("_.*", "", x)
+grepl("^chr", x)
+sub("chr", "", x)
+```
+
+### Namespace
+
+Prefer `pkg::fn()` over `@importFrom`. Only add `@importFrom` entries when a function is called very frequently in a hot path.
+
+### Documentation
+
+- All exported functions: `@param`, `@return`, `@examples`, `@seealso`, `@family`
+- Internal helpers: `@keywords internal` only; no `@export`
+- When modifying an exported function, update its roxygen docs AND this vignette in the same commit
+
+## Adding New MR Methods
+
+<!-- TODO: where to add method dispatch logic in run_mr() -->
+<!-- TODO: how to update method count table and methods_skipped -->
+<!-- TODO: how to update mr_result structure if needed -->
+
+## Adding New Coloc Methods
+
+<!-- TODO: where to add in run_coloc() -->
+<!-- TODO: how to update coloc_result structure if needed -->
+
+## Test Data
+
+<!-- TODO: cd40_sumstats — raw UKB-PPP format for format_pqtl_ukbppp() tests -->
+<!-- TODO: cd40_exposure — pre-formatted TwoSampleMR exposure format -->
+<!-- TODO: sjogren_sumstats — raw outcome format -->
+<!-- TODO: sjogren_outcome — pre-formatted TwoSampleMR outcome format -->
+<!-- TODO: inst/extdata/ — minimal LD reference panel (chr20 CD40 region, EUR) -->
+<!-- TODO: how to regenerate/extend test data -->
+
+## PR Checklist
+
+Before opening any pull request:
+
+1. `air format .` — auto-format R files (CLI tool)
+2. `lintr::lint_package()` — fix any lint warnings
+3. `pkgdown::build_site()` — confirm site builds without errors
+4. `devtools::check()` — must produce 0 errors, 0 warnings
+5. `devtools::test()` — all tests must pass
+
+## Contributing
+
+<!-- TODO: branch naming convention (phase-N/short-description) -->
+<!-- TODO: GitHub issue → feature branch → PR to dev workflow -->

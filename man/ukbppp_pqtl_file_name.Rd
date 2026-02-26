@@ -28,8 +28,8 @@ UKBPPP_PQTL_FILE_NAME
 }
 \examples{
 \dontrun{
-Assuming you have a linker file and the deCODE data directory
-synapse_id
+# Assuming you have a linker file and the deCODE data directory
+synapse_id <- "syn12345678"
 olink_linker_file <- "path/to/your/olink_linker_file.csv"
 olink_dir <- "path/to/olink_dir"
 olink_rsid_dir <- "path/to/olink_rsid_dir"

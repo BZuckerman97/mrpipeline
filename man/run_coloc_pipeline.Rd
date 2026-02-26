@@ -49,6 +49,8 @@ eaf.exposure, effect_allele.exposure, other_allele.exposure,
 pval.exposure, chr.exposure, pos.exposure, samplesize.exposure (optional).
 This can be the output of functions like \code{format_pqtl_decode} or \code{format_pqtl_ukbppp} or \code{format_single_cell_onek1k}.}
 
+\item{outcome_gwas_path}{A data frame containing the outcome GWAS summary statistics file.}
+
 \item{exposure_name}{Character string, name for the exposure trait.}
 
 \item{outcome_name}{Character string, name for the outcome trait.}
@@ -117,8 +119,6 @@ Requires \code{perform_susie} to be TRUE.}
 \item{output_dir}{Path to a directory where results and logs might be saved.}
 
 \item{verbose}{Logical, whether to print progress messages.}
-
-\item{outcome_gwas}{A data frame containing the outcome GWAS summary statistics file.}
 }
 \value{
 A list containing results from the requested analyses.

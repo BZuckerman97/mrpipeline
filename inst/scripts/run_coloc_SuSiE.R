@@ -66,8 +66,8 @@ run_single_mr <- function(exposure_file, outcome_file) {
     res <- mr(dat, method_list = methods)
 
     # 5. Augment results with file info and return
-    res %>%
-      mutate(
+    res |>
+      dplyr::mutate(
         exposure_file = basename(exposure_file),
         outcome_file = basename(outcome_file)
       )

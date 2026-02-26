@@ -15,11 +15,9 @@
 #'
 #' @return List with 2 data frames - MR results and instruments
 #' @export
-#' @examples
-
 run_mr <- function(exposure,
                    exposure_id,
-                   outcome, #' this needs to be the formatted summary statistics for the outcome GWAS
+                   outcome, # this needs to be the formatted summary statistics for the outcome GWAS
                    outcome_id,
                    mhc_remove,
                    # sumstats_info,
@@ -46,7 +44,7 @@ validate_instrument_region_arg(instrument_region)
 
 # Filter exposure for IVs ----------------------------------------------------------
 
-  #' To filter out MHC region
+  # To filter out MHC region
   if (mhc_remove == 1 && "chr.exposure" %in% colnames(exposure)) {
     message("Assessing whether MHC region is present and should be removed")
 
@@ -63,7 +61,7 @@ validate_instrument_region_arg(instrument_region)
     }
 
     # Filter out any SNPs in MHC region
-    exposure <- exposure %>%
+    exposure <- exposure |>
       dplyr::filter(!(chr.exposure == mhc_chr &
                         pos.exposure >= mhc_start &
                         pos.exposure <= mhc_end))
@@ -74,12 +72,12 @@ validate_instrument_region_arg(instrument_region)
     warning("chr.exposure column not found in exposure data - MHC filter skipped")
   }
 
-  #' To filer for appropriate gene window
+  # To filter for appropriate gene window
   exposure <- exposure |>
     dplyr::filter(pos.exposure > (instrument_region$start - window) & pos.exposure < (instrument_region$end + window)) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region), uses build 37 positions
     dplyr::filter(pval.exposure < pval_thresh)                                                                                   # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
 
-  #' This needs to be done before the function starts
+  # This needs to be done before the function starts
   #exposure$CHROM <-
     #  ifelse(exposure$CHROM == 23, "X", exposure$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
 
@@ -91,9 +89,9 @@ validate_instrument_region_arg(instrument_region)
       warning("No significant cis pQTLs")
     } else {
       # Only selecting the chromosome of interest to speed up stuff downstream from here
-      #' Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
+      # Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
       outcome_overlap <- outcome |>
-        dplyr::filter(chr %in% exposure$chr.exposure) # |> #' CHROM needs to change to chr.exposure
+        dplyr::filter(chr %in% exposure$chr.exposure) # |> # CHROM needs to change to chr.exposure
       #  dplyr::filter(pos %in% exposure$pos.exposure) - TO HIDE THIS UNTIL I CAN TOGGLE BETWEEN BUILD 37 OR BUILD 38 IN THE FORMAT PQTL DATA
       # Only selecting the variants that are overlapping between exposure and outcome sum stats
 
@@ -144,9 +142,9 @@ validate_instrument_region_arg(instrument_region)
         harmonised_data_frame <- harmonised_data_frame |>
           dplyr::filter(!duplicated(SNP))
 
-#' Make sure no NA present in the exposure or outcome SNPs beta or se columns
+# Make sure no NA present in the exposure or outcome SNPs beta or se columns
 
-        dharmonised_data_frame <- harmonised_data_frame %>%
+        dharmonised_data_frame <- harmonised_data_frame |>
           dplyr::filter(
             !is.na(beta.exposure),
             !is.na(se.exposure),
@@ -161,7 +159,7 @@ validate_instrument_region_arg(instrument_region)
         }
 
 # The code below calculates the absolute p-values and generates pseudo p-values to ensure that each SNP is properly ranked by PLINK.
-harmonised_data_frame <- harmonised_data_frame %>%
+harmonised_data_frame <- harmonised_data_frame |>
   dplyr::mutate(
     z = beta.exposure / se.exposure,
     log10p = sapply(
@@ -173,8 +171,8 @@ harmonised_data_frame <- harmonised_data_frame %>%
     )
   )
 
-harmonised_data_frame <- harmonised_data_frame %>%
-  dplyr::arrange(desc(log10p)) %>%
+harmonised_data_frame <- harmonised_data_frame |>
+  dplyr::arrange(desc(log10p)) |>
   dplyr::mutate(pseudo_p = seq(from = 1e-100, to = 0.9, length.out = n()))
 
 # Clump -------------------------------------------------------------------
@@ -195,7 +193,7 @@ harmonised_data_frame <- harmonised_data_frame %>%
           harmonised_clumped_final_data_frame <- harmonised_data_frame |>
             dplyr::filter(harmonised_data_frame$SNP %in% clump$rsid)
 
-          #' Filtering mr_keep for TRUE
+          # Filtering mr_keep for TRUE
           harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame |>
             dplyr::filter(mr_keep == "TRUE")
 
