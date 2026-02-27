@@ -10,6 +10,10 @@
 #'   values are reasons for skipping.
 #' @param ld_matrix LD correlation matrix if `ld_correct = TRUE`, or `NULL`.
 #' @param params List of all input parameters to `run_mr()`.
+#' @param status Character. One of `"success"`, `"no_instruments"`,
+#'   `"no_harmonised_variants"`. Default `"success"`.
+#' @param status_reason Character or `NULL`. Human-readable explanation when
+#'   `status != "success"`.
 #'
 #' @return An object of class `mr_result`.
 #'
@@ -20,7 +24,9 @@ new_mr_result <- function(results = data.frame(),
                           steiger = NULL,
                           methods_skipped = character(),
                           ld_matrix = NULL,
-                          params = list()) {
+                          params = list(),
+                          status = "success",
+                          status_reason = NULL) {
   structure(
     list(
       results = results,
@@ -29,7 +35,9 @@ new_mr_result <- function(results = data.frame(),
       steiger = steiger,
       methods_skipped = methods_skipped,
       ld_matrix = ld_matrix,
-      params = params
+      params = params,
+      status = status,
+      status_reason = status_reason
     ),
     class = "mr_result"
   )
@@ -47,6 +55,12 @@ new_mr_result <- function(results = data.frame(),
 #'
 #' @export
 print.mr_result <- function(x, ...) {
+  if (x$status != "success") {
+    reason <- x$status_reason %||% "unknown reason"
+    cli::cli_inform("mr_result: {x$status} \u2014 {reason}")
+    return(invisible(x))
+  }
+
   if (nrow(x$results) == 0) {
     cli::cli_inform("mr_result: no results (all methods failed or skipped)")
     return(invisible(x))
@@ -80,6 +94,12 @@ print.mr_result <- function(x, ...) {
 #' @export
 summary.mr_result <- function(object, ...) {
   cli::cli_h1("MR Results: {object$params$exposure_id} -> {object$params$outcome_id}")
+
+  if (object$status != "success") {
+    reason <- object$status_reason %||% "unknown reason"
+    cli::cli_alert_warning("Status: {object$status} \u2014 {reason}")
+    return(invisible(object))
+  }
 
   if (nrow(object$results) == 0) {
     cli::cli_alert_warning("No results available.")

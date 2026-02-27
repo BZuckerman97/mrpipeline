@@ -54,9 +54,79 @@ knitr::opts_chunk$set(
 
 <!-- TODO: genome-wide example -->
 
+### Excluding genomic regions
+
+Use the `exclude_regions` argument to remove instruments falling in specific
+genomic regions. This is commonly used to exclude the MHC region on chromosome
+6, which can introduce spurious associations due to complex LD structure.
+
+Supply a data frame with columns `chr`, `start`, and `end`:
+
+```{r exclude-mhc, eval = FALSE}
+# Exclude MHC region (GRCh37 coordinates: chr6:28,477,797–33,448,354)
+mhc_grch37 <- data.frame(chr = "6", start = 28477797, end = 33448354)
+
+result <- run_mr(
+  exposure = exposure_data,
+  exposure_id = "PCSK9",
+  outcome = outcome_data,
+  outcome_id = "CHD",
+  exclude_regions = mhc_grch37
+)
+
+# GRCh38 coordinates: chr6:28,510,120–33,480,577
+mhc_grch38 <- data.frame(chr = "6", start = 28510120, end = 33480577)
+```
+
+You can exclude multiple regions by stacking rows. For example, when studying
+age-related macular degeneration (AMD), you might exclude both the CFH and
+ARMS2/HTRA1 loci:
+
+```{r exclude-multi, eval = FALSE}
+amd_exclusions <- data.frame(
+  chr = c("1", "10"),
+  start = c(196621008, 124214077),
+  end = c(196716634, 124274424)
+)
+
+result <- run_mr(
+  exposure = exposure_data,
+  exposure_id = "CFH",
+  outcome = outcome_data,
+  outcome_id = "AMD",
+  exclude_regions = amd_exclusions
+)
+```
+
 ### Manual instrument sets
 
-<!-- TODO: instruments = c("rs...") example -->
+You can bypass automatic instrument selection by supplying a character vector
+of rsIDs to the `instruments` argument:
+
+```{r manual-instruments, eval = FALSE}
+result <- run_mr(
+  exposure = exposure_data,
+  exposure_id = "PCSK9",
+  outcome = outcome_data,
+  outcome_id = "CHD",
+  instruments = c("rs11591147", "rs2479409", "rs11583680")
+)
+```
+
+By default, instruments missing from the exposure data produce a warning but
+the analysis continues with the available SNPs. Set `instruments_strict = TRUE`
+to error instead:
+
+```{r manual-strict, eval = FALSE}
+result <- run_mr(
+  exposure = exposure_data,
+  exposure_id = "PCSK9",
+  outcome = outcome_data,
+  outcome_id = "CHD",
+  instruments = c("rs11591147", "rs2479409"),
+  instruments_strict = TRUE
+)
+```
 
 ## Interpreting MR Results
 

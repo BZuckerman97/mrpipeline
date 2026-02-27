@@ -29,9 +29,44 @@ test_that("run_mr validates methods argument", {
   )
 })
 
+test_that("run_mr validates exclude_regions argument", {
+  expect_error(
+    run_mr(
+      exposure = data.frame(),
+      exposure_id = "test",
+      outcome = data.frame(),
+      outcome_id = "test",
+      exclude_regions = "not_a_df"
+    ),
+    "data frame"
+  )
+
+  expect_error(
+    run_mr(
+      exposure = data.frame(),
+      exposure_id = "test",
+      outcome = data.frame(),
+      outcome_id = "test",
+      exclude_regions = data.frame(chr = "6", start = 34e6, end = 26e6)
+    ),
+    "start.*<=.*end"
+  )
+
+  expect_error(
+    run_mr(
+      exposure = data.frame(),
+      exposure_id = "test",
+      outcome = data.frame(),
+      outcome_id = "test",
+      exclude_regions = data.frame(chr = "6")
+    ),
+    "missing"
+  )
+})
+
 # --- Instrument selection: manual mode --------------------------------------
 
-test_that("run_mr returns NULL with warning when manual instruments not found", {
+test_that("run_mr returns mr_result with no_instruments when manual instruments not found", {
   exposure <- data.frame(
     SNP = "rs1",
     beta.exposure = 0.1,
@@ -63,7 +98,9 @@ test_that("run_mr returns NULL with warning when manual instruments not found", 
       "No manual instruments"
     )
   )
-  expect_null(result)
+  expect_s3_class(result, "mr_result")
+  expect_equal(result$status, "no_instruments")
+  expect_true(nchar(result$status_reason) > 0)
 })
 
 test_that("run_mr errors with instruments_strict = TRUE for missing instruments", {
@@ -97,7 +134,7 @@ test_that("run_mr errors with instruments_strict = TRUE for missing instruments"
 
 # --- Instrument selection: cis-MR mode --------------------------------------
 
-test_that("run_mr returns NULL when no instruments in cis region", {
+test_that("run_mr returns mr_result with no_instruments when no instruments in cis region", {
   exposure <- data.frame(
     SNP = "rs1",
     beta.exposure = 0.1,
@@ -126,12 +163,14 @@ test_that("run_mr returns NULL when no instruments in cis region", {
     ),
     "No significant instruments"
   )
-  expect_null(result)
+  expect_s3_class(result, "mr_result")
+  expect_equal(result$status, "no_instruments")
+  expect_true(nchar(result$status_reason) > 0)
 })
 
 # --- Instrument selection: genome-wide mode ---------------------------------
 
-test_that("run_mr returns NULL when no genome-wide significant instruments", {
+test_that("run_mr returns mr_result with no_instruments when no genome-wide significant instruments", {
   exposure <- data.frame(
     SNP = "rs1",
     beta.exposure = 0.1,
@@ -157,16 +196,17 @@ test_that("run_mr returns NULL when no genome-wide significant instruments", {
     ),
     "No genome-wide significant"
   )
-  expect_null(result)
+  expect_s3_class(result, "mr_result")
+  expect_equal(result$status, "no_instruments")
+  expect_true(nchar(result$status_reason) > 0)
 })
 
-# --- MHC removal -----------------------------------------------------------
+# --- Region exclusion -------------------------------------------------------
 
-test_that("run_mr removes MHC instruments when mhc_remove = TRUE", {
+test_that("run_mr removes instruments in excluded regions", {
   skip_if_not_installed("TwoSampleMR")
 
-  # All instruments in MHC
-
+  # All instruments in MHC-like region
   exposure <- data.frame(
     SNP = c("rs1", "rs2"),
     beta.exposure = c(0.1, 0.2),
@@ -184,6 +224,8 @@ test_that("run_mr removes MHC instruments when mhc_remove = TRUE", {
     stringsAsFactors = FALSE
   )
 
+  mhc_region <- data.frame(chr = "6", start = 26e6, end = 34e6)
+
   expect_warning(
     result <- run_mr(
       exposure = exposure,
@@ -191,11 +233,12 @@ test_that("run_mr removes MHC instruments when mhc_remove = TRUE", {
       outcome = data.frame(),
       outcome_id = "test_out",
       instruments = c("rs1", "rs2"),
-      mhc_remove = TRUE
+      exclude_regions = mhc_region
     ),
-    "MHC region"
+    "excluded regions"
   )
-  expect_null(result)
+  expect_s3_class(result, "mr_result")
+  expect_equal(result$status, "no_instruments")
 })
 
 # --- mr_result S3 class -----------------------------------------------------
@@ -222,6 +265,15 @@ test_that("mr_result print works with results", {
   expect_message(print(res), "exp1")
 })
 
+test_that("mr_result print shows status for failed results", {
+  res <- new_mr_result(
+    status = "no_instruments",
+    status_reason = "No significant instruments in cis region for 'PCSK9'"
+  )
+  expect_message(print(res), "no_instruments")
+  expect_message(print(res), "PCSK9")
+})
+
 test_that("mr_result summary works", {
   res <- new_mr_result(
     results = data.frame(
@@ -239,6 +291,15 @@ test_that("mr_result summary works", {
     params = list(exposure_id = "exp1", outcome_id = "out1")
   )
   expect_message(summary(res), "MR Results")
+})
+
+test_that("mr_result summary shows status for failed results", {
+  res <- new_mr_result(
+    status = "no_instruments",
+    status_reason = "All instruments removed",
+    params = list(exposure_id = "exp1", outcome_id = "out1")
+  )
+  expect_message(summary(res), "no_instruments")
 })
 
 # --- Single instrument Wald ratio (with mock) --------------------------------
@@ -293,6 +354,7 @@ test_that("run_mr returns Wald ratio for single instrument", {
   })
 
   expect_s3_class(result, "mr_result")
+  expect_equal(result$status, "success")
   expect_equal(nrow(result$results), 1)
   expect_equal(result$results$method, "Wald ratio")
 

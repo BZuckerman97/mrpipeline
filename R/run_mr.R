@@ -50,8 +50,9 @@
 #'   `NULL`.
 #' @param instruments_strict Logical. If `TRUE`, error when manual instruments
 #'   are missing from exposure data. If `FALSE`, warn. Default `FALSE`.
-#' @param mhc_remove Logical. Remove instruments in the MHC region
-#'   (chr6:26-34Mb). Default `FALSE`.
+#' @param exclude_regions Data frame with columns `chr`, `start`, `end` defining
+#'   genomic regions to exclude instruments from, or `NULL`. For example, to
+#'   exclude the MHC region: `data.frame(chr = "6", start = 26e6, end = 34e6)`.
 #' @param methods Character vector of MR methods to run. Options: `"ivw"`,
 #'   `"egger"`, `"weighted_median"`, `"presso"`, `"conmix"`, `"steiger"`.
 #' @param ld_correct Logical. Use LD-corrected IVW/Egger via the
@@ -61,7 +62,8 @@
 #' @param presso_n_dist Integer. Number of distributions for MR-PRESSO. Default
 #'   `1000`.
 #'
-#' @return An `mr_result` object, or `NULL` if no instruments survive filtering.
+#' @return An `mr_result` object. Check `result$status` for `"success"` vs
+#'   failure reasons.
 #'
 #' @export
 run_mr <- function(exposure,
@@ -77,7 +79,7 @@ run_mr <- function(exposure,
                    pop = "EUR",
                    instruments = NULL,
                    instruments_strict = FALSE,
-                   mhc_remove = FALSE,
+                   exclude_regions = NULL,
                    methods = c("ivw", "egger", "weighted_median",
                                "presso", "conmix", "steiger"),
                    ld_correct = FALSE,
@@ -96,6 +98,10 @@ run_mr <- function(exposure,
     several.ok = TRUE
   )
 
+  if (!is.null(exclude_regions)) {
+    validate_exclude_regions(exclude_regions)
+  }
+
   params <- list(
     exposure_id = exposure_id,
     outcome_id = outcome_id,
@@ -107,7 +113,7 @@ run_mr <- function(exposure,
     pop = pop,
     instruments = instruments,
     instruments_strict = instruments_strict,
-    mhc_remove = mhc_remove,
+    exclude_regions = exclude_regions,
     methods = methods,
     ld_correct = ld_correct,
     exposure_n = exposure_n,
@@ -133,7 +139,11 @@ run_mr <- function(exposure,
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn("No manual instruments found in exposure data.")
-      return(NULL)
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = "No manual instruments found in exposure data",
+        params = params
+      ))
     }
   } else if (!is.null(instrument_region)) {
     # Cis-MR mode
@@ -149,7 +159,13 @@ run_mr <- function(exposure,
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn("No significant instruments in cis region for {.val {exposure_id}}.")
-      return(NULL)
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No significant instruments in cis region for '", exposure_id, "'"
+        ),
+        params = params
+      ))
     }
 
     # Clump
@@ -172,7 +188,13 @@ run_mr <- function(exposure,
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn("No instruments remaining after clumping for {.val {exposure_id}}.")
-      return(NULL)
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No instruments remaining after clumping for '", exposure_id, "'"
+        ),
+        params = params
+      ))
     }
   } else {
     # Genome-wide mode
@@ -183,7 +205,13 @@ run_mr <- function(exposure,
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn("No genome-wide significant instruments for {.val {exposure_id}}.")
-      return(NULL)
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No genome-wide significant instruments for '", exposure_id, "'"
+        ),
+        params = params
+      ))
     }
 
     # Clump
@@ -206,27 +234,42 @@ run_mr <- function(exposure,
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn("No instruments remaining after clumping for {.val {exposure_id}}.")
-      return(NULL)
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No instruments remaining after clumping for '", exposure_id, "'"
+        ),
+        params = params
+      ))
     }
   }
 
-  # --- MHC removal ----------------------------------------------------------
+  # --- Region exclusion -----------------------------------------------------
 
-  if (mhc_remove && "chr.exposure" %in% colnames(exposure_iv)) {
-    in_mhc <- in_mhc_region(
-      chr = exposure_iv$chr.exposure,
-      start = exposure_iv$pos.exposure,
-      end = exposure_iv$pos.exposure
-    )
+  if (!is.null(exclude_regions) && "chr.exposure" %in% colnames(exposure_iv)) {
+    in_excluded <- rep(FALSE, nrow(exposure_iv))
+    for (i in seq_len(nrow(exclude_regions))) {
+      in_excluded <- in_excluded | (
+        as.character(exposure_iv$chr.exposure) == as.character(exclude_regions$chr[i]) &
+          exposure_iv$pos.exposure >= exclude_regions$start[i] &
+          exposure_iv$pos.exposure <= exclude_regions$end[i]
+      )
+    }
 
-    if (any(in_mhc)) {
-      n_removed <- sum(in_mhc)
-      exposure_iv <- exposure_iv[!in_mhc, ]
-      cli::cli_inform("Removed {n_removed} instrument{?s} in MHC region.")
+    if (any(in_excluded)) {
+      n_removed <- sum(in_excluded)
+      exposure_iv <- exposure_iv[!in_excluded, ]
+      cli::cli_inform("Removed {n_removed} instrument{?s} in excluded region{?s}.")
 
       if (nrow(exposure_iv) == 0) {
-        cli::cli_warn("All instruments for {.val {exposure_id}} are in the MHC region.")
-        return(NULL)
+        cli::cli_warn("All instruments for {.val {exposure_id}} fall in excluded regions.")
+        return(new_mr_result(
+          status = "no_instruments",
+          status_reason = paste0(
+            "All instruments for '", exposure_id, "' fall in excluded regions"
+          ),
+          params = params
+        ))
       }
     }
   }
@@ -255,7 +298,13 @@ run_mr <- function(exposure,
 
   if (nrow(harmonised) == 0) {
     cli::cli_warn("No variants remaining after harmonisation for {.val {exposure_id}}.")
-    return(NULL)
+    return(new_mr_result(
+      status = "no_harmonised_variants",
+      status_reason = paste0(
+        "No variants remaining after harmonisation for '", exposure_id, "'"
+      ),
+      params = params
+    ))
   }
 
   # --- Resolve sample size --------------------------------------------------
@@ -529,4 +578,46 @@ run_mr <- function(exposure,
     ld_matrix = ld_mat,
     params = params
   )
+}
+
+#' Validate exclude_regions argument
+#'
+#' @param exclude_regions Data frame to validate.
+#'
+#' @return Invisibly returns `TRUE` if valid; otherwise aborts with an error.
+#'
+#' @keywords internal
+validate_exclude_regions <- function(exclude_regions) {
+  if (!is.data.frame(exclude_regions)) {
+    cli::cli_abort("{.arg exclude_regions} must be a data frame.")
+  }
+
+  required_cols <- c("chr", "start", "end")
+  missing_cols <- setdiff(required_cols, colnames(exclude_regions))
+  if (length(missing_cols) > 0) {
+    cli::cli_abort(
+      "{.arg exclude_regions} must have columns {.val {required_cols}}; missing {.val {missing_cols}}."
+    )
+  }
+
+  if (!rlang::is_integerish(exclude_regions$start) ||
+    !rlang::is_integerish(exclude_regions$end)) {
+    cli::cli_abort(
+      "{.arg exclude_regions} columns {.val start} and {.val end} must be whole numbers."
+    )
+  }
+
+  if (any(exclude_regions$start < 0) || any(exclude_regions$end < 0)) {
+    cli::cli_abort(
+      "{.arg exclude_regions} columns {.val start} and {.val end} must be positive."
+    )
+  }
+
+  if (any(exclude_regions$start > exclude_regions$end)) {
+    cli::cli_abort(
+      "{.arg exclude_regions}: {.val start} must be <= {.val end} for all rows."
+    )
+  }
+
+  invisible(TRUE)
 }

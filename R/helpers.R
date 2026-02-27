@@ -155,21 +155,6 @@ align_to_ld_matrix <- function(harmonised_data, ld_matrix) {
   list(data = data_out, ld_matrix = ld_out)
 }
 
-#' Check whether a genomic region overlaps the MHC
-#'
-#' The MHC region is defined as chr6:26,000,000-34,000,000 (build 37/38).
-#'
-#' @param chr Chromosome (character or numeric; compared as character).
-#' @param start Region start position.
-#' @param end Region end position.
-#'
-#' @return Logical scalar: `TRUE` if the region overlaps MHC.
-#'
-#' @keywords internal
-in_mhc_region <- function(chr, start, end) {
-  as.character(chr) == "6" & end >= 26e6 & start <= 34e6
-}
-
 #' Convert effect allele frequency to minor allele frequency
 #'
 #' @param eaf Numeric vector of effect allele frequencies.

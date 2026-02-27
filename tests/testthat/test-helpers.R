@@ -1,41 +1,5 @@
 # Tests for internal helper functions in R/helpers.R
 
-# --- in_mhc_region -----------------------------------------------------------
-
-test_that("in_mhc_region returns TRUE for regions overlapping MHC", {
-  # Fully inside MHC (chr6:26-34Mb)
-  expect_true(in_mhc_region("6", 28e6, 30e6))
-  # Overlapping start boundary
-  expect_true(in_mhc_region("6", 25e6, 27e6))
-  # Overlapping end boundary
-  expect_true(in_mhc_region("6", 33e6, 35e6))
-  # Spanning entire MHC
-  expect_true(in_mhc_region("6", 20e6, 40e6))
-  # Exactly at boundaries
-
-  expect_true(in_mhc_region("6", 26e6, 34e6))
-  # Numeric chromosome
-  expect_true(in_mhc_region(6, 28e6, 30e6))
-})
-
-test_that("in_mhc_region returns FALSE for non-MHC regions", {
-  # Wrong chromosome
-  expect_false(in_mhc_region("1", 28e6, 30e6))
-  # Before MHC on chr6
-  expect_false(in_mhc_region("6", 20e6, 25e6))
-  # After MHC on chr6
-  expect_false(in_mhc_region("6", 35e6, 40e6))
-})
-
-test_that("in_mhc_region is vectorised", {
-  result <- in_mhc_region(
-    chr = c("6", "1", "6"),
-    start = c(28e6, 28e6, 35e6),
-    end = c(30e6, 30e6, 40e6)
-  )
-  expect_equal(result, c(TRUE, FALSE, FALSE))
-})
-
 # --- eaf_to_maf --------------------------------------------------------------
 
 test_that("eaf_to_maf converts frequencies correctly", {

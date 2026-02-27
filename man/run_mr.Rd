@@ -18,7 +18,7 @@ run_mr(
   pop = "EUR",
   instruments = NULL,
   instruments_strict = FALSE,
-  mhc_remove = FALSE,
+  exclude_regions = NULL,
   methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
   ld_correct = FALSE,
   exposure_n = NULL,
@@ -63,8 +63,9 @@ Required when \code{ld_correct = TRUE}.}
 \item{instruments_strict}{Logical. If \code{TRUE}, error when manual instruments
 are missing from exposure data. If \code{FALSE}, warn. Default \code{FALSE}.}
 
-\item{mhc_remove}{Logical. Remove instruments in the MHC region
-(chr6:26-34Mb). Default \code{FALSE}.}
+\item{exclude_regions}{Data frame with columns \code{chr}, \code{start}, \code{end} defining
+genomic regions to exclude instruments from, or \code{NULL}. For example, to
+exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 
 \item{methods}{Character vector of MR methods to run. Options: \code{"ivw"},
 \code{"egger"}, \code{"weighted_median"}, \code{"presso"}, \code{"conmix"}, \code{"steiger"}.}
@@ -79,7 +80,8 @@ are missing from exposure data. If \code{FALSE}, warn. Default \code{FALSE}.}
 \code{1000}.}
 }
 \value{
-An \code{mr_result} object, or \code{NULL} if no instruments survive filtering.
+An \code{mr_result} object. Check \code{result$status} for \code{"success"} vs
+failure reasons.
 }
 \description{
 Runs MR with automatic instrument selection (cis-MR, genome-wide, or manual)

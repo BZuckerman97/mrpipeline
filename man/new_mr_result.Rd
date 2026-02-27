@@ -11,7 +11,9 @@ new_mr_result(
   steiger = NULL,
   methods_skipped = character(),
   ld_matrix = NULL,
-  params = list()
+  params = list(),
+  status = "success",
+  status_reason = NULL
 )
 }
 \arguments{
@@ -31,6 +33,12 @@ values are reasons for skipping.}
 \item{ld_matrix}{LD correlation matrix if \code{ld_correct = TRUE}, or \code{NULL}.}
 
 \item{params}{List of all input parameters to \code{run_mr()}.}
+
+\item{status}{Character. One of \code{"success"}, \code{"no_instruments"},
+\code{"no_harmonised_variants"}. Default \code{"success"}.}
+
+\item{status_reason}{Character or \code{NULL}. Human-readable explanation when
+\code{status != "success"}.}
 }
 \value{
 An object of class \code{mr_result}.

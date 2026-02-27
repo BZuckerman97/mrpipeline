@@ -26,6 +26,19 @@ knitr::opts_chunk$set(
 <!-- TODO: full structure documentation (results, instruments, f_stats, steiger, methods_skipped, ld_matrix, params) -->
 <!-- TODO: print.mr_result() and summary.mr_result() -->
 
+Every `run_mr()` call returns an `mr_result` object — even when no instruments
+survive filtering. The `status` field indicates success or failure:
+
+- `"success"` — analysis completed normally
+- `"no_instruments"` — no instruments survived filtering/clumping/exclusion
+- `"no_harmonised_variants"` — harmonisation removed all variants
+
+The `status_reason` field provides a human-readable explanation (e.g.
+`"No significant instruments in cis region for 'PCSK9'"`).
+
+`print.mr_result()` and `summary.mr_result()` display status information for
+non-success results.
+
 ### `coloc_result`
 
 <!-- TODO: full structure documentation -->
@@ -51,7 +64,7 @@ All helpers live in `R/helpers.R`, are tagged `@keywords internal`, and are not 
 
 <!-- TODO: document intersect-and-reorder approach (simplified from allele-flip logic) -->
 
-### `in_mhc_region()`, `eaf_to_maf()`, `resolve_sample_size()`
+### `eaf_to_maf()`, `resolve_sample_size()`
 
 <!-- TODO: brief documentation for each -->
 

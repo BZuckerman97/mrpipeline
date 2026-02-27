@@ -13,7 +13,7 @@
 - `format_single_cell_onek1k()` — Format OneK1K single-cell eQTL data
 
 **Internal helpers** (not exported, in `R/helpers.R`):
-`harmonise_and_filter()`, `compute_ld_matrix()`, `clump_instruments()`, `align_to_ld_matrix()`, `in_mhc_region()`, `eaf_to_maf()`, `resolve_sample_size()`
+`harmonise_and_filter()`, `compute_ld_matrix()`, `clump_instruments()`, `align_to_ld_matrix()`, `eaf_to_maf()`, `resolve_sample_size()`
 
 **S3 classes:** `mr_result` (from `run_mr()`), `coloc_result` (from `run_coloc()`)
 
@@ -57,7 +57,10 @@ stringr::str_starts(x, "rs")       # not startsWith(x, "rs")
 
 **Internal helpers:** Tag with `@keywords internal`; do NOT use `@export`.
 
-**Documentation:** Use roxygen2 for all functions. When modifying an exported function, update its roxygen docs AND the relevant vignette sections in the same commit.
+**Documentation:** Use roxygen2 for all functions. Vignettes (`mrpipeline-user-guide.Rmd`, `mrpipeline-developer-guide.Rmd`) are **living documents** — update them in the same commit as any API change:
+- When adding/changing/removing a function parameter: update roxygen, user guide (usage examples), developer guide (architecture/internals)
+- When adding/removing internal helpers: update the developer guide's helpers section
+- When modifying S3 class structure: update the developer guide's S3 classes section
 
 **`verbose` argument:** Planned future feature. When added, gate all `cli::cli_inform()` calls behind it.
 
