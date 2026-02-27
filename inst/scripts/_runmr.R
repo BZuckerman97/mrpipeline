@@ -10,10 +10,10 @@ library(ieugwasr)
 library(genetics.binaRies)
 library(MendelianRandomization)
 
-synLogin(authToken = Sys.getenv("SYNAPSE_TOKEN"))              # This is to log in to the Synapse platform, needed to gain access to the protein sum stats
+synLogin(authToken = Sys.getenv("SYNAPSE_TOKEN")) # This is to log in to the Synapse platform, needed to gain access to the protein sum stats
 
 sumstats_info <-
-  fread("olink_protein_map_3k_v1.tsv")                   # Information on the sum stats / protein codes etc.; functions as a linker file
+  fread("olink_protein_map_3k_v1.tsv") # Information on the sum stats / protein codes etc.; functions as a linker file
 
 # Download summary statistics; altered Art's code as no Chr 23 data within the summary statistics
 # pss <- fread("data/sjogrens_6098_34928.txt")
@@ -56,11 +56,12 @@ stopifnot(all(
     "pval",
     "#chrom",
     "pos"
-  ) %in% names(pss)
+  ) %in%
+    names(pss)
 ))
 
 ref_rsid <-
-  fread("hg38_common_chrpos_X.txt")                                                   # This is a linker file to match RSIDs with chromosome positions for the X chromosome
+  fread("hg38_common_chrpos_X.txt") # This is a linker file to match RSIDs with chromosome positions for the X chromosome
 
 
 # set download location for synapse files
@@ -79,13 +80,15 @@ downloadLocation <- Sys.getenv("SYNAPSE_DOWNLOAD_LOCATION")
 #' @param pval_thresholds number. 5e-6 by default
 #'
 #' @return List with 2 data frames - MR results and insruments
-perform_mr <- function(synapse_id,
-                       outcome,
-                       outcome_id,
-                       sumstats_info,
-                       downloadLocation,
-                       ref_rsid,
-                       pval_thresholds = 5e-6) {
+perform_mr <- function(
+  synapse_id,
+  outcome,
+  outcome_id,
+  sumstats_info,
+  downloadLocation,
+  ref_rsid,
+  pval_thresholds = 5e-6
+) {
   result <- NULL
 
   print(synapse_id)
@@ -93,13 +96,10 @@ perform_mr <- function(synapse_id,
   print("******")
 
   syn_code <-
-    synGet(entity = synapse_id,
-           downloadLocation = downloadLocation) # Downloading the summary statistics for the protein of interest
+    synGet(entity = synapse_id, downloadLocation = downloadLocation) # Downloading the summary statistics for the protein of interest
 
   if (!dir.exists(fs::path_ext_remove(syn_code$path))) {
-    untar(paste(syn_code$path),
-          list = F,
-          exdir = paste(syn_code$cacheDir))
+    untar(paste(syn_code$path), list = F, exdir = paste(syn_code$cacheDir))
   }
 
   chrom_u <-
@@ -107,47 +107,67 @@ perform_mr <- function(synapse_id,
       paste0(
         syn_code$cacheDir,
         "/",
-        gsub(".tar", "", sumstats_info[sumstats_info$Code == synapse_id,]$Docname[1]),
+        gsub(
+          ".tar",
+          "",
+          sumstats_info[sumstats_info$Code == synapse_id, ]$Docname[1]
+        ),
         "/",
         "discovery_chr",
-        sumstats_info[sumstats_info$Code == synapse_id,]$chr[1],
+        sumstats_info[sumstats_info$Code == synapse_id, ]$chr[1],
         "_",
-        sumstats_info[sumstats_info$Code == synapse_id,]$UKBPPP_ProteinID[1],
+        sumstats_info[sumstats_info$Code == synapse_id, ]$UKBPPP_ProteinID[1],
         ":",
-        sumstats_info[sumstats_info$Code == synapse_id,]$Panel[1],
+        sumstats_info[sumstats_info$Code == synapse_id, ]$Panel[1],
         ".gz"
       )
     )
 
   chrom_u <-
-    chrom_u[chrom_u$GENPOS > (sumstats_info[sumstats_info$Code == synapse_id,]$gene_start[1] - 200000) &
-              # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
-              chrom_u$GENPOS < (sumstats_info[sumstats_info$Code ==
-                                                synapse_id,]$gene_end[1] + 200000), ]
-  chrom_u$P <- 10 ^ -chrom_u$LOG10P
+    chrom_u[
+      chrom_u$GENPOS >
+        (sumstats_info[sumstats_info$Code == synapse_id, ]$gene_start[1] -
+          200000) &
+        # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region)
+        chrom_u$GENPOS <
+          (sumstats_info[sumstats_info$Code == synapse_id, ]$gene_end[1] +
+            200000),
+    ]
+  chrom_u$P <- 10^-chrom_u$LOG10P
 
   for (pval_thresh in pval_thresholds) {
     chrom <-
-      chrom_u[chrom_u$P < pval_thresh,]                                                                                     # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
+      chrom_u[chrom_u$P < pval_thresh, ] # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
     chrom$CHROM <-
-      ifelse(chrom$CHROM == 23, "X", chrom$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
+      ifelse(chrom$CHROM == 23, "X", chrom$CHROM) # Renaming 23rd chromosome "X" for consistency between sum stats
 
     if (is.null(chrom) || nrow(chrom) == 0) {
-      print(paste0("Skipping ", sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1]))
+      print(paste0(
+        "Skipping ",
+        sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[1]
+      ))
       print("No significant cis pQTLs")
     } else {
       outcome_overlap <-
-        outcome[outcome$`#chrom` == sumstats_info[sumstats_info$Code == synapse_id,]$chr[1],]                              # Only selecting the chromosome of interest to speed up stuff downstream from here
+        outcome[
+          outcome$`#chrom` ==
+            sumstats_info[sumstats_info$Code == synapse_id, ]$chr[1],
+        ] # Only selecting the chromosome of interest to speed up stuff downstream from here
       outcome_overlap <-
-        outcome_overlap[outcome_overlap$pos %in% chrom$GENPOS,]                                                 # Only selecting the variants that are overlapping between exposure and outcome sum stats
+        outcome_overlap[outcome_overlap$pos %in% chrom$GENPOS, ] # Only selecting the variants that are overlapping between exposure and outcome sum stats
 
-      if (is.null(outcome_overlap) ||
-          nrow(outcome_overlap) == 0) {
-        print(paste0("Skipping ", sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1]))
+      if (
+        is.null(outcome_overlap) ||
+          nrow(outcome_overlap) == 0
+      ) {
+        print(paste0(
+          "Skipping ",
+          sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[1]
+        ))
         print("No overlap between outcome and protein exposure")
       } else {
         outcome_rsid <-
-          outcome_overlap[, c("#chrom", "pos", "rsids")]                                                              # These next couple of lines of code just wrangle the data so that the "TwoSampleMR" package can read everything and do its magic
+          outcome_overlap[, c("#chrom", "pos", "rsids")] # These next couple of lines of code just wrangle the data so that the "TwoSampleMR" package can read everything and do its magic
         # outcome_rsid <- outcome_rsid %>% mutate(rsids = strsplit(as.character(rsids), ",")) %>% unnest(rsids)
         outcome_overlap$phen <- paste(outcome_id)
         outcome_overlap$id <-
@@ -175,12 +195,14 @@ perform_mr <- function(synapse_id,
           )
 
         chrom_overlap <-
-          chrom[chrom$GENPOS %in% outcome_overlap$pos.outcome,]                                                     # Again, we just take the overlapping variants (now in the other direction)
+          chrom[chrom$GENPOS %in% outcome_overlap$pos.outcome, ] # Again, we just take the overlapping variants (now in the other direction)
         chrom_overlap_2 <-
-          chrom_overlap                                                                                           # Because the order of effect allele and other allele is random, we make a second dataframe with the opposite order of these alleles to optimize matching between sum stats
+          chrom_overlap # Because the order of effect allele and other allele is random, we make a second dataframe with the opposite order of these alleles to optimize matching between sum stats
         chrom_overlap_2$BETA <- chrom_overlap_2$BETA * -1
-        chrom_overlap_2$A1FREQ  <- 1 - chrom_overlap_2$A1FREQ
-        colnames(chrom_overlap_2)[colnames(chrom_overlap_2) %in% c("ALLELE0", "ALLELE1")] <-
+        chrom_overlap_2$A1FREQ <- 1 - chrom_overlap_2$A1FREQ
+        colnames(chrom_overlap_2)[
+          colnames(chrom_overlap_2) %in% c("ALLELE0", "ALLELE1")
+        ] <-
           c("ALLELE1", "ALLELE0")
         chrom_overlap <- rbind(chrom_overlap, chrom_overlap_2)
         chrom_overlap$ID <-
@@ -192,7 +214,7 @@ perform_mr <- function(synapse_id,
             sep = ":"
           )
         chrom_overlap$phen <-
-          sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1]
+          sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[1]
         chrom_overlap <-
           format_data(
             chrom_overlap,
@@ -212,9 +234,12 @@ perform_mr <- function(synapse_id,
           )
         rm(chrom_overlap_2, chrom)
         dat_u <-
-          harmonise_data(exposure_dat = chrom_overlap, outcome_dat = outcome_overlap)                                             # This is where the matching happens
+          harmonise_data(
+            exposure_dat = chrom_overlap,
+            outcome_dat = outcome_overlap
+          ) # This is where the matching happens
 
-        if (sumstats_info[sumstats_info$Code == synapse_id,]$chr[1] == "X") {
+        if (sumstats_info[sumstats_info$Code == synapse_id, ]$chr[1] == "X") {
           # This little if-else-statement just makes sure that you get the appropriate RSIDs for each variant; because the X-chromosome requires an additional file, this one is in a separate loop
           dat_u <-
             merge(
@@ -238,13 +263,16 @@ perform_mr <- function(synapse_id,
         }
 
         colnames(dat_u)[colnames(dat_u) %in% c("SNP", "rsids")] <-
-          c("pos_id", "SNP")                                                  # We make sure that our reference column (which should have the name "SNP") is the RSID column
+          c("pos_id", "SNP") # We make sure that our reference column (which should have the name "SNP") is the RSID column
         dat_u <-
-          dat_u[order(dat_u$pval.exposure),]                                                                                      # We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
-        dat_u <- dat_u[!duplicated(dat_u$SNP),]
+          dat_u[order(dat_u$pval.exposure), ] # We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
+        dat_u <- dat_u[!duplicated(dat_u$SNP), ]
 
         if (nrow(dat_u) == 0) {
-          print(paste0("Skipping ", sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1]))
+          print(paste0(
+            "Skipping ",
+            sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[1]
+          ))
           print("No variants remaining after harmonising")
           break()
         }
@@ -264,16 +292,16 @@ perform_mr <- function(synapse_id,
               clump_r2 = rsq_thresh,
               bfile = "LD_ref/g1000_eur"
             )
-          dat <- dat_u[dat_u$SNP %in% clump$rsid,]
-          rm(chrom_overlap,
-             outcome_overlap,
-             outcome_rsid,
-             clump)
+          dat <- dat_u[dat_u$SNP %in% clump$rsid, ]
+          rm(chrom_overlap, outcome_overlap, outcome_rsid, clump)
 
           # Note: this particular script uses the IVW method adjusted for between-variant correlation. This is not standard, but is a good method to use when using a lenient R2 threshold such as the one we use (0.1) when using proteins as the exposure.
 
-          if (nrow(dat[dat$mr_keep,]) == 0) {
-            print(paste0("Skipping ", sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1]))
+          if (nrow(dat[dat$mr_keep, ]) == 0) {
+            print(paste0(
+              "Skipping ",
+              sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[1]
+            ))
             print("No variants remaining after clumping")
             results <- NULL
           } else {
@@ -283,7 +311,9 @@ perform_mr <- function(synapse_id,
                 mr(dat, method_list = c("mr_wald_ratio"))
               results <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1],
+                  exp = sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[
+                    1
+                  ],
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -313,7 +343,9 @@ perform_mr <- function(synapse_id,
                 MendelianRandomization::mr_ivw(dat2, correl = TRUE)
               results <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1],
+                  exp = sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[
+                    1
+                  ],
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -345,7 +377,9 @@ perform_mr <- function(synapse_id,
                 MendelianRandomization::mr_egger(dat2, correl = TRUE)
               results1 <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1],
+                  exp = sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[
+                    1
+                  ],
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -357,7 +391,9 @@ perform_mr <- function(synapse_id,
                 )
               results2 <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1],
+                  exp = sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[
+                    1
+                  ],
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -369,7 +405,9 @@ perform_mr <- function(synapse_id,
                 )
               results3 <-
                 data.frame(
-                  exp = sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1],
+                  exp = sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[
+                    1
+                  ],
                   outc = paste(outcome_id),
                   pvalthreshold = pval_thresh,
                   rsqthreshold = rsq_thresh,
@@ -381,12 +419,14 @@ perform_mr <- function(synapse_id,
                 )
               results <- rbind(results1, results2, results3)
               rm(results1, results2, results3)
-
             }
           }
 
           if (is.null(results) || nrow(results) == 0) {
-            print(paste0("Skipping ", sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1]))
+            print(paste0(
+              "Skipping ",
+              sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[1]
+            ))
             print("No results returned from MR analysis")
           } else {
             df_sum <-
@@ -398,7 +438,7 @@ perform_mr <- function(synapse_id,
                 b = NA,
                 se = NA,
                 pval = NA
-              )[-1,]
+              )[-1, ]
             df_instr <-
               data.frame(
                 pos.exposure = NA,
@@ -435,55 +475,55 @@ perform_mr <- function(synapse_id,
                 mr_keep = NA,
                 samplesize.outcome = NA,
                 SNP = NA
-              )[-1,]
+              )[-1, ]
 
             df_sum <- rbind(df_sum, results)
-            df_instr <- rbind(df_instr, dat[,-c(34)])
-            rm(dat,
-               results,
-               ld,
-               dat2,
-               output_mr_ivw_corr,
-               output_mr_egger_corr)
+            df_instr <- rbind(df_instr, dat[, -c(34)])
+            rm(dat, results, ld, dat2, output_mr_ivw_corr, output_mr_egger_corr)
 
-            result <- list(results = df_sum,
-                           instruments = df_instr)
+            result <- list(results = df_sum, instruments = df_instr)
           }
         }
       }
     }
   }
 
-  print(paste(sumstats_info[sumstats_info$Code == synapse_id,]$Assay[1], "done"))
+  print(paste(
+    sumstats_info[sumstats_info$Code == synapse_id, ]$Assay[1],
+    "done"
+  ))
   # unlink(paste0(gsub("\\\\[^\\\\]*$", "", syn_code$cacheDir)), recursive=T)                    # ATTENTON !  This step deletes the map you downloaded your sum stats in - double-check that this doesn't accidentally delete important files from your desktop/server or so
 
   return(result)
 }
 
-system.time(withr::with_options(list(future.globals.maxSize = 2500000000),
-                                {
-                                  result <- sumstats_info$Code |>
-                                    purrr::set_names(\(x) sumstats_info[sumstats_info$Code == x, ]$Assay[452]) |>
-                                    furrr::future_map(\(x) {
-                                      synLogin(authToken = Sys.getenv("SYNAPSE_TOKEN"))
-                                      mr_results <- perform_mr(
-                                        synapse_id = x,
-                                        outcome = pss,
-                                        outcome_id = "pss",
-                                        sumstats_info = sumstats_info,
-                                        downloadLocation = downloadLocation,
-                                        ref_rsid = ref_rsid,
-                                        pval_thresholds = 5e-6
-                                      )
-                                      cat(
-                                        paste0(x, " ", Sys.time(), "\n"),
-                                        file = file.path("output", paste0(Sys.Date(), "-mr.log")),
-                                        append = TRUE
-                                      )
-                                      mr_results
-                                    },
-                                    .progress = TRUE)
-                                }))
+system.time(withr::with_options(list(future.globals.maxSize = 2500000000), {
+  result <- sumstats_info$Code |>
+    purrr::set_names(\(x) {
+      sumstats_info[sumstats_info$Code == x, ]$Assay[452]
+    }) |>
+    furrr::future_map(
+      \(x) {
+        synLogin(authToken = Sys.getenv("SYNAPSE_TOKEN"))
+        mr_results <- perform_mr(
+          synapse_id = x,
+          outcome = pss,
+          outcome_id = "pss",
+          sumstats_info = sumstats_info,
+          downloadLocation = downloadLocation,
+          ref_rsid = ref_rsid,
+          pval_thresholds = 5e-6
+        )
+        cat(
+          paste0(x, " ", Sys.time(), "\n"),
+          file = file.path("output", paste0(Sys.Date(), "-mr.log")),
+          append = TRUE
+        )
+        mr_results
+      },
+      .progress = TRUE
+    )
+}))
 
 result
 saveRDS(result, "output/240605_pss_mr_results_raw_subset_bz.rds")
@@ -503,11 +543,11 @@ mr_instruments <- result %>%
   map(\(x) x$instruments) %>%
   bind_rows()
 
-fwrite(mr_results,
-       file = "output/mr_results_pss_debug.csv")
+fwrite(mr_results, file = "output/mr_results_pss_debug.csv")
 
-fwrite(mr_instruments,
-       file = "output/mr_instruments_pss_debug.csv")
+fwrite(mr_instruments, file = "output/mr_instruments_pss_debug.csv")
 
-fwrite(data.frame(protein = no_result),
-       file = "output/no_mr_results_pss_debug.csv")
+fwrite(
+  data.frame(protein = no_result),
+  file = "output/no_mr_results_pss_debug.csv"
+)

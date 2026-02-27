@@ -26,58 +26,69 @@ library(mrpipeline) # Assuming format_single_cell_onek1k is here
 #' @return A data frame with the MR results from TwoSampleMR::mr(), or NULL if an error occurs.
 #'         The result is augmented with exposure and outcome file names.
 run_single_mr <- function(exposure_file, outcome_file) {
-  tryCatch({
-    # 1. Format exposure data using the provided function
-    # Assuming format_single_cell_onek1k() reads the file and formats it correctly
-    # into the TwoSampleMR exposure data format.
-    exposure_dat <- format_single_cell_onek1k(exposure_file)
+  tryCatch(
+    {
+      # 1. Format exposure data using the provided function
+      # Assuming format_single_cell_onek1k() reads the file and formats it correctly
+      # into the TwoSampleMR exposure data format.
+      exposure_dat <- format_single_cell_onek1k(exposure_file)
 
-    # 2. Read and format outcome data
-    # This assumes the outcome GWAS has standard headers.
-    # If not, you might need to add column mapping logic here.
-    # The function `read_outcome_data` from TwoSampleMR is flexible.
-    outcome_dat <- read_outcome_data(
-      filename = outcome_file,
-      sep = "\t", # Assuming tab-separated, adjust if needed
-      snp_col = "SNP",
-      beta_col = "beta",
-      se_col = "se",
-      effect_allele_col = "effect_allele",
-      other_allele_col = "other_allele",
-      pval_col = "pval",
-      n_col = "n" # Optional, will be used if present
-    )
-
-    # 3. Harmonise exposure and outcome data
-    dat <- harmonise_data(
-      exposure_dat = exposure_dat,
-      outcome_dat = outcome_dat
-    )
-
-    # If no SNPs are left after harmonisation, return NULL
-    if (nrow(dat) == 0) {
-      warning(paste("No harmonised SNPs for exposure:", basename(exposure_file), "and outcome:", basename(outcome_file)))
-      return(NULL)
-    }
-
-    # 4. Run MR analysis
-    # Use "Wald ratio" for single-SNP instruments, and "Inverse variance weighted" for multiple.
-    methods <- if (nrow(dat) == 1) "wald_ratio" else "mr_ivw"
-    res <- mr(dat, method_list = methods)
-
-    # 5. Augment results with file info and return
-    res |>
-      dplyr::mutate(
-        exposure_file = basename(exposure_file),
-        outcome_file = basename(outcome_file)
+      # 2. Read and format outcome data
+      # This assumes the outcome GWAS has standard headers.
+      # If not, you might need to add column mapping logic here.
+      # The function `read_outcome_data` from TwoSampleMR is flexible.
+      outcome_dat <- read_outcome_data(
+        filename = outcome_file,
+        sep = "\t", # Assuming tab-separated, adjust if needed
+        snp_col = "SNP",
+        beta_col = "beta",
+        se_col = "se",
+        effect_allele_col = "effect_allele",
+        other_allele_col = "other_allele",
+        pval_col = "pval",
+        n_col = "n" # Optional, will be used if present
       )
 
-  }, error = function(e) {
-    # Log the error and return NULL for this pair
-    message(sprintf("Error processing exposure '%s' and outcome '%s': %s",
-                    basename(exposure_file), basename(outcome_file), e$message))
-    return(NULL)
-  })
+      # 3. Harmonise exposure and outcome data
+      dat <- harmonise_data(
+        exposure_dat = exposure_dat,
+        outcome_dat = outcome_dat
+      )
+
+      # If no SNPs are left after harmonisation, return NULL
+      if (nrow(dat) == 0) {
+        warning(paste(
+          "No harmonised SNPs for exposure:",
+          basename(exposure_file),
+          "and outcome:",
+          basename(outcome_file)
+        ))
+        return(NULL)
+      }
+
+      # 4. Run MR analysis
+      # Use "Wald ratio" for single-SNP instruments, and "Inverse variance weighted" for multiple.
+      methods <- if (nrow(dat) == 1) "wald_ratio" else "mr_ivw"
+      res <- mr(dat, method_list = methods)
+
+      # 5. Augment results with file info and return
+      res |>
+        dplyr::mutate(
+          exposure_file = basename(exposure_file),
+          outcome_file = basename(outcome_file)
+        )
+    },
+    error = function(e) {
+      # Log the error and return NULL for this pair
+      message(sprintf(
+        "Error processing exposure '%s' and outcome '%s': %s",
+        basename(exposure_file),
+        basename(outcome_file),
+        e$message
+      ))
+      return(NULL)
+    }
+  )
 }
 
 # --- Main Script ---
@@ -88,8 +99,16 @@ exposure_dir <- "path/to/your/onek1k/files"
 outcome_dir <- "path/to/your/outcome/gwas/files"
 
 # Get lists of all exposure and outcome files
-exposure_files <- list.files(exposure_dir, full.names = TRUE, pattern = "\\.tsv\\.gz$") # Adjust pattern as needed
-outcome_files <- list.files(outcome_dir, full.names = TRUE, pattern = "\\.tsv\\.gz$") # Adjust pattern as needed
+exposure_files <- list.files(
+  exposure_dir,
+  full.names = TRUE,
+  pattern = "\\.tsv\\.gz$"
+) # Adjust pattern as needed
+outcome_files <- list.files(
+  outcome_dir,
+  full.names = TRUE,
+  pattern = "\\.tsv\\.gz$"
+) # Adjust pattern as needed
 
 # Create a grid of all combinations of exposure and outcome files
 file_grid <- expand.grid(
@@ -99,7 +118,11 @@ file_grid <- expand.grid(
 )
 
 # Use purrr::map2 to iterate over the file pairs and run the analysis
-all_mr_results <- map2(file_grid$exposure_file, file_grid$outcome_file, run_single_mr)
+all_mr_results <- map2(
+  file_grid$exposure_file,
+  file_grid$outcome_file,
+  run_single_mr
+)
 
 # Combine the list of results into a single data frame
 # The `compact()` function removes any NULL elements from the list (from pairs that failed)

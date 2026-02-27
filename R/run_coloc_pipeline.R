@@ -115,42 +115,73 @@
 #' print(results$coloc_abf_results$summary)
 #' }
 run_coloc_pipeline <- function(
-  exposure_data, outcome_gwas_path,
-  exposure_name, outcome_name,
-  exposure_type = "quant", outcome_type = "cc",
-  exposure_n = NULL, outcome_n, outcome_s = NULL, exposure_sdY = 1,
+  exposure_data,
+  outcome_gwas_path,
+  exposure_name,
+  outcome_name,
+  exposure_type = "quant",
+  outcome_type = "cc",
+  exposure_n = NULL,
+  outcome_n,
+  outcome_s = NULL,
+  exposure_sdY = 1,
 
-  out_snp_col, out_beta_col, out_se_col,
-  out_eaf_col, out_effect_allele_col, out_other_allele_col,
-  out_pval_col, out_chr_col, out_pos_col, out_n_col = NULL,
+  out_snp_col,
+  out_beta_col,
+  out_se_col,
+  out_eaf_col,
+  out_effect_allele_col,
+  out_other_allele_col,
+  out_pval_col,
+  out_chr_col,
+  out_pos_col,
+  out_n_col = NULL,
 
-  perform_coloc_abf = TRUE, perform_susie = TRUE, perform_coloc_prop_test = TRUE,
+  perform_coloc_abf = TRUE,
+  perform_susie = TRUE,
+  perform_coloc_prop_test = TRUE,
   mhc_remove = FALSE,
-  gene_chr, gene_start, gene_end, window_kb = 200,
+  gene_chr,
+  gene_start,
+  gene_end,
+  window_kb = 200,
   ld_bfile_path,
   plink_bin_path = NULL,
 
-  coloc_p1, coloc_p2, coloc_p12,
+  coloc_p1,
+  coloc_p2,
+  coloc_p12,
 
   output_dir,
   verbose = TRUE
 ) {
-
   # --- 0. Argument Checks and Setup ---
   if (!is.data.frame(exposure_data)) {
     stop("exposure_data must be a pre-formatted data frame.")
   }
   if (perform_coloc_prop_test && !perform_susie) {
-    warning("perform_coloc_prop_test requires perform_susie to be TRUE. Setting perform_susie to TRUE.")
+    warning(
+      "perform_coloc_prop_test requires perform_susie to be TRUE. Setting perform_susie to TRUE."
+    )
     perform_susie <- TRUE
   }
   if (outcome_type == "cc" && is.null(outcome_s)) {
-    stop("If outcome_type is 'cc', outcome_s (proportion of cases) must be provided.")
+    stop(
+      "If outcome_type is 'cc', outcome_s (proportion of cases) must be provided."
+    )
   }
   if (is.null(plink_bin_path)) {
-    plink_bin_path <- tryCatch(genetics.binaRies::get_plink_binary(), error = function(e) NULL)
-    if (is.null(plink_bin_path) && (perform_susie || file.exists(paste0(ld_bfile_path, ".bed")))) {
-        warning("PLINK binary not found or specified. LD matrix calculation might fail.")
+    plink_bin_path <- tryCatch(
+      genetics.binaRies::get_plink_binary(),
+      error = function(e) NULL
+    )
+    if (
+      is.null(plink_bin_path) &&
+        (perform_susie || file.exists(paste0(ld_bfile_path, ".bed")))
+    ) {
+      warning(
+        "PLINK binary not found or specified. LD matrix calculation might fail."
+      )
     }
   }
 
@@ -161,80 +192,132 @@ run_coloc_pipeline <- function(
   results_list <- list()
 
   # --- 1. Prepare Exposure Data (already formatted) ---
-  if (verbose) message("Using pre-formatted exposure data...")
+  if (verbose) {
+    message("Using pre-formatted exposure data...")
+  }
   exposure_dat <- exposure_data
   # Ensure phenotype column exists or create it
   if (!"phenotype.exposure" %in% colnames(exposure_dat)) {
-      exposure_dat$phenotype.exposure <- exposure_name
+    exposure_dat$phenotype.exposure <- exposure_name
   }
   # Determine exposure_n if not provided but samplesize.exposure column exists
-  if (is.null(exposure_n) && "samplesize.exposure" %in% colnames(exposure_dat)) {
-    exposure_n <- as.integer(stats::median(exposure_dat$samplesize.exposure, na.rm = TRUE))
-    if (verbose) message(paste("Using median sample size from exposure_data for exposure_n:", exposure_n))
+  if (
+    is.null(exposure_n) && "samplesize.exposure" %in% colnames(exposure_dat)
+  ) {
+    exposure_n <- as.integer(stats::median(
+      exposure_dat$samplesize.exposure,
+      na.rm = TRUE
+    ))
+    if (verbose) {
+      message(paste(
+        "Using median sample size from exposure_data for exposure_n:",
+        exposure_n
+      ))
+    }
   } else if (is.null(exposure_n)) {
-    stop("exposure_n must be provided if 'samplesize.exposure' column is not in exposure_data.")
+    stop(
+      "exposure_n must be provided if 'samplesize.exposure' column is not in exposure_data."
+    )
   }
 
-
   # --- 2. Load and Format Outcome Data ---
-  if (verbose) message("Loading and formatting outcome data...")
+  if (verbose) {
+    message("Loading and formatting outcome data...")
+  }
   outcome_raw <- data.table::fread(outcome_gwas_path)
   outcome_dat_formatted <- TwoSampleMR::format_data(
-    outcome_raw, type = "outcome",
-    snp_col = out_snp_col, beta_col = out_beta_col, se_col = out_se_col,
-    eaf_col = out_eaf_col, effect_allele_col = out_effect_allele_col,
-    other_allele_col = out_other_allele_col, pval_col = out_pval_col,
-    chr_col = out_chr_col, pos_col = out_pos_col,
+    outcome_raw,
+    type = "outcome",
+    snp_col = out_snp_col,
+    beta_col = out_beta_col,
+    se_col = out_se_col,
+    eaf_col = out_eaf_col,
+    effect_allele_col = out_effect_allele_col,
+    other_allele_col = out_other_allele_col,
+    pval_col = out_pval_col,
+    chr_col = out_chr_col,
+    pos_col = out_pos_col,
     samplesize_col = out_n_col,
     phenotype_col = outcome_name # Creates outcome_name column
   )
   # format_data adds "outcome." prefix, remove it for easier use
-  colnames(outcome_dat_formatted) <- sub("^outcome\\.", "", colnames(outcome_dat_formatted))
+  colnames(outcome_dat_formatted) <- sub(
+    "^outcome\\.",
+    "",
+    colnames(outcome_dat_formatted)
+  )
   outcome_dat_formatted$phenotype <- outcome_name # Ensure phenotype column is correctly named
-
 
   # --- 3. Optionally remove MHC, filter by region and Harmonize ---
   # Optional: Filter out MHC region from the already region-filtered data
   if (isTRUE(mhc_remove)) {
     if ("chr.exposure" %in% colnames(exposure_dat)) {
-      if (verbose) message("Assessing whether MHC region is present and should be removed...")
+      if (verbose) {
+        message(
+          "Assessing whether MHC region is present and should be removed..."
+        )
+      }
 
       mhc_chr <- "6"
       mhc_start <- 26000000
       mhc_end <- 34000000
 
       # Check if all SNPs in the region are within MHC
-      if (all(exposure_dat$chr.exposure == mhc_chr &
-              exposure_dat$pos.exposure >= mhc_start &
-              exposure_dat$pos.exposure <= mhc_end)) {
-        if (verbose) message("All SNPs for this protein in the specified region are within MHC. Skipping analysis.")
+      if (
+        all(
+          exposure_dat$chr.exposure == mhc_chr &
+            exposure_dat$pos.exposure >= mhc_start &
+            exposure_dat$pos.exposure <= mhc_end
+        )
+      ) {
+        if (verbose) {
+          message(
+            "All SNPs for this protein in the specified region are within MHC. Skipping analysis."
+          )
+        }
         return(NULL)
       }
 
       # Filter out any SNPs in MHC region
       initial_snp_count <- nrow(exposure_dat)
       exposure_dat <- exposure_dat |>
-        dplyr::filter(!(as.character(chr.exposure) == mhc_chr & pos.exposure >= mhc_start & pos.exposure <= mhc_end))
-      if (verbose && nrow(exposure_dat) < initial_snp_count) message("Filtered out SNPs in MHC region (chr6:26-34Mb).")
+        dplyr::filter(
+          !(as.character(chr.exposure) == mhc_chr &
+            pos.exposure >= mhc_start &
+            pos.exposure <= mhc_end)
+        )
+      if (verbose && nrow(exposure_dat) < initial_snp_count) {
+        message("Filtered out SNPs in MHC region (chr6:26-34Mb).")
+      }
     } else {
-      warning("`mhc_remove` is TRUE, but 'chr.exposure' column not found in exposure data. MHC filter skipped.")
+      warning(
+        "`mhc_remove` is TRUE, but 'chr.exposure' column not found in exposure data. MHC filter skipped."
+      )
     }
   }
 
-  if (verbose) message("Filtering data by region and harmonizing...")
+  if (verbose) {
+    message("Filtering data by region and harmonizing...")
+  }
   current_chr_val <- gsub("chr", "", as.character(gene_chr))
   min_pos <- gene_start - (window_kb * 1000)
   max_pos <- gene_end + (window_kb * 1000)
 
   # Ensure column names for filtering are correct for pre-formatted exposure_dat
   exposure_filt <- exposure_dat |>
-    dplyr::filter(as.character(chr.exposure) == current_chr_val & pos.exposure >= min_pos & pos.exposure <= max_pos)
+    dplyr::filter(
+      as.character(chr.exposure) == current_chr_val &
+        pos.exposure >= min_pos &
+        pos.exposure <= max_pos
+    )
 
   outcome_filt <- outcome_dat_formatted |>
     dplyr::filter(chr == current_chr_val & pos >= min_pos & pos <= max_pos)
 
   if (nrow(exposure_filt) == 0 || nrow(outcome_filt) == 0) {
-    warning("No SNPs remaining in one or both datasets after filtering for the region.")
+    warning(
+      "No SNPs remaining in one or both datasets after filtering for the region."
+    )
     return(list(error = "No SNPs in region", harmonized_data = NULL))
   }
 
@@ -247,7 +330,10 @@ run_coloc_pipeline <- function(
 
   if (nrow(harmonized_data) == 0) {
     warning("No SNPs remaining after initial harmonization.")
-    return(list(error = "No SNPs post-initial-harmonization", harmonized_data = NULL))
+    return(list(
+      error = "No SNPs post-initial-harmonization",
+      harmonized_data = NULL
+    ))
   }
 
   # --- 4. Prepare LD Matrix & Align with Harmonized Data ---
@@ -255,87 +341,134 @@ run_coloc_pipeline <- function(
   harmonized_data_aligned <- harmonized_data # Keep original harmonized for coloc.abf if LD fails
 
   if (perform_susie || perform_coloc_abf) {
-    if (verbose) message("Preparing LD matrix and aligning data...")
+    if (verbose) {
+      message("Preparing LD matrix and aligning data...")
+    }
     common_snps_for_ld <- harmonized_data$SNP
 
-    if (length(common_snps_for_ld) > 1 && !is.null(ld_bfile_path) && !is.null(plink_bin_path) && file.exists(paste0(ld_bfile_path, ".bed"))) {
-      tryCatch({
-        ld_matrix_raw <- ieugwasr::ld_matrix(
-          variants = common_snps_for_ld,
-          bfile = ld_bfile_path,
-          plink_bin = plink_bin_path
-        )
-        # Clean LD matrix SNP names (rsID_A_G -> rsID)
-        # This is important if your harmonized_data$SNP is just rsID
-        cleaned_ld_rownames <- gsub("_.*", "", rownames(ld_matrix_raw))
-        cleaned_ld_colnames <- gsub("_.*", "", colnames(ld_matrix_raw))
-        rownames(ld_matrix_raw) <- cleaned_ld_rownames
-        colnames(ld_matrix_raw) <- cleaned_ld_colnames
+    if (
+      length(common_snps_for_ld) > 1 &&
+        !is.null(ld_bfile_path) &&
+        !is.null(plink_bin_path) &&
+        file.exists(paste0(ld_bfile_path, ".bed"))
+    ) {
+      tryCatch(
+        {
+          ld_matrix_raw <- ieugwasr::ld_matrix(
+            variants = common_snps_for_ld,
+            bfile = ld_bfile_path,
+            plink_bin = plink_bin_path
+          )
+          # Clean LD matrix SNP names (rsID_A_G -> rsID)
+          # This is important if your harmonized_data$SNP is just rsID
+          cleaned_ld_rownames <- gsub("_.*", "", rownames(ld_matrix_raw))
+          cleaned_ld_colnames <- gsub("_.*", "", colnames(ld_matrix_raw))
+          rownames(ld_matrix_raw) <- cleaned_ld_rownames
+          colnames(ld_matrix_raw) <- cleaned_ld_colnames
 
-        # Ensure harmonized_data matches ld_matrix (allele flipping and reordering)
-        # This complex block aligns alleles between summary stats and LD matrix
-        temp_harmonized_data <- harmonized_data
+          # Ensure harmonized_data matches ld_matrix (allele flipping and reordering)
+          # This complex block aligns alleles between summary stats and LD matrix
+          temp_harmonized_data <- harmonized_data
 
-        # Identify SNPs in harmonized_data that need allele flipping to match LD matrix conventions
-        # This assumes LD matrix from ieugwasr might have specific allele orders in its _A_G suffix (though we removed it)
-        # The core idea is to match the SNP IDs first.
-        snps_in_ld <- intersect(temp_harmonized_data$SNP, rownames(ld_matrix_raw))
-        if(length(snps_in_ld) == 0) stop("No SNPs in common between harmonized data and LD matrix after cleaning LD SNP names.")
+          # Identify SNPs in harmonized_data that need allele flipping to match LD matrix conventions
+          # This assumes LD matrix from ieugwasr might have specific allele orders in its _A_G suffix (though we removed it)
+          # The core idea is to match the SNP IDs first.
+          snps_in_ld <- intersect(
+            temp_harmonized_data$SNP,
+            rownames(ld_matrix_raw)
+          )
+          if (length(snps_in_ld) == 0) {
+            stop(
+              "No SNPs in common between harmonized data and LD matrix after cleaning LD SNP names."
+            )
+          }
 
-        temp_harmonized_data <- temp_harmonized_data[temp_harmonized_data$SNP %in% snps_in_ld, ]
-        ld_matrix <- ld_matrix_raw[snps_in_ld, snps_in_ld]
+          temp_harmonized_data <- temp_harmonized_data[
+            temp_harmonized_data$SNP %in% snps_in_ld,
+          ]
+          ld_matrix <- ld_matrix_raw[snps_in_ld, snps_in_ld]
 
-        # The following block is for detailed allele alignment if rsID_A_G format was strictly used by LD matrix
-        # For now, we assume simple rsID matching after gsub is sufficient for ieugwasr::ld_matrix
-        # If more complex allele matching is needed (e.g. if ld_matrix was from plink --r square with --make-just-sq),
-        # the provided snippet would be adapted here.
-        # The key is that `harmonized_data_aligned` and `ld_matrix` must have SNPs in the same order
-        # and alleles oriented consistently.
+          # The following block is for detailed allele alignment if rsID_A_G format was strictly used by LD matrix
+          # For now, we assume simple rsID matching after gsub is sufficient for ieugwasr::ld_matrix
+          # If more complex allele matching is needed (e.g. if ld_matrix was from plink --r square with --make-just-sq),
+          # the provided snippet would be adapted here.
+          # The key is that `harmonized_data_aligned` and `ld_matrix` must have SNPs in the same order
+          # and alleles oriented consistently.
 
-        # Simplified alignment: ensure order and subset
-        harmonized_data_aligned <- temp_harmonized_data[match(rownames(ld_matrix), temp_harmonized_data$SNP), ]
-        # Remove any NA rows that might result if a SNP in ld_matrix rownames isn't in harmonized_data_aligned$SNP (should not happen with intersect)
-        harmonized_data_aligned <- harmonized_data_aligned[!is.na(harmonized_data_aligned$SNP), ]
-        # Re-filter ld_matrix to be absolutely sure
-        ld_matrix <- ld_matrix[harmonized_data_aligned$SNP, harmonized_data_aligned$SNP]
+          # Simplified alignment: ensure order and subset
+          harmonized_data_aligned <- temp_harmonized_data[
+            match(rownames(ld_matrix), temp_harmonized_data$SNP),
+          ]
+          # Remove any NA rows that might result if a SNP in ld_matrix rownames isn't in harmonized_data_aligned$SNP (should not happen with intersect)
+          harmonized_data_aligned <- harmonized_data_aligned[
+            !is.na(harmonized_data_aligned$SNP),
+          ]
+          # Re-filter ld_matrix to be absolutely sure
+          ld_matrix <- ld_matrix[
+            harmonized_data_aligned$SNP,
+            harmonized_data_aligned$SNP
+          ]
 
-        if(nrow(harmonized_data_aligned) == 0 || nrow(ld_matrix) == 0) stop("Data alignment with LD matrix resulted in zero SNPs.")
+          if (nrow(harmonized_data_aligned) == 0 || nrow(ld_matrix) == 0) {
+            stop("Data alignment with LD matrix resulted in zero SNPs.")
+          }
 
-        results_list$ld_matrix <- ld_matrix
-        results_list$harmonized_data_aligned <- harmonized_data_aligned
-
-      }, error = function(e) {
-        warning(paste("LD matrix calculation or data alignment failed:", e$message))
-        ld_matrix <<- NULL
-        harmonized_data_aligned <<- harmonized_data # Fallback to non-LD-aligned data
-      })
+          results_list$ld_matrix <- ld_matrix
+          results_list$harmonized_data_aligned <- harmonized_data_aligned
+        },
+        error = function(e) {
+          warning(paste(
+            "LD matrix calculation or data alignment failed:",
+            e$message
+          ))
+          ld_matrix <<- NULL
+          harmonized_data_aligned <<- harmonized_data # Fallback to non-LD-aligned data
+        }
+      )
     } else if (length(common_snps_for_ld) <= 1) {
-        warning("Too few SNPs to calculate LD matrix.")
-        harmonized_data_aligned <- harmonized_data
+      warning("Too few SNPs to calculate LD matrix.")
+      harmonized_data_aligned <- harmonized_data
     } else {
-        warning("LD bfile path/PLINK binary not provided/found or LD file missing. Cannot calculate LD matrix.")
-        harmonized_data_aligned <- harmonized_data
+      warning(
+        "LD bfile path/PLINK binary not provided/found or LD file missing. Cannot calculate LD matrix."
+      )
+      harmonized_data_aligned <- harmonized_data
     }
   } else {
-      harmonized_data_aligned <- harmonized_data # If not using LD
+    harmonized_data_aligned <- harmonized_data # If not using LD
   }
 
   # Use harmonized_data_aligned for subsequent steps
   current_harmonized_data <- harmonized_data_aligned
   if (nrow(current_harmonized_data) == 0) {
     warning("No SNPs remaining after attempting LD alignment.")
-    return(list(error = "No SNPs post-LD-alignment", harmonized_data_aligned = NULL))
+    return(list(
+      error = "No SNPs post-LD-alignment",
+      harmonized_data_aligned = NULL
+    ))
   }
 
   # --- 5. SuSiE Analysis, coloc.signals, and colocPropTest ---
   if (perform_susie) {
-    if (verbose) message("Performing SuSiE analysis...")
-    if (!is.null(ld_matrix) && nrow(ld_matrix) > 0 && nrow(current_harmonized_data) > 0) {
+    if (verbose) {
+      message("Performing SuSiE analysis...")
+    }
+    if (
+      !is.null(ld_matrix) &&
+        nrow(ld_matrix) > 0 &&
+        nrow(current_harmonized_data) > 0
+    ) {
       if (!"eaf.exposure" %in% colnames(current_harmonized_data)) {
-          warning("eaf.exposure not found for SuSiE. SuSiE might be less accurate or fail.")
-          current_harmonized_data$eaf.exposure <- 0.1 # Fallback
+        warning(
+          "eaf.exposure not found for SuSiE. SuSiE might be less accurate or fail."
+        )
+        current_harmonized_data$eaf.exposure <- 0.1 # Fallback
       }
-      current_harmonized_data$MAF <- ifelse(current_harmonized_data$eaf.exposure < 0.5, current_harmonized_data$eaf.exposure, 1 - current_harmonized_data$eaf.exposure)
+      current_harmonized_data$MAF <- ifelse(
+        current_harmonized_data$eaf.exposure < 0.5,
+        current_harmonized_data$eaf.exposure,
+        1 - current_harmonized_data$eaf.exposure
+      )
 
       dataset_susie_exp <- list(
         beta = current_harmonized_data$beta.exposure,
@@ -359,55 +492,95 @@ run_coloc_pipeline <- function(
         sdY = if (outcome_type == "quant") 1 else NULL
       )
 
-      tryCatch({
-        susie_exp_results <- coloc::runsusie(dataset_susie_exp, verbose = verbose)
-        susie_out_results <- coloc::runsusie(dataset_susie_out, verbose = verbose)
-        results_list$susie_exposure <- susie_exp_results
-        results_list$susie_outcome <- susie_out_results
+      tryCatch(
+        {
+          susie_exp_results <- coloc::runsusie(
+            dataset_susie_exp,
+            verbose = verbose
+          )
+          susie_out_results <- coloc::runsusie(
+            dataset_susie_out,
+            verbose = verbose
+          )
+          results_list$susie_exposure <- susie_exp_results
+          results_list$susie_outcome <- susie_out_results
 
-        if (verbose) message("Performing coloc with SuSiE results (coloc.susie)...")
-        coloc_susie_res <- coloc::coloc.susie(susie_exp_results, susie_out_results)
-        results_list$coloc_susie_results <- coloc_susie_res
+          if (verbose) {
+            message("Performing coloc with SuSiE results (coloc.susie)...")
+          }
+          coloc_susie_res <- coloc::coloc.susie(
+            susie_exp_results,
+            susie_out_results
+          )
+          results_list$coloc_susie_results <- coloc_susie_res
 
-        if (verbose) message("Performing coloc.signals with SuSiE results...")
-        # coloc.signals requires p1, p2, p12 similar to coloc.abf
-        coloc_signals_res <- coloc::coloc.signals(
-            susie_exp_results, susie_out_results,
-            p1 = coloc_p1, p2 = coloc_p2, p12 = coloc_p12
-        )
-        results_list$coloc_signals_results <- coloc_signals_res
+          if (verbose) {
+            message("Performing coloc.signals with SuSiE results...")
+          }
+          # coloc.signals requires p1, p2, p12 similar to coloc.abf
+          coloc_signals_res <- coloc::coloc.signals(
+            susie_exp_results,
+            susie_out_results,
+            p1 = coloc_p1,
+            p2 = coloc_p2,
+            p12 = coloc_p12
+          )
+          results_list$coloc_signals_results <- coloc_signals_res
 
-        if (perform_coloc_prop_test) {
-          if (verbose) message("Performing colocPropTest analysis...")
-          if (!is.null(coloc_signals_res) && nrow(coloc_signals_res$summary) > 0) {
-            if(requireNamespace("colocPropTest", quietly = TRUE)) {
+          if (perform_coloc_prop_test) {
+            if (verbose) {
+              message("Performing colocPropTest analysis...")
+            }
+            if (
+              !is.null(coloc_signals_res) && nrow(coloc_signals_res$summary) > 0
+            ) {
+              if (requireNamespace("colocPropTest", quietly = TRUE)) {
                 # coloc.prop.test expects the output of coloc.signals
-                coloc_prop_fn <- get("coloc.prop.test",
-                                     envir = asNamespace("colocPropTest"))
+                coloc_prop_fn <- get(
+                  "coloc.prop.test",
+                  envir = asNamespace("colocPropTest")
+                )
                 coloc_prop_res <- coloc_prop_fn(coloc_signals_res)
                 results_list$coloc_prop_test_results <- coloc_prop_res
+              } else {
+                warning(
+                  "colocPropTest package not installed. Skipping this step."
+                )
+              }
             } else {
-                warning("colocPropTest package not installed. Skipping this step.")
+              warning(
+                "Skipping colocPropTest: coloc.signals results not available or empty."
+              )
             }
-          } else {
-            warning("Skipping colocPropTest: coloc.signals results not available or empty.")
           }
+        },
+        error = function(e) {
+          warning(paste(
+            "SuSiE, coloc.susie, or coloc.signals analysis failed:",
+            e$message
+          ))
         }
-
-      }, error = function(e) {
-        warning(paste("SuSiE, coloc.susie, or coloc.signals analysis failed:", e$message))
-      })
+      )
     } else {
-      warning("Skipping SuSiE-based analyses: LD matrix not available or no overlapping SNPs after alignment.")
+      warning(
+        "Skipping SuSiE-based analyses: LD matrix not available or no overlapping SNPs after alignment."
+      )
     }
   }
 
   # --- 6. coloc.abf Analysis ---
   if (perform_coloc_abf) {
-    if (verbose) message("Performing coloc.abf analysis...")
-     if (!"eaf.exposure" %in% colnames(current_harmonized_data) || !"eaf.outcome" %in% colnames(current_harmonized_data)) {
-        warning("EAF not found in harmonized data for coloc.abf. Results may be less reliable.")
-     }
+    if (verbose) {
+      message("Performing coloc.abf analysis...")
+    }
+    if (
+      !"eaf.exposure" %in% colnames(current_harmonized_data) ||
+        !"eaf.outcome" %in% colnames(current_harmonized_data)
+    ) {
+      warning(
+        "EAF not found in harmonized data for coloc.abf. Results may be less reliable."
+      )
+    }
 
     dataset1_coloc <- list(
       beta = current_harmonized_data$beta.exposure,
@@ -415,7 +588,11 @@ run_coloc_pipeline <- function(
       N = exposure_n,
       type = exposure_type,
       snp = current_harmonized_data$SNP,
-      MAF = if ("eaf.exposure" %in% colnames(current_harmonized_data)) current_harmonized_data$eaf.exposure else rep(0.1, nrow(current_harmonized_data)),
+      MAF = if ("eaf.exposure" %in% colnames(current_harmonized_data)) {
+        current_harmonized_data$eaf.exposure
+      } else {
+        rep(0.1, nrow(current_harmonized_data))
+      },
       sdY = if (exposure_type == "quant") exposure_sdY else NULL
     )
     dataset2_coloc <- list(
@@ -425,36 +602,59 @@ run_coloc_pipeline <- function(
       type = outcome_type,
       s = if (outcome_type == "cc") outcome_s else NULL,
       snp = current_harmonized_data$SNP,
-      MAF = if ("eaf.outcome" %in% colnames(current_harmonized_data)) current_harmonized_data$eaf.outcome else rep(0.1, nrow(current_harmonized_data)),
+      MAF = if ("eaf.outcome" %in% colnames(current_harmonized_data)) {
+        current_harmonized_data$eaf.outcome
+      } else {
+        rep(0.1, nrow(current_harmonized_data))
+      },
       sdY = if (outcome_type == "quant") 1 else NULL
     )
 
     # Add LD to coloc.abf if available and desired (can improve accuracy)
     # Use the aligned LD matrix
-    if(!is.null(ld_matrix) && nrow(ld_matrix) > 0 && all(current_harmonized_data$SNP %in% rownames(ld_matrix))) {
-        # Ensure dataset SNPs match LD matrix order if LD is used
-        ordered_snps <- intersect(rownames(ld_matrix), current_harmonized_data$SNP)
-        if (length(ordered_snps) == nrow(current_harmonized_data) && length(ordered_snps) == nrow(ld_matrix)) {
-            # This assumes current_harmonized_data is already ordered by LD matrix if ld_matrix is not NULL
-            dataset1_coloc$LD <- ld_matrix[ordered_snps, ordered_snps]
-            dataset2_coloc$LD <- ld_matrix[ordered_snps, ordered_snps]
-        } else {
-            warning("SNP mismatch or order issue when adding LD to coloc.abf datasets. Proceeding without LD for coloc.abf.")
-        }
+    if (
+      !is.null(ld_matrix) &&
+        nrow(ld_matrix) > 0 &&
+        all(current_harmonized_data$SNP %in% rownames(ld_matrix))
+    ) {
+      # Ensure dataset SNPs match LD matrix order if LD is used
+      ordered_snps <- intersect(
+        rownames(ld_matrix),
+        current_harmonized_data$SNP
+      )
+      if (
+        length(ordered_snps) == nrow(current_harmonized_data) &&
+          length(ordered_snps) == nrow(ld_matrix)
+      ) {
+        # This assumes current_harmonized_data is already ordered by LD matrix if ld_matrix is not NULL
+        dataset1_coloc$LD <- ld_matrix[ordered_snps, ordered_snps]
+        dataset2_coloc$LD <- ld_matrix[ordered_snps, ordered_snps]
+      } else {
+        warning(
+          "SNP mismatch or order issue when adding LD to coloc.abf datasets. Proceeding without LD for coloc.abf."
+        )
+      }
     }
 
-    tryCatch({
-      coloc_abf_results_run <- coloc::coloc.abf(
-        dataset1 = dataset1_coloc,
-        dataset2 = dataset2_coloc,
-        p1 = coloc_p1, p2 = coloc_p2, p12 = coloc_p12
-      )
-      results_list$coloc_abf_results <- coloc_abf_results_run
-    }, error = function(e) {
-      warning(paste("coloc.abf analysis failed:", e$message))
-    })
+    tryCatch(
+      {
+        coloc_abf_results_run <- coloc::coloc.abf(
+          dataset1 = dataset1_coloc,
+          dataset2 = dataset2_coloc,
+          p1 = coloc_p1,
+          p2 = coloc_p2,
+          p12 = coloc_p12
+        )
+        results_list$coloc_abf_results <- coloc_abf_results_run
+      },
+      error = function(e) {
+        warning(paste("coloc.abf analysis failed:", e$message))
+      }
+    )
   }
 
-  if (verbose) message("Pipeline finished.")
+  if (verbose) {
+    message("Pipeline finished.")
+  }
   return(results_list)
 }

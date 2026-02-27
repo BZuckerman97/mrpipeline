@@ -17,18 +17,21 @@
 #'
 #' @examples
 #' # See the test script for example usage.
-format_pqtl_ukbppp <- function(ukbppp,
-                               ukbppp_rsid,
-                               pqtl_assay,
-                               x_y_chr_file = NULL) {
-
+format_pqtl_ukbppp <- function(
+  ukbppp,
+  ukbppp_rsid,
+  pqtl_assay,
+  x_y_chr_file = NULL
+) {
   # read from filepath
   if (is.character(ukbppp)) {
     # Read in files using data.table::fread()
     stopifnot(file.exists(ukbppp))
 
     ukbppp <- ukbppp |>
-      purrr::map(\(x) data.table::fread(x, nThread = parallel::detectCores())) |>
+      purrr::map(\(x) {
+        data.table::fread(x, nThread = parallel::detectCores())
+      }) |>
       dplyr::bind_rows()
   } else {
     stopifnot(is.data.frame(ukbppp))
@@ -37,7 +40,9 @@ format_pqtl_ukbppp <- function(ukbppp,
   if (is.character(ukbppp_rsid)) {
     # Read in files using data.table::fread()
     ukbppp_rsid <- ukbppp_rsid |>
-      purrr::map(\(x) data.table::fread(x, nThread = parallel::detectCores())) |>
+      purrr::map(\(x) {
+        data.table::fread(x, nThread = parallel::detectCores())
+      }) |>
       dplyr::bind_rows()
   } else {
     stopifnot(is.data.frame(ukbppp_rsid))
@@ -58,15 +63,16 @@ format_pqtl_ukbppp <- function(ukbppp,
       n = dplyr::all_of("N"),
       pos = dplyr::all_of("GENPOS") # Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) |>
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr))) |>  #change 23 to X if needed
-    dplyr::mutate(pval = 10 ^ -pval) # Convert LOG10P into P
+    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr))) |> #change 23 to X if needed
+    dplyr::mutate(pval = 10^-pval) # Convert LOG10P into P
 
   # UKB-PPP RSID
   ukbppp_rsid <- ukbppp_rsid |>
     dplyr::rename(
       effect_allele_rsid_file = dplyr::all_of("ALT"),
       other_allele_rsid_file = dplyr::all_of("REF"),
-      pos_rsid_file = dplyr::all_of("POS38")) |>
+      pos_rsid_file = dplyr::all_of("POS38")
+    ) |>
     dplyr::mutate(chr_rsid_file = sub(":.*", "", ID))
 
   # Match by ID or create it
@@ -74,11 +80,25 @@ format_pqtl_ukbppp <- function(ukbppp,
     ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
   } else {
     ukbppp <- ukbppp |>
-      dplyr::mutate(ID = paste(chr, pos, effect_allele, other_allele, sep = ":"))
+      dplyr::mutate(
+        ID = paste(chr, pos, effect_allele, other_allele, sep = ":")
+      )
     ukbppp_rsid <- ukbppp_rsid |>
-      dplyr::mutate(ID = paste(chr_rsid_file, pos_rsid_file, effect_allele_rsid_file, other_allele_rsid_file, sep = ":"))
+      dplyr::mutate(
+        ID = paste(
+          chr_rsid_file,
+          pos_rsid_file,
+          effect_allele_rsid_file,
+          other_allele_rsid_file,
+          sep = ":"
+        )
+      )
 
-    ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid[, c("ID", "rsid")], by = "ID")
+    ukbppp <- dplyr::inner_join(
+      ukbppp,
+      ukbppp_rsid[, c("ID", "rsid")],
+      by = "ID"
+    )
   }
 
   # Handle non-Mendelian chromosomes rsIDs
@@ -96,7 +116,11 @@ format_pqtl_ukbppp <- function(ukbppp,
           chr = dplyr::all_of("V1")
         )
       # Merge with ukbppp by position
-      ukbppp <- dplyr::left_join(ukbppp, x_y_rsid[, c("pos", "rsids")], by = "pos")
+      ukbppp <- dplyr::left_join(
+        ukbppp,
+        x_y_rsid[, c("pos", "rsids")],
+        by = "pos"
+      )
 
       # Update rsid column with rsids from x_y_rsid
       ukbppp <- ukbppp |>
@@ -157,11 +181,12 @@ format_pqtl_ukbppp <- function(ukbppp,
 #'                                   olink_rsid_dir = olink_rsid_dir)
 #' print(file_paths)
 #' }
-ukbppp_pqtl_file_name <- function(synapse_id,
-                                  olink_linker_file,
-                                  olink_dir,
-                                  olink_rsid_dir) {
-
+ukbppp_pqtl_file_name <- function(
+  synapse_id,
+  olink_linker_file,
+  olink_dir,
+  olink_rsid_dir
+) {
   if (rlang::is_string(olink_linker_file)) {
     stopifnot(file.exists(olink_linker_file))
     olink_linker_file <- data.table::fread(olink_linker_file)
@@ -174,7 +199,11 @@ ukbppp_pqtl_file_name <- function(synapse_id,
     dplyr::filter(Code == synapse_id)
 
   if (nrow(metadata) == 0) {
-    stop(paste0("No entry found for synapse_id '", synapse_id, "' in the linker file."))
+    stop(paste0(
+      "No entry found for synapse_id '",
+      synapse_id,
+      "' in the linker file."
+    ))
   }
 
   # Handle cases where one synapse ID maps to multiple proteins (e.g. AMY1A/B/C).
@@ -184,14 +213,21 @@ ukbppp_pqtl_file_name <- function(synapse_id,
     cols_to_check <- c("Docname", "chr", "UKBPPP_ProteinID", "Panel", "Assay")
 
     # Use vapply for a safer and more explicit check for consistency.
-    is_consistent <- vapply(metadata[, cols_to_check], function(x) data.table::uniqueN(x) == 1, logical(1))
+    is_consistent <- vapply(
+      metadata[, cols_to_check],
+      function(x) data.table::uniqueN(x) == 1,
+      logical(1)
+    )
 
     if (!all(is_consistent)) {
       inconsistent_cols <- names(is_consistent)[!is_consistent]
-      stop(paste0("Multiple entries for synapse_id '", synapse_id,
-                  "' have conflicting metadata. Inconsistent columns: ",
-                  paste(inconsistent_cols, collapse = ", "),
-                  ". Cannot determine a unique file path or assay name."))
+      stop(paste0(
+        "Multiple entries for synapse_id '",
+        synapse_id,
+        "' have conflicting metadata. Inconsistent columns: ",
+        paste(inconsistent_cols, collapse = ", "),
+        ". Cannot determine a unique file path or assay name."
+      ))
     }
     # All good, just take the first row.
     metadata <- metadata[1, ]
@@ -200,20 +236,27 @@ ukbppp_pqtl_file_name <- function(synapse_id,
 
   # result
   list(
-    ukbppp = file.path(olink_dir,
-                       paste0(gsub(".tar", "", metadata$Docname),
-                              "/",
-                              "discovery_chr",
-                              metadata$chr,
-                              "_",
-                              metadata$UKBPPP_ProteinID,
-                              ":",
-                              metadata$Panel,
-                              ".gz"
-                       )
+    ukbppp = file.path(
+      olink_dir,
+      paste0(
+        gsub(".tar", "", metadata$Docname),
+        "/",
+        "discovery_chr",
+        metadata$chr,
+        "_",
+        metadata$UKBPPP_ProteinID,
+        ":",
+        metadata$Panel,
+        ".gz"
+      )
     ),
-    ukbppp_rsid = file.path(olink_rsid_dir,
-                            paste0("olink_rsid_map_mac5_info03_b0_7_chr", metadata$chr, "_patched_v2.tsv.gz")
+    ukbppp_rsid = file.path(
+      olink_rsid_dir,
+      paste0(
+        "olink_rsid_map_mac5_info03_b0_7_chr",
+        metadata$chr,
+        "_patched_v2.tsv.gz"
+      )
     ),
     id = metadata$Assay
   )
