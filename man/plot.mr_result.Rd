@@ -23,3 +23,17 @@ no results are available.
 Creates diagnostic plots for Mendelian randomisation results using
 TwoSampleMR plotting functions. Requires the \code{ggplot2} package.
 }
+\examples{
+\dontrun{
+result <- run_mr(
+  exposure = cd40_exposure, exposure_id = "CD40",
+  outcome = sjogren_outcome, outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+)
+plot(result, type = "scatter")
+plot(result, type = "forest")
+plot(result, type = "funnel")
+}
+
+}

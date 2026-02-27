@@ -5,6 +5,9 @@
 
 <!-- badges: start -->
 
+[![R-CMD-check](https://github.com/BZuckerman97/mrpipeline/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/BZuckerman97/mrpipeline/actions/workflows/R-CMD-check.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/BZuckerman97/mrpipeline/graph/badge.svg)](https://app.codecov.io/gh/BZuckerman97/mrpipeline)
 <!-- badges: end -->
 
 mrpipeline provides a streamlined interface for Mendelian randomisation

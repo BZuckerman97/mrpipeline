@@ -23,3 +23,16 @@ not \code{"success"} or if the required data is unavailable.
 Creates visualisations for colocalization results. Requires the \code{ggplot2}
 package.
 }
+\examples{
+\dontrun{
+result <- run_coloc(
+  exposure = cd40_exposure,
+  outcome = sjogren_outcome,
+  gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
+  bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+)
+plot(result, type = "pp_bar")
+plot(result, type = "regional")
+}
+
+}

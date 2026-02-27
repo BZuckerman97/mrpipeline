@@ -37,7 +37,7 @@ format_single_cell_onek1k <- function(onek1k_mapping, onek1k_cell_type) {
 
   # Filter mapping file for the specified cell type
   cell_type_info <- onek1k_mapping |>
-    dplyr::filter(cell_type == onek1k_cell_type)
+    dplyr::filter(.data$cell_type == .env$onek1k_cell_type)
 
   if (nrow(cell_type_info) == 0) {
     stop(
@@ -62,27 +62,28 @@ format_single_cell_onek1k <- function(onek1k_mapping, onek1k_cell_type) {
   # Rename variables, calculate standard error, and select columns
   eqtl_data_prepped <- eqtl_data |>
     dplyr::rename(
-      SNP = RSID,
-      beta = SPEARMANS_RHO,
-      pval = P_VALUE,
-      phenotype = GENE,
-      effect_allele = A1,
-      other_allele = A2
+      SNP = dplyr::all_of("RSID"),
+      beta = dplyr::all_of("SPEARMANS_RHO"),
+      pval = dplyr::all_of("P_VALUE"),
+      phenotype = dplyr::all_of("GENE"),
+      effect_allele = dplyr::all_of("A1"),
+      other_allele = dplyr::all_of("A2")
     ) |>
     dplyr::mutate(
-      # Calculate standard error from beta and p-value, do I need to do anything to handle p=0 or p=1 ie case_when(pval == 0 | pval == 1 ~ 0, TRUE ~
-      se = dplyr::mutate(abs(beta / qnorm(pval / 2)))
+      se = abs(.data$beta / stats::qnorm(.data$pval / 2))
     ) |>
     dplyr::select(
-      cell,
-      phenotype,
-      SNP,
-      effect_allele,
-      other_allele,
-      beta,
-      se,
-      pval
-    ) #' Missing columns to ask why excluded are the other_allele_col
+      dplyr::all_of(c(
+        "cell",
+        "phenotype",
+        "SNP",
+        "effect_allele",
+        "other_allele",
+        "beta",
+        "se",
+        "pval"
+      ))
+    )
 
   # Format data using TwoSampleMR
   # Do I need to add in the other_allele column?
