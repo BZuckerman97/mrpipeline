@@ -70,7 +70,8 @@ get_gene_coords <- function(genes, build = c("grch38", "grch37")) {
         !.data$chromosome_name %in% as.character(1:22)
       ) |>
       dplyr::distinct(.data$hgnc_symbol, .keep_all = TRUE) |>
-      dplyr::rename(chromosome = "chromosome_name")
+      dplyr::rename(chromosome = "chromosome_name") |>
+      dplyr::mutate(chromosome = as.character(.data$chromosome))
   }
 
   # Warn about genes not found
