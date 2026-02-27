@@ -1,0 +1,32 @@
+url: ~
+
+reference:
+  - title: MR Analysis
+    desc: Run Mendelian randomisation and inspect results.
+    contents:
+      - run_mr
+      - print.mr_result
+      - summary.mr_result
+      - plot.mr_result
+
+  - title: Colocalization
+    desc: Run colocalization analysis and inspect results.
+    contents:
+      - run_coloc
+      - print.coloc_result
+      - summary.coloc_result
+      - plot.coloc_result
+
+  - title: Data Formatting
+    desc: Format proteomics GWAS data for use with mrpipeline.
+    contents:
+      - format_pqtl_decode
+      - format_pqtl_ukbppp
+      - format_single_cell_onek1k
+      - decode_pqtl_file_name
+      - ukbppp_pqtl_file_name
+
+  - title: Utilities
+    desc: Helper functions for analysis workflows.
+    contents:
+      - get_gene_coords

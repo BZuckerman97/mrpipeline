@@ -10,3 +10,5 @@
 ^CLAUDE\.md$
 ^Dockerfile$
 ^history_database$
+^_pkgdown\.yml$
+^docs$

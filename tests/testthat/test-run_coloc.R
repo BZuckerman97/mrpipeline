@@ -242,7 +242,11 @@ test_that("run_coloc ABF-only returns correct coloc_result structure", {
   skip_if_not_installed("TwoSampleMR")
   skip_if_not_installed("coloc")
 
-  bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
   skip_if_not(
     file.exists(paste0(bfile, ".bed")),
     "LD reference panel not available"
@@ -320,7 +324,11 @@ test_that("run_coloc skips prop_test when susie not requested", {
   skip_if_not_installed("TwoSampleMR")
   skip_if_not_installed("coloc")
 
-  bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
   skip_if_not(
     file.exists(paste0(bfile, ".bed")),
     "LD reference panel not available"

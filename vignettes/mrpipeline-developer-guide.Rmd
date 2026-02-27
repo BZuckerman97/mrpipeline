@@ -62,6 +62,35 @@ SuSiE max PP.H4 with credible set count (if available).
 `summary.coloc_result()` shows full details: all posterior probabilities
 (H0–H4), SuSiE credible set pairs, signals hits, and skipped methods.
 
+### Plot methods
+
+Both S3 classes have `plot()` methods defined in `R/plot.R`:
+
+- `plot.mr_result(x, type)` — wraps TwoSampleMR plotting functions:
+  - `"scatter"` (default): `TwoSampleMR::mr_scatter_plot()`
+  - `"forest"`: `TwoSampleMR::mr_forest_plot()`
+  - `"funnel"`: `TwoSampleMR::mr_funnel_plot()`
+- `plot.coloc_result(x, type)` — custom ggplot2 plots:
+  - `"pp_bar"` (default): bar chart of ABF posterior probabilities (H0–H4)
+  - `"regional"`: side-by-side regional association plots (-log10(p) vs
+    position) for exposure and outcome
+
+Both methods return `NULL` invisibly for non-success results with an
+informative message.
+
+## Exported Utility Functions
+
+### `get_gene_coords()`
+
+Defined in `R/get_gene_coords.R`. Queries Ensembl via biomaRt for gene
+coordinates. Key design decisions:
+
+- Uses `biomaRt::useEnsembl()` with `host = "grch37.ensembl.org"` for GRCh37
+  or the default host for GRCh38
+- Filters to standard chromosomes (1–22, X, Y)
+- Deduplicates by gene + chromosome (widest range), preferring autosomes
+- Warns about genes not found in Ensembl
+
 ## Internal Helper Functions
 
 All helpers live in `R/helpers.R`, are tagged `@keywords internal`, and are not exported.
