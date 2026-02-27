@@ -143,12 +143,40 @@ Prefer `pkg::fn()` over `@importFrom`. Only add `@importFrom` entries when a fun
 
 ## Test Data
 
-<!-- TODO: cd40_sumstats — raw UKB-PPP format for format_pqtl_ukbppp() tests -->
-<!-- TODO: cd40_exposure — pre-formatted TwoSampleMR exposure format -->
-<!-- TODO: sjogren_sumstats — raw outcome format -->
-<!-- TODO: sjogren_outcome — pre-formatted TwoSampleMR outcome format -->
-<!-- TODO: inst/extdata/ — minimal LD reference panel (chr20 CD40 region, EUR) -->
-<!-- TODO: how to regenerate/extend test data -->
+The package ships several bundled datasets (defined in `R/data.R`) and a
+minimal LD reference panel. All SNP-level datasets overlap with the LD panel,
+so integration tests can run without external downloads.
+
+### Bundled datasets
+
+| Dataset | Rows | Format | Description |
+|---------|------|--------|-------------|
+| `cd40_sumstats` | 210 | Raw UKB-PPP | CD40 summary statistics (chr6 MHC + chr20 cis), input for `format_pqtl_ukbppp()` |
+| `cd40_exposure` | 50 | TwoSampleMR exposure | CD40 chr20 cis region, pre-formatted. All SNPs in LD panel |
+| `sjogren_sumstats` | 341 | Raw outcome (case-control) | Sjögren's Disease GWAS, all chromosomes |
+| `sjogren_outcome` | 50 | Standardised outcome | SjD chr20 CD40 region (1 real + 49 synthetic). All SNPs in LD panel |
+| `cd40_decode_gwas` | 10 | deCODE GWAS | Dummy deCODE format data, input for `format_pqtl_decode()` |
+| `cd40_decode_variants` | 10 | deCODE variants | Allele frequencies for `cd40_decode_gwas` |
+
+### LD reference panel
+
+`inst/extdata/ld_ref.{bed,bim,fam}` — synthetic PLINK binary fileset with 50
+biallelic SNPs from the CD40 chr20 cis region (positions 44646911–44858502) and
+100 individuals. Allele frequencies are drawn from the real `cd40_sumstats`
+data, so LD structure is random but allele frequencies are realistic. Total size
+~4 KB.
+
+Access the bfile prefix in tests:
+
+```r
+bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
+```
+
+Guard integration tests that need plink:
+
+```r
+skip_if_not(file.exists(paste0(bfile, ".bed")), "LD reference panel not available")
+```
 
 ## PR Checklist
 
