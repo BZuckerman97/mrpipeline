@@ -18,15 +18,17 @@
 #' @return An object of class `mr_result`.
 #'
 #' @keywords internal
-new_mr_result <- function(results = data.frame(),
-                          instruments = data.frame(),
-                          f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
-                          steiger = NULL,
-                          methods_skipped = character(),
-                          ld_matrix = NULL,
-                          params = list(),
-                          status = "success",
-                          status_reason = NULL) {
+new_mr_result <- function(
+  results = data.frame(),
+  instruments = data.frame(),
+  f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
+  steiger = NULL,
+  methods_skipped = character(),
+  ld_matrix = NULL,
+  params = list(),
+  status = "success",
+  status_reason = NULL
+) {
   structure(
     list(
       results = results,
@@ -93,7 +95,9 @@ print.mr_result <- function(x, ...) {
 #'
 #' @export
 summary.mr_result <- function(object, ...) {
-  cli::cli_h1("MR Results: {object$params$exposure_id} -> {object$params$outcome_id}")
+  cli::cli_h1(
+    "MR Results: {object$params$exposure_id} -> {object$params$outcome_id}"
+  )
 
   if (object$status != "success") {
     reason <- object$status_reason %||% "unknown reason"
@@ -142,7 +146,9 @@ summary.mr_result <- function(object, ...) {
 
   # LD correction
   if (!is.null(object$ld_matrix)) {
-    cli::cli_alert_info("LD-corrected analysis ({nrow(object$ld_matrix)} SNPs in LD matrix)")
+    cli::cli_alert_info(
+      "LD-corrected analysis ({nrow(object$ld_matrix)} SNPs in LD matrix)"
+    )
   }
 
   invisible(object)

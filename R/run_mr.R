@@ -66,25 +66,26 @@
 #'   failure reasons.
 #'
 #' @export
-run_mr <- function(exposure,
-                   exposure_id,
-                   outcome,
-                   outcome_id,
-                   instrument_region = NULL,
-                   window = 100000L,
-                   pval_thresh = 5e-8,
-                   rsq_thresh = 0.001,
-                   bfile = NULL,
-                   plink_bin = NULL,
-                   pop = "EUR",
-                   instruments = NULL,
-                   instruments_strict = FALSE,
-                   exclude_regions = NULL,
-                   methods = c("ivw", "egger", "weighted_median",
-                               "presso", "conmix", "steiger"),
-                   ld_correct = FALSE,
-                   exposure_n = NULL,
-                   presso_n_dist = 1000) {
+run_mr <- function(
+  exposure,
+  exposure_id,
+  outcome,
+  outcome_id,
+  instrument_region = NULL,
+  window = 100000L,
+  pval_thresh = 5e-8,
+  rsq_thresh = 0.001,
+  bfile = NULL,
+  plink_bin = NULL,
+  pop = "EUR",
+  instruments = NULL,
+  instruments_strict = FALSE,
+  exclude_regions = NULL,
+  methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
+  ld_correct = FALSE,
+  exposure_n = NULL,
+  presso_n_dist = 1000
+) {
   # --- Validate arguments ---------------------------------------------------
 
   if (ld_correct && is.null(bfile)) {
@@ -93,8 +94,14 @@ run_mr <- function(exposure,
 
   methods <- match.arg(
     methods,
-    choices = c("ivw", "egger", "weighted_median", "presso", "conmix",
-                "steiger"),
+    choices = c(
+      "ivw",
+      "egger",
+      "weighted_median",
+      "presso",
+      "conmix",
+      "steiger"
+    ),
     several.ok = TRUE
   )
 
@@ -147,22 +154,29 @@ run_mr <- function(exposure,
     }
   } else if (!is.null(instrument_region)) {
     # Cis-MR mode
-    cli::cli_inform("Cis-MR mode: chr{instrument_region$chromosome}:{instrument_region$start}-{instrument_region$end} (+/- {window}bp).")
+    cli::cli_inform(
+      "Cis-MR mode: chr{instrument_region$chromosome}:{instrument_region$start}-{instrument_region$end} (+/- {window}bp)."
+    )
 
     exposure_iv <- exposure |>
       dplyr::filter(
-        as.character(.data$chr.exposure) == as.character(instrument_region$chromosome),
+        as.character(.data$chr.exposure) ==
+          as.character(instrument_region$chromosome),
         .data$pos.exposure >= (instrument_region$start - window),
         .data$pos.exposure <= (instrument_region$end + window)
       ) |>
       dplyr::filter(.data$pval.exposure < pval_thresh)
 
     if (nrow(exposure_iv) == 0) {
-      cli::cli_warn("No significant instruments in cis region for {.val {exposure_id}}.")
+      cli::cli_warn(
+        "No significant instruments in cis region for {.val {exposure_id}}."
+      )
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
-          "No significant instruments in cis region for '", exposure_id, "'"
+          "No significant instruments in cis region for '",
+          exposure_id,
+          "'"
         ),
         params = params
       ))
@@ -187,28 +201,38 @@ run_mr <- function(exposure,
     exposure_iv <- exposure_iv[exposure_iv$SNP %in% clumped$rsid, ]
 
     if (nrow(exposure_iv) == 0) {
-      cli::cli_warn("No instruments remaining after clumping for {.val {exposure_id}}.")
+      cli::cli_warn(
+        "No instruments remaining after clumping for {.val {exposure_id}}."
+      )
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
-          "No instruments remaining after clumping for '", exposure_id, "'"
+          "No instruments remaining after clumping for '",
+          exposure_id,
+          "'"
         ),
         params = params
       ))
     }
   } else {
     # Genome-wide mode
-    cli::cli_inform("Genome-wide mode: selecting instruments at p < {pval_thresh}.")
+    cli::cli_inform(
+      "Genome-wide mode: selecting instruments at p < {pval_thresh}."
+    )
 
     exposure_iv <- exposure |>
       dplyr::filter(.data$pval.exposure < pval_thresh)
 
     if (nrow(exposure_iv) == 0) {
-      cli::cli_warn("No genome-wide significant instruments for {.val {exposure_id}}.")
+      cli::cli_warn(
+        "No genome-wide significant instruments for {.val {exposure_id}}."
+      )
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
-          "No genome-wide significant instruments for '", exposure_id, "'"
+          "No genome-wide significant instruments for '",
+          exposure_id,
+          "'"
         ),
         params = params
       ))
@@ -233,11 +257,15 @@ run_mr <- function(exposure,
     exposure_iv <- exposure_iv[exposure_iv$SNP %in% clumped$rsid, ]
 
     if (nrow(exposure_iv) == 0) {
-      cli::cli_warn("No instruments remaining after clumping for {.val {exposure_id}}.")
+      cli::cli_warn(
+        "No instruments remaining after clumping for {.val {exposure_id}}."
+      )
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
-          "No instruments remaining after clumping for '", exposure_id, "'"
+          "No instruments remaining after clumping for '",
+          exposure_id,
+          "'"
         ),
         params = params
       ))
@@ -249,24 +277,30 @@ run_mr <- function(exposure,
   if (!is.null(exclude_regions) && "chr.exposure" %in% colnames(exposure_iv)) {
     in_excluded <- rep(FALSE, nrow(exposure_iv))
     for (i in seq_len(nrow(exclude_regions))) {
-      in_excluded <- in_excluded | (
-        as.character(exposure_iv$chr.exposure) == as.character(exclude_regions$chr[i]) &
+      in_excluded <- in_excluded |
+        (as.character(exposure_iv$chr.exposure) ==
+          as.character(exclude_regions$chr[i]) &
           exposure_iv$pos.exposure >= exclude_regions$start[i] &
-          exposure_iv$pos.exposure <= exclude_regions$end[i]
-      )
+          exposure_iv$pos.exposure <= exclude_regions$end[i])
     }
 
     if (any(in_excluded)) {
       n_removed <- sum(in_excluded)
       exposure_iv <- exposure_iv[!in_excluded, ]
-      cli::cli_inform("Removed {n_removed} instrument{?s} in excluded region{?s}.")
+      cli::cli_inform(
+        "Removed {n_removed} instrument{?s} in excluded region{?s}."
+      )
 
       if (nrow(exposure_iv) == 0) {
-        cli::cli_warn("All instruments for {.val {exposure_id}} fall in excluded regions.")
+        cli::cli_warn(
+          "All instruments for {.val {exposure_id}} fall in excluded regions."
+        )
         return(new_mr_result(
           status = "no_instruments",
           status_reason = paste0(
-            "All instruments for '", exposure_id, "' fall in excluded regions"
+            "All instruments for '",
+            exposure_id,
+            "' fall in excluded regions"
           ),
           params = params
         ))
@@ -297,11 +331,15 @@ run_mr <- function(exposure,
   harmonised <- harmonise_and_filter(exposure_iv, outcome_data)
 
   if (nrow(harmonised) == 0) {
-    cli::cli_warn("No variants remaining after harmonisation for {.val {exposure_id}}.")
+    cli::cli_warn(
+      "No variants remaining after harmonisation for {.val {exposure_id}}."
+    )
     return(new_mr_result(
       status = "no_harmonised_variants",
       status_reason = paste0(
-        "No variants remaining after harmonisation for '", exposure_id, "'"
+        "No variants remaining after harmonisation for '",
+        exposure_id,
+        "'"
       ),
       params = params
     ))
@@ -428,7 +466,10 @@ run_mr <- function(exposure,
           stringsAsFactors = FALSE
         )
       } else {
-        egger_mr <- TwoSampleMR::mr(harmonised, method_list = "mr_egger_regression")
+        egger_mr <- TwoSampleMR::mr(
+          harmonised,
+          method_list = "mr_egger_regression"
+        )
         results_list[["Egger"]] <- data.frame(
           exposure = exposure_id,
           outcome = outcome_id,
@@ -600,8 +641,10 @@ validate_exclude_regions <- function(exclude_regions) {
     )
   }
 
-  if (!rlang::is_integerish(exclude_regions$start) ||
-    !rlang::is_integerish(exclude_regions$end)) {
+  if (
+    !rlang::is_integerish(exclude_regions$start) ||
+      !rlang::is_integerish(exclude_regions$end)
+  ) {
     cli::cli_abort(
       "{.arg exclude_regions} columns {.val start} and {.val end} must be whole numbers."
     )

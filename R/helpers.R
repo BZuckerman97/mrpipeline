@@ -80,27 +80,34 @@ compute_ld_matrix <- function(snps, bfile, plink_bin = NULL) {
 #' @return Data frame of clumped variants (output of `ieugwasr::ld_clump()`).
 #'
 #' @keywords internal
-clump_instruments <- function(dat,
-                              rsq_thresh,
-                              clump_kb = 10000,
-                              bfile = NULL,
-                              plink_bin = NULL,
-                              pop = "EUR") {
+clump_instruments <- function(
+  dat,
+  rsq_thresh,
+  clump_kb = 10000,
+  bfile = NULL,
+  plink_bin = NULL,
+  pop = "EUR"
+) {
   # Compute pseudo p-values if beta and se are available
   if (all(c("beta", "se") %in% colnames(dat))) {
     dat <- dat |>
       dplyr::mutate(
         z = .data$beta / .data$se,
         log10p = sapply(
-          -log10(2 * Rmpfr::pnorm(
-            Rmpfr::mpfr(abs(.data$z), precBits = 100),
-            lower.tail = FALSE
-          )),
+          -log10(
+            2 *
+              Rmpfr::pnorm(
+                Rmpfr::mpfr(abs(.data$z), precBits = 100),
+                lower.tail = FALSE
+              )
+          ),
           as.numeric
         )
       ) |>
       dplyr::arrange(dplyr::desc(.data$log10p)) |>
-      dplyr::mutate(pval = seq(from = 1e-100, to = 0.9, length.out = dplyr::n()))
+      dplyr::mutate(
+        pval = seq(from = 1e-100, to = 0.9, length.out = dplyr::n())
+      )
   }
 
   clump_args <- list(
@@ -118,8 +125,10 @@ clump_instruments <- function(dat,
   } else {
     if (!isTRUE(getOption("mrpipeline.api_message_shown"))) {
       cli::cli_inform(
-        c("i" = "Using API for LD clumping (population: {pop}).",
-          "i" = "For large datasets, a local {.arg bfile} is recommended.")
+        c(
+          "i" = "Using API for LD clumping (population: {pop}).",
+          "i" = "For large datasets, a local {.arg bfile} is recommended."
+        )
       )
       options(mrpipeline.api_message_shown = TRUE)
     }
@@ -181,9 +190,11 @@ eaf_to_maf <- function(eaf) {
 #' @return Integer sample size, or `NULL` if unavailable.
 #'
 #' @keywords internal
-resolve_sample_size <- function(explicit_n = NULL,
-                                data_column = NULL,
-                                label = "dataset") {
+resolve_sample_size <- function(
+  explicit_n = NULL,
+  data_column = NULL,
+  label = "dataset"
+) {
   if (!is.null(explicit_n)) {
     return(as.integer(explicit_n))
   }

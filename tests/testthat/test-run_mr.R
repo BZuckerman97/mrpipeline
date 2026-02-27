@@ -359,8 +359,10 @@ test_that("run_mr returns Wald ratio for single instrument", {
   expect_equal(result$results$method, "Wald ratio")
 
   # IVW, egger, weighted_median should be skipped
-  expect_true(all(c("ivw", "egger", "weighted_median") %in%
-    names(result$methods_skipped)))
+  expect_true(all(
+    c("ivw", "egger", "weighted_median") %in%
+      names(result$methods_skipped)
+  ))
 
   # F-stat should be computed
   expect_equal(length(result$f_stats$per_snp), 1)
@@ -419,7 +421,10 @@ test_that("run_mr skips egger/weighted_median/presso with 2 instruments", {
   expect_s3_class(result, "mr_result")
 
   # IVW should work
-  expect_true(any(stringr::str_detect(result$results$method, "variance weighted")))
+  expect_true(any(stringr::str_detect(
+    result$results$method,
+    "variance weighted"
+  )))
 
   # Egger, weighted_median, presso should be skipped
   expect_true("egger" %in% names(result$methods_skipped))
