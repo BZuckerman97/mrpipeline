@@ -35,3 +35,14 @@ This function filters deCODE genetics GWAS by the deCODE included variants file,
 processes the data to clean the column headings and uses TwoSampleMR::format_data() to prepare
 the exposure dataset before run_mr()
 }
+\examples{
+\dontrun{
+result <- format_pqtl_decode(
+  decode_proteomic_gwas_file_path = "path/to/decode_gwas.txt.gz",
+  decode_included_variants_file_path = "path/to/included_variants.txt.gz",
+  pqtl_assay = "CD40"
+)
+head(result$exposure)
+}
+
+}

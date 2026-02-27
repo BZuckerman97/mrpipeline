@@ -63,8 +63,10 @@ format_pqtl_ukbppp <- function(
       n = dplyr::all_of("N"),
       pos = dplyr::all_of("GENPOS") # Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) |>
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr))) |> #change 23 to X if needed
-    dplyr::mutate(pval = 10^-pval) # Convert LOG10P into P
+    dplyr::mutate(
+      chr = dplyr::if_else(.data$chr == "23", "X", as.character(.data$chr))
+    ) |> #change 23 to X if needed
+    dplyr::mutate(pval = 10^-.data$pval) # Convert LOG10P into P
 
   # UKB-PPP RSID
   ukbppp_rsid <- ukbppp_rsid |>
@@ -73,7 +75,7 @@ format_pqtl_ukbppp <- function(
       other_allele_rsid_file = dplyr::all_of("REF"),
       pos_rsid_file = dplyr::all_of("POS38")
     ) |>
-    dplyr::mutate(chr_rsid_file = sub(":.*", "", ID))
+    dplyr::mutate(chr_rsid_file = sub(":.*", "", .data$ID))
 
   # Match by ID or create it
   if ("ID" %in% colnames(ukbppp) & "ID" %in% colnames(ukbppp_rsid)) {
@@ -81,15 +83,21 @@ format_pqtl_ukbppp <- function(
   } else {
     ukbppp <- ukbppp |>
       dplyr::mutate(
-        ID = paste(chr, pos, effect_allele, other_allele, sep = ":")
+        ID = paste(
+          .data$chr,
+          .data$pos,
+          .data$effect_allele,
+          .data$other_allele,
+          sep = ":"
+        )
       )
     ukbppp_rsid <- ukbppp_rsid |>
       dplyr::mutate(
         ID = paste(
-          chr_rsid_file,
-          pos_rsid_file,
-          effect_allele_rsid_file,
-          other_allele_rsid_file,
+          .data$chr_rsid_file,
+          .data$pos_rsid_file,
+          .data$effect_allele_rsid_file,
+          .data$other_allele_rsid_file,
           sep = ":"
         )
       )
@@ -124,8 +132,8 @@ format_pqtl_ukbppp <- function(
 
       # Update rsid column with rsids from x_y_rsid
       ukbppp <- ukbppp |>
-        dplyr::mutate(rsid = dplyr::coalesce(rsids, rsid)) |>
-        dplyr::select(-rsids)
+        dplyr::mutate(rsid = dplyr::coalesce(.data$rsids, .data$rsid)) |>
+        dplyr::select(-dplyr::all_of("rsids"))
     }
   }
   # Convert data table to data frame for format_data()
@@ -196,7 +204,7 @@ ukbppp_pqtl_file_name <- function(
 
   # get relevant metadata
   metadata <- olink_linker_file |>
-    dplyr::filter(Code == synapse_id)
+    dplyr::filter(.data$Code == .env$synapse_id)
 
   if (nrow(metadata) == 0) {
     stop(paste0(

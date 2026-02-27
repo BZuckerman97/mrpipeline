@@ -117,3 +117,21 @@ When \code{ld_correct = TRUE}, IVW and Egger use
 with \code{correl = TRUE}.
 }
 
+\examples{
+\dontrun{
+# Cis-MR using bundled CD40/Sjogren's data
+bfile <- system.file("extdata", "ld_ref", package = "mrpipeline")
+result <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile,
+  methods = c("ivw", "egger", "weighted_median")
+)
+result
+summary(result)
+}
+
+}

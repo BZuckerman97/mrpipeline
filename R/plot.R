@@ -12,6 +12,19 @@
 #'   Returns `NULL` invisibly if the result status is not `"success"` or if
 #'   no results are available.
 #'
+#' @examples
+#' \dontrun{
+#' result <- run_mr(
+#'   exposure = cd40_exposure, exposure_id = "CD40",
+#'   outcome = sjogren_outcome, outcome_id = "SjD",
+#'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#' )
+#' plot(result, type = "scatter")
+#' plot(result, type = "forest")
+#' plot(result, type = "funnel")
+#' }
+#'
 #' @export
 plot.mr_result <- function(x, type = c("scatter", "forest", "funnel"), ...) {
   rlang::check_installed("ggplot2", reason = "to plot MR results.")
@@ -57,6 +70,18 @@ plot.mr_result <- function(x, type = c("scatter", "forest", "funnel"), ...) {
 #'
 #' @return A ggplot object. Returns `NULL` invisibly if the result status is
 #'   not `"success"` or if the required data is unavailable.
+#'
+#' @examples
+#' \dontrun{
+#' result <- run_coloc(
+#'   exposure = cd40_exposure,
+#'   outcome = sjogren_outcome,
+#'   gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#' )
+#' plot(result, type = "pp_bar")
+#' plot(result, type = "regional")
+#' }
 #'
 #' @export
 plot.coloc_result <- function(x, type = c("pp_bar", "regional"), ...) {

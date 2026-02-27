@@ -58,6 +58,17 @@ new_coloc_result <- function(
 #'
 #' @return Invisibly returns `x`.
 #'
+#' @examples
+#' \dontrun{
+#' result <- run_coloc(
+#'   exposure = cd40_exposure,
+#'   outcome = sjogren_outcome,
+#'   gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#' )
+#' print(result)
+#' }
+#'
 #' @export
 print.coloc_result <- function(x, ...) {
   if (x$status != "success") {
@@ -106,6 +117,17 @@ print.coloc_result <- function(x, ...) {
 #' @param ... Ignored.
 #'
 #' @return Invisibly returns `object`.
+#'
+#' @examples
+#' \dontrun{
+#' result <- run_coloc(
+#'   exposure = cd40_exposure,
+#'   outcome = sjogren_outcome,
+#'   gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#' )
+#' summary(result)
+#' }
 #'
 #' @export
 summary.coloc_result <- function(object, ...) {

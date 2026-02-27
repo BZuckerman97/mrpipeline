@@ -18,3 +18,15 @@ Invisibly returns \code{object}.
 Displays full details: region info, all posterior probabilities (H0-H4),
 SuSiE credible set pairs, signals hits, and skipped methods.
 }
+\examples{
+\dontrun{
+result <- run_coloc(
+  exposure = cd40_exposure,
+  outcome = sjogren_outcome,
+  gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
+  bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+)
+summary(result)
+}
+
+}

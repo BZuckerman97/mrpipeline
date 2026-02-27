@@ -18,3 +18,15 @@ Invisibly returns \code{x}.
 Displays a one-line summary: exposure -> outcome, primary estimate,
 number of SNPs, and mean F-statistic.
 }
+\examples{
+\dontrun{
+result <- run_mr(
+  exposure = cd40_exposure, exposure_id = "CD40",
+  outcome = sjogren_outcome, outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+)
+print(result)
+}
+
+}

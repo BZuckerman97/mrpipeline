@@ -12,3 +12,4 @@
 ^history_database$
 ^_pkgdown\.yml$
 ^docs$
+^\.github$

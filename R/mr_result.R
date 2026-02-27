@@ -55,6 +55,17 @@ new_mr_result <- function(
 #'
 #' @return Invisibly returns `x`.
 #'
+#' @examples
+#' \dontrun{
+#' result <- run_mr(
+#'   exposure = cd40_exposure, exposure_id = "CD40",
+#'   outcome = sjogren_outcome, outcome_id = "SjD",
+#'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#' )
+#' print(result)
+#' }
+#'
 #' @export
 print.mr_result <- function(x, ...) {
   if (x$status != "success") {
@@ -92,6 +103,17 @@ print.mr_result <- function(x, ...) {
 #' @param ... Ignored.
 #'
 #' @return Invisibly returns `object`.
+#'
+#' @examples
+#' \dontrun{
+#' result <- run_mr(
+#'   exposure = cd40_exposure, exposure_id = "CD40",
+#'   outcome = sjogren_outcome, outcome_id = "SjD",
+#'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#' )
+#' summary(result)
+#' }
 #'
 #' @export
 summary.mr_result <- function(object, ...) {

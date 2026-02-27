@@ -19,3 +19,15 @@ Displays a one-line summary: number of SNPs, ABF PP.H4 if available,
 SuSiE max PP.H4 and credible set count if available. Shows status if
 not success.
 }
+\examples{
+\dontrun{
+result <- run_coloc(
+  exposure = cd40_exposure,
+  outcome = sjogren_outcome,
+  gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
+  bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+)
+print(result)
+}
+
+}

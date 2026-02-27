@@ -128,7 +128,12 @@ test_that("get_gene_coords works with real biomaRt (integration)", {
   skip_on_cran()
   skip_if_offline()
 
-  result <- get_gene_coords("CD40", build = "grch38")
+  result <- tryCatch(
+    get_gene_coords("CD40", build = "grch38"),
+    error = function(e) {
+      skip(paste("Ensembl unavailable:", conditionMessage(e)))
+    }
+  )
 
   expect_s3_class(result, "tbl_df")
   expect_equal(nrow(result), 1)

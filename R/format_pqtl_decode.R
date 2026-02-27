@@ -15,6 +15,17 @@
 #'
 #' @return A list with two elements:
 #'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
+#'
+#' @examples
+#' \dontrun{
+#' result <- format_pqtl_decode(
+#'   decode_proteomic_gwas_file_path = "path/to/decode_gwas.txt.gz",
+#'   decode_included_variants_file_path = "path/to/included_variants.txt.gz",
+#'   pqtl_assay = "CD40"
+#' )
+#' head(result$exposure)
+#' }
+#'
 #' @export
 format_pqtl_decode <- function(
   decode_proteomic_gwas_file_path,
@@ -68,9 +79,11 @@ format_pqtl_decode <- function(
       pval = dplyr::all_of("Pval")
     ) |>
     # Edit chromosome variable to change it from "chr3" to 3
-    dplyr::mutate(chr = gsub("chr", "", chr)) |>
+    dplyr::mutate(chr = gsub("chr", "", .data$chr)) |>
     # Rename 23rd chromosome to X for consistency
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr)))
+    dplyr::mutate(
+      chr = dplyr::if_else(.data$chr == "23", "X", as.character(.data$chr))
+    )
 
   # Handle non-Mendelian chromosome rsIDs/SNPs
   # Check if the chromosome is X
@@ -97,7 +110,7 @@ format_pqtl_decode <- function(
 
       # Update rsid column with rsids from x_y_rsid
       decode_processed <- decode_processed |>
-        dplyr::mutate(rsid = dplyr::coalesce(rsids_xy, rsid)) |>
+        dplyr::mutate(rsid = dplyr::coalesce(.data$rsids_xy, .data$rsid)) |>
         dplyr::select(-dplyr::all_of("rsids_xy")) # Remove temporary column
     }
   }
@@ -161,7 +174,7 @@ decode_pqtl_file_name <- function(unique_id, decode_linker_file, decode_dir) {
 
   # get relevant metadata
   metadata <- decode_linker_file |>
-    dplyr::filter(seqID == unique_id)
+    dplyr::filter(.data$seqID == .env$unique_id)
   stopifnot(identical(nrow(metadata), 1L))
   metadata <- as.list(metadata)
 
