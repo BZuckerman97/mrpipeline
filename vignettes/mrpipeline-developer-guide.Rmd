@@ -41,8 +41,26 @@ non-success results.
 
 ### `coloc_result`
 
-<!-- TODO: full structure documentation -->
-<!-- TODO: print.coloc_result() and summary.coloc_result() -->
+Every `run_coloc()` call returns a `coloc_result` object — even when analysis
+cannot proceed (e.g. no SNPs in region). The object contains:
+
+- `coloc_abf` — output of `coloc::coloc.abf()`, or `NULL`
+- `coloc_susie` — output of `coloc::coloc.susie()`, or `NULL`
+- `coloc_signals` — output of `coloc::coloc.signals()`, or `NULL`
+- `coloc_prop_test` — output of `colocPropTest::coloc.prop.test()`, or `NULL`
+- `n_snps` — integer, number of SNPs used in the analysis
+- `harmonised_data` — data frame of harmonised data
+- `methods_skipped` — named character vector (method name → reason skipped)
+- `params` — list of all input parameters
+- `status` — one of `"success"`, `"no_snps_in_region"`, `"too_few_snps"`,
+  `"no_harmonised_variants"`
+- `status_reason` — human-readable explanation when `status != "success"`
+
+`print.coloc_result()` shows a one-line summary: N SNPs, ABF PP.H4, and
+SuSiE max PP.H4 with credible set count (if available).
+
+`summary.coloc_result()` shows full details: all posterior probabilities
+(H0–H4), SuSiE credible set pairs, signals hits, and skipped methods.
 
 ## Internal Helper Functions
 
