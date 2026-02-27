@@ -2,45 +2,118 @@
 % Please edit documentation in R/run_mr.R
 \name{run_mr}
 \alias{run_mr}
-\title{Performs MR}
+\title{Perform Mendelian randomisation analysis}
 \usage{
 run_mr(
   exposure,
   exposure_id,
   outcome,
   outcome_id,
-  mhc_remove,
-  instrument_region = list(chromosome = 1L, start = 1L, end = 200L),
-  window = 1L,
-  pval_thresh = 5e-06,
-  rsq_thresh = 0.1,
-  bfile
+  instrument_region = NULL,
+  window = 100000L,
+  pval_thresh = 5e-08,
+  rsq_thresh = 0.001,
+  bfile = NULL,
+  plink_bin = NULL,
+  pop = "EUR",
+  instruments = NULL,
+  instruments_strict = FALSE,
+  exclude_regions = NULL,
+  methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
+  ld_correct = FALSE,
+  exposure_n = NULL,
+  presso_n_dist = 1000
 )
 }
 \arguments{
-\item{exposure}{data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?}
+\item{exposure}{Data frame of formatted exposure data (output of
+\code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}} or \verb{format_pqtl_*()} functions).}
 
-\item{exposure_id}{character. e.g. "syn52361761" -> we should change this to the protein/gene name}
+\item{exposure_id}{Character. Identifier for the exposure (e.g. protein
+name).}
 
-\item{outcome}{data frame. Summary statistics for outcome, must be formatted as above}
+\item{outcome}{Data frame of outcome summary statistics with standardised
+columns: \code{rsids}, \code{chr}, \code{pos}, \code{beta}, \code{se}, \code{eaf}, \code{pval}, \code{n},
+\code{effect_allele}, \code{other_allele}. Formatted internally via
+\code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}}.}
 
-\item{outcome_id}{character. Name for outcome e.g. 'SjD'}
+\item{outcome_id}{Character. Identifier for the outcome (e.g. disease name).}
 
-\item{mhc_remove}{Logical, whether to remove the MHC region}
+\item{instrument_region}{List with elements \code{chromosome}, \code{start}, \code{end}
+defining the cis region. \code{NULL} for genome-wide or manual mode.}
 
-\item{instrument_region}{list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file}
+\item{window}{Integer. Window (in bp) to extend either side of
+\code{instrument_region}. Default \code{100000L}.}
 
-\item{window}{integer. Set to cis region if required}
+\item{pval_thresh}{Numeric. P-value threshold for instrument selection.
+Default \code{5e-8}.}
 
-\item{pval_thresh}{number. 5e-6 by default}
+\item{rsq_thresh}{Numeric. R-squared clumping threshold. Default \code{0.001}.}
 
-\item{rsq_thresh}{R square clumping threshold}
+\item{bfile}{Character. Path to PLINK bfile prefix for local LD operations.
+Required when \code{ld_correct = TRUE}.}
 
-\item{bfile}{path to the LD_folder containing 1000 genome files (g1000_eur)}
+\item{plink_bin}{Character. Path to PLINK binary. Auto-detected if \code{NULL}.}
+
+\item{pop}{Character. Population for API-based LD clumping. Default \code{"EUR"}.}
+
+\item{instruments}{Character vector of rsIDs for manual instrument mode, or
+\code{NULL}.}
+
+\item{instruments_strict}{Logical. If \code{TRUE}, error when manual instruments
+are missing from exposure data. If \code{FALSE}, warn. Default \code{FALSE}.}
+
+\item{exclude_regions}{Data frame with columns \code{chr}, \code{start}, \code{end} defining
+genomic regions to exclude instruments from, or \code{NULL}. For example, to
+exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
+
+\item{methods}{Character vector of MR methods to run. Options: \code{"ivw"},
+\code{"egger"}, \code{"weighted_median"}, \code{"presso"}, \code{"conmix"}, \code{"steiger"}.}
+
+\item{ld_correct}{Logical. Use LD-corrected IVW/Egger via the
+\code{MendelianRandomization} package. Requires \code{bfile}. Default \code{FALSE}.}
+
+\item{exposure_n}{Numeric. Exposure sample size. If \code{NULL}, inferred from
+\code{samplesize.exposure} column.}
+
+\item{presso_n_dist}{Integer. Number of distributions for MR-PRESSO. Default
+\code{1000}.}
 }
 \value{
-List with 2 data frames - MR results and instruments
+An \code{mr_result} object. Check \code{result$status} for \code{"success"} vs
+failure reasons.
 }
 \description{
-Performs MR
+Runs MR with automatic instrument selection (cis-MR, genome-wide, or manual)
+and optional sensitivity analyses. Returns an \code{mr_result} S3 object.
 }
+\section{Instrument selection modes}{
+
+Exactly one of three modes is used, determined by the combination of
+\code{instruments} and \code{instrument_region}:
+\itemize{
+\item \strong{Cis-MR} (\code{instrument_region} provided, \code{instruments = NULL}): filters
+\code{exposure} to the cis region defined by \code{instrument_region} +/- \code{window},
+applies \code{pval_thresh}, then LD-clumps.
+\item \strong{Genome-wide} (\code{instrument_region = NULL}, \code{instruments = NULL}): filters
+\code{exposure} by \code{pval_thresh} only, then LD-clumps.
+\item \strong{Manual} (\code{instruments} provided): uses the supplied rsIDs directly.
+\code{instruments_strict} controls whether missing IDs are an error or warning.
+}
+}
+
+\section{Method dispatch}{
+
+Methods are dispatched based on the number of instruments after clumping:
+\itemize{
+\item 1 SNP: Wald ratio only
+\item 2 SNPs: IVW (+ ConMix/Steiger if requested); Egger/weighted_median/PRESSO
+skipped
+\item 3+ SNPs: all methods in \code{methods} are attempted
+}
+
+When \code{ld_correct = TRUE}, IVW and Egger use
+\code{MendelianRandomization::mr_ivw()} and \code{MendelianRandomization::mr_egger()}
+with \code{correl = TRUE}.
+}
+

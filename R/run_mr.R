@@ -1,414 +1,666 @@
-#' Performs MR
+#' Perform Mendelian randomisation analysis
 #'
-#' @importFrom utils timestamp
+#' Runs MR with automatic instrument selection (cis-MR, genome-wide, or manual)
+#' and optional sensitivity analyses. Returns an `mr_result` S3 object.
 #'
-#' @param exposure_id character. e.g. "syn52361761" -> we should change this to the protein/gene name
-#' @param exposure data frame. Summary statistics for exposure, must include exposure_id column ie gene name which we use as above?
-#' @param outcome data frame. Summary statistics for outcome, must be formatted as above
-#' @param outcome_id character. Name for outcome e.g. 'SjD'
-#' @param mhc_remove Logical, whether to remove the MHC region
-#' @param instrument_region list of the chromosome position, gene start and gene end for each gene of interest this needs to link with the original mapping file
-#' @param window integer. Set to cis region if required
-#' @param pval_thresh number. 5e-6 by default
-#' @param rsq_thresh R square clumping threshold
-#' @param bfile path to the LD_folder containing 1000 genome files (g1000_eur)
+#' @section Instrument selection modes:
+#' Exactly one of three modes is used, determined by the combination of
+#' `instruments` and `instrument_region`:
 #'
-#' @return List with 2 data frames - MR results and instruments
+#' - **Cis-MR** (`instrument_region` provided, `instruments = NULL`): filters
+#'   `exposure` to the cis region defined by `instrument_region` +/- `window`,
+#'   applies `pval_thresh`, then LD-clumps.
+#' - **Genome-wide** (`instrument_region = NULL`, `instruments = NULL`): filters
+#'   `exposure` by `pval_thresh` only, then LD-clumps.
+#' - **Manual** (`instruments` provided): uses the supplied rsIDs directly.
+#'   `instruments_strict` controls whether missing IDs are an error or warning.
+#'
+#' @section Method dispatch:
+#' Methods are dispatched based on the number of instruments after clumping:
+#' - 1 SNP: Wald ratio only
+#' - 2 SNPs: IVW (+ ConMix/Steiger if requested); Egger/weighted_median/PRESSO
+#'   skipped
+#' - 3+ SNPs: all methods in `methods` are attempted
+#'
+#' When `ld_correct = TRUE`, IVW and Egger use
+#' `MendelianRandomization::mr_ivw()` and `MendelianRandomization::mr_egger()`
+#' with `correl = TRUE`.
+#'
+#' @param exposure Data frame of formatted exposure data (output of
+#'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
+#' @param exposure_id Character. Identifier for the exposure (e.g. protein
+#'   name).
+#' @param outcome Data frame of outcome summary statistics with standardised
+#'   columns: `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
+#'   `effect_allele`, `other_allele`. Formatted internally via
+#'   [TwoSampleMR::format_data()].
+#' @param outcome_id Character. Identifier for the outcome (e.g. disease name).
+#' @param instrument_region List with elements `chromosome`, `start`, `end`
+#'   defining the cis region. `NULL` for genome-wide or manual mode.
+#' @param window Integer. Window (in bp) to extend either side of
+#'   `instrument_region`. Default `100000L`.
+#' @param pval_thresh Numeric. P-value threshold for instrument selection.
+#'   Default `5e-8`.
+#' @param rsq_thresh Numeric. R-squared clumping threshold. Default `0.001`.
+#' @param bfile Character. Path to PLINK bfile prefix for local LD operations.
+#'   Required when `ld_correct = TRUE`.
+#' @param plink_bin Character. Path to PLINK binary. Auto-detected if `NULL`.
+#' @param pop Character. Population for API-based LD clumping. Default `"EUR"`.
+#' @param instruments Character vector of rsIDs for manual instrument mode, or
+#'   `NULL`.
+#' @param instruments_strict Logical. If `TRUE`, error when manual instruments
+#'   are missing from exposure data. If `FALSE`, warn. Default `FALSE`.
+#' @param exclude_regions Data frame with columns `chr`, `start`, `end` defining
+#'   genomic regions to exclude instruments from, or `NULL`. For example, to
+#'   exclude the MHC region: `data.frame(chr = "6", start = 26e6, end = 34e6)`.
+#' @param methods Character vector of MR methods to run. Options: `"ivw"`,
+#'   `"egger"`, `"weighted_median"`, `"presso"`, `"conmix"`, `"steiger"`.
+#' @param ld_correct Logical. Use LD-corrected IVW/Egger via the
+#'   `MendelianRandomization` package. Requires `bfile`. Default `FALSE`.
+#' @param exposure_n Numeric. Exposure sample size. If `NULL`, inferred from
+#'   `samplesize.exposure` column.
+#' @param presso_n_dist Integer. Number of distributions for MR-PRESSO. Default
+#'   `1000`.
+#'
+#' @return An `mr_result` object. Check `result$status` for `"success"` vs
+#'   failure reasons.
+#'
 #' @export
-run_mr <- function(exposure,
-                   exposure_id,
-                   outcome, # this needs to be the formatted summary statistics for the outcome GWAS
-                   outcome_id,
-                   mhc_remove,
-                   # sumstats_info,
-                   # downloadLocation,
-                   # ref_rsid,
-                   instrument_region = list(chromosome = 1L,
-                                            start = 1L,
-                                            end = 200L),
-                   window = 1L,
-                   pval_thresh = 5e-6,
-                   rsq_thresh = 0.1,
-                   bfile) {
+run_mr <- function(
+  exposure,
+  exposure_id,
+  outcome,
+  outcome_id,
+  instrument_region = NULL,
+  window = 100000L,
+  pval_thresh = 5e-8,
+  rsq_thresh = 0.001,
+  bfile = NULL,
+  plink_bin = NULL,
+  pop = "EUR",
+  instruments = NULL,
+  instruments_strict = FALSE,
+  exclude_regions = NULL,
+  methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
+  ld_correct = FALSE,
+  exposure_n = NULL,
+  presso_n_dist = 1000
+) {
+  # --- Validate arguments ---------------------------------------------------
 
-# Validate arguments -----------------------------------------------------
-# Note: The validation function is currently commented out.
-# It should be implemented to check the structure and types of instrument_region.
-validate_instrument_region_arg(instrument_region)
-
-  result <- NULL
-
-  print(exposure_id)
-  timestamp()
-  print("******")
-
-# Filter exposure for IVs ----------------------------------------------------------
-
-  # To filter out MHC region
-  if (mhc_remove == 1 && "chr.exposure" %in% colnames(exposure)) {
-    message("Assessing whether MHC region is present and should be removed")
-
-    mhc_chr <- "6"
-    mhc_start <- 26000000
-    mhc_end <- 34000000
-
-    # Check if all SNPs are within MHC region
-    if (all(exposure$chr.exposure == mhc_chr &
-            exposure$pos.exposure >= mhc_start &
-            exposure$pos.exposure <= mhc_end)) {
-      message("All SNPs for this protein are within MHC region - skipping analysis")
-      return(NULL)
-    }
-
-    # Filter out any SNPs in MHC region
-    exposure <- exposure |>
-      dplyr::filter(!(chr.exposure == mhc_chr &
-                        pos.exposure >= mhc_start &
-                        pos.exposure <= mhc_end))
-
-    message("Filtered out SNPs in MHC region (chr6:26-34Mb)")
-
-  } else if (!("chr.exposure" %in% colnames(exposure))) {
-    warning("chr.exposure column not found in exposure data - MHC filter skipped")
+  if (ld_correct && is.null(bfile)) {
+    cli::cli_abort("{.arg bfile} is required when {.code ld_correct = TRUE}.")
   }
 
-  # To filter for appropriate gene window
-  exposure <- exposure |>
-    dplyr::filter(pos.exposure > (instrument_region$start - window) & pos.exposure < (instrument_region$end + window)) |> # Selecting the cis region only (here defined as 200kb before or after the protein-encoding region), uses build 37 positions
-    dplyr::filter(pval.exposure < pval_thresh)                                                                                   # Selecting "region-wide" significant cis-pQTLs (here defined as P<5e-6)
-
-  # This needs to be done before the function starts
-  #exposure$CHROM <-
-    #  ifelse(exposure$CHROM == 23, "X", exposure$CHROM)                                                                     # Renaming 23rd chromosome "X" for consistency between sum stats
-
-
-# Get IVs from outcome ----------------------------------------------------
-
-    if (is.null(exposure) || nrow(exposure) == 0) {
-      warning(paste0("Skipping ", exposure_id))
-      warning("No significant cis pQTLs")
-    } else {
-      # Only selecting the chromosome of interest to speed up stuff downstream from here
-      # Will need to make sure this is on the format_data() outcome data ie chr.outcome and chr.exposure
-      outcome_overlap <- outcome |>
-        dplyr::filter(chr %in% exposure$chr.exposure) # |> # CHROM needs to change to chr.exposure
-      #  dplyr::filter(pos %in% exposure$pos.exposure) - TO HIDE THIS UNTIL I CAN TOGGLE BETWEEN BUILD 37 OR BUILD 38 IN THE FORMAT PQTL DATA
-      # Only selecting the variants that are overlapping between exposure and outcome sum stats
-
-      if (is.null(outcome_overlap) ||
-          nrow(outcome_overlap) == 0) {
-        warning(paste0("Skipping ", exposure_id))
-        warning("No overlap between outcome and protein exposure")
-      } else {
-
-
-# Reformat outcome df -----------------------------------------------------
-        # This step is unnecessary
-        # outcome_rsid <- outcome_overlap |>
-        #  dplyr::select(chrom, pos, rsids)
-
-        outcome_overlap <- outcome_overlap |>
-          dplyr::mutate(phenotype = paste(outcome_id)) #|>
-          #dplyr::mutate(id = paste(chrom, pos, alt, ref, sep = ":")) no longer need this as using rsIDs/SNPs not ID
-
-        outcome_overlap <- as.data.frame(outcome_overlap)
-
-        # These column names need to be completed prior to the function
-        outcome_data <- TwoSampleMR::format_data(
-          outcome_overlap,
-          type = "outcome",
-          phenotype_col = "phenotype",
-          header = TRUE,
-          snp_col = "rsids",
-          effect_allele_col = "effect_allele",
-          other_allele_col = "other_allele",
-          eaf_col = "eaf",
-          beta_col = "beta",
-          se_col = "se",
-          samplesize_col = "n",
-          pval_col = "pval",
-          pos_col = "pos",
-          log_pval = FALSE
-        )
-
-# Harmonise ---------------------------------------------------------------
-
-        harmonised_data_frame <-
-          TwoSampleMR::harmonise_data(exposure_dat = exposure, outcome_dat = outcome_data)                                             # This is where the matching happens
-
-        harmonised_data_frame <- harmonised_data_frame |>
-          dplyr::arrange(pval.exposure)
-# We make sure there are no duplicate SNPs (e.g., SNPs with the same position but other alleles [this messes the MR itself up])
-        harmonised_data_frame <- harmonised_data_frame |>
-          dplyr::filter(!duplicated(SNP))
-
-# Make sure no NA present in the exposure or outcome SNPs beta or se columns
-
-        dharmonised_data_frame <- harmonised_data_frame |>
-          dplyr::filter(
-            !is.na(beta.exposure),
-            !is.na(se.exposure),
-            !is.na(beta.outcome),
-            !is.na(se.outcome)
-          )
-
-        if (nrow(harmonised_data_frame) == 0) {
-          warning(paste0("Skipping ", exposure_id))
-          warning("No variants remaining after harmonising")
-          return(NULL)
-        }
-
-# The code below calculates the absolute p-values and generates pseudo p-values to ensure that each SNP is properly ranked by PLINK.
-harmonised_data_frame <- harmonised_data_frame |>
-  dplyr::mutate(
-    z = beta.exposure / se.exposure,
-    log10p = sapply(
-      -log10(2 * Rmpfr::pnorm(
-        Rmpfr::mpfr(abs(z), precBits = 100),
-        lower.tail = FALSE
-      )),
-      as.numeric
-    )
+  methods <- match.arg(
+    methods,
+    choices = c(
+      "ivw",
+      "egger",
+      "weighted_median",
+      "presso",
+      "conmix",
+      "steiger"
+    ),
+    several.ok = TRUE
   )
 
-harmonised_data_frame <- harmonised_data_frame |>
-  dplyr::arrange(desc(log10p)) |>
-  dplyr::mutate(pseudo_p = seq(from = 1e-100, to = 0.9, length.out = n()))
+  if (!is.null(exclude_regions)) {
+    validate_exclude_regions(exclude_regions)
+  }
 
-# Clump -------------------------------------------------------------------
-        print("Clumping")
-          clump <-
-            ieugwasr::ld_clump(
-              dplyr::tibble(
-                rsid = harmonised_data_frame$SNP,
-                pval = harmonised_data_frame$pseudo_p,
-                id = harmonised_data_frame$id.exposure
-              ),
-              # Clumping (i.e., excluding the variants that are correlated with each other); you'll need the 1000G LD reference file for this
-              plink_bin = genetics.binaRies::get_plink_binary(),
-              clump_kb = 10000, #put in the argument for run_mr() can put clump_kb = 10000
-              clump_r2 = rsq_thresh,
-              bfile = bfile
-            )
-          harmonised_clumped_final_data_frame <- harmonised_data_frame |>
-            dplyr::filter(harmonised_data_frame$SNP %in% clump$rsid)
+  params <- list(
+    exposure_id = exposure_id,
+    outcome_id = outcome_id,
+    instrument_region = instrument_region,
+    window = window,
+    pval_thresh = pval_thresh,
+    rsq_thresh = rsq_thresh,
+    bfile = bfile,
+    pop = pop,
+    instruments = instruments,
+    instruments_strict = instruments_strict,
+    exclude_regions = exclude_regions,
+    methods = methods,
+    ld_correct = ld_correct,
+    exposure_n = exposure_n,
+    presso_n_dist = presso_n_dist
+  )
 
-          # Filtering mr_keep for TRUE
-          harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame |>
-            dplyr::filter(mr_keep == "TRUE")
+  # --- Instrument selection -------------------------------------------------
 
-          # Note: this particular script uses the IVW method adjusted for between-variant correlation. This is not standard, but is a good method to use when using a lenient R2 threshold such as the one we use (0.1) when using proteins as the exposure.
+  if (!is.null(instruments)) {
+    # Manual mode
+    cli::cli_inform("Using {length(instruments)} manual instrument{?s}.")
+    exposure_iv <- exposure[exposure$SNP %in% instruments, ]
 
-# Perform MR --------------------------------------------------------------
-
-          if (nrow(harmonised_clumped_final_data_frame[harmonised_clumped_final_data_frame$mr_keep,]) == 0) {
-            warning(paste0("Skipping ", exposure_id))
-            warning("No variants remaining after clumping")
-            results <- NULL
-          } else {
-
-## Wald ratio --------------------------------------------------------------
-
-            if (nrow(harmonised_clumped_final_data_frame) == 1) {
-              # If the genetic instrument includes 1 variant, you use the Wald ratio as your method
-              results_mr <-
-                TwoSampleMR::mr(harmonised_clumped_final_data_frame, method_list = c("mr_wald_ratio"))
-              results <-
-                data.frame(
-                  exp = exposure_id,
-                  outc = paste(outcome_id),
-                  pvalthreshold = pval_thresh,
-                  rsqthreshold = rsq_thresh,
-                  nsnp = results_mr$nsnp,
-                  method = results_mr$method,
-                  b = results_mr$b,
-                  se = results_mr$se,
-                  pval = results_mr$pval
-                )
-            } else if (nrow(harmonised_clumped_final_data_frame) == 2) {
-
-
-## 2 IVs - IVW not Egger ---------------------------------------------------
-
-              # If you have 2 variants, you can use the classic IVW method but not the MR-Egger method
-              ld_correlation_matrix <-
-                ieugwasr::ld_matrix(
-                  harmonised_clumped_final_data_frame$SNP,
-                  bfile = bfile,
-                  plink_bin = genetics.binaRies::get_plink_binary()
-                )
-
-              # To make sure the LD matrix columns match the SNP order precisely
-              # Art's code to solve the order issues of SNPid in LD matix
-              rownames(ld_correlation_matrix) <- gsub("\\_.*", "", rownames(ld_correlation_matrix))
-              harmonised_clumped_final_data_frame_duplicate <- harmonised_clumped_final_data_frame[!(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
-              colnames(harmonised_clumped_final_data_frame_duplicate)[which(colnames(harmonised_clumped_final_data_frame_duplicate) %in% c("effect_allele.exposure", "other_allele.exposure", "effect_allele.outcome", "other_allele.outcome"))] <- c("other_allele.exposure", "effect_allele.exposure", "other_allele.outcome", "effect_allele.outcome")
-              harmonised_clumped_final_data_frame_duplicate$beta.exposure <- harmonised_clumped_final_data_frame_duplicate$beta.exposure*-1
-              harmonised_clumped_final_data_frame_duplicate$beta.outcome <- harmonised_clumped_final_data_frame_duplicate$beta.outcome*-1
-              harmonised_clumped_final_data_frame_duplicate$eaf.exposure <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.exposure
-              harmonised_clumped_final_data_frame_duplicate$eaf.outcome <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.outcome
-              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
-              harmonised_clumped_final_data_frame <- rbind(harmonised_clumped_final_data_frame, harmonised_clumped_final_data_frame_duplicate)
-              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[ order(match(harmonised_clumped_final_data_frame$SNP, rownames(ld_correlation_matrix))), ]
-              harmonised_clumped_final_data_frame$marker_ld <- paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_")
-
-              harmonised_clumped_correlated_final_data_frame <-
-                MendelianRandomization::mr_input( # This variable name is inconsistent, consider renaming
-                  bx = harmonised_clumped_final_data_frame$beta.exposure, # Use harmonised_clumped_final_data_frame
-                  bxse = harmonised_clumped_final_data_frame$se.exposure,
-                  by = harmonised_clumped_final_data_frame$beta.outcome,
-                  byse = harmonised_clumped_final_data_frame$se.outcome,
-                  correlation = ld_correlation_matrix # Corrected variable name
-                )
-              output_mr_ivw_corr <-
-                MendelianRandomization::mr_ivw(harmonised_clumped_correlated_final_data_frame, correl = TRUE)
-              results <-
-                data.frame(
-                  exp = exposure_id,
-                  outc = paste(outcome_id),
-                  pvalthreshold = pval_thresh,
-                  rsqthreshold = rsq_thresh,
-                  nsnp = output_mr_ivw_corr@SNPs,
-                  method = "Inverse variance weighted (correlation inc)",
-                  b = output_mr_ivw_corr@Estimate,
-                  se = output_mr_ivw_corr@StdError,
-                  pval = output_mr_ivw_corr@Pvalue
-                )
-            }
-            else { # This block is for nrow > 2
-              # Ensure LD matrix is calculated for >2 IVs if not already done
-              # (The existing code calculates it in the nrow == 2 block,
-              #  it might be better to calculate it once if nrow >= 2)
-              # For this fix, we assume ld_correlation_matrix is available or recalculated here if needed.
-              # If ld_correlation_matrix from the nrow==2 block is intended to be used,
-              # ensure its scope or recalculate. For simplicity, let's assume it needs to be
-              # available or recalculated if the logic implies it's different for >2 IVs.
-              # The complex SNP/allele ordering logic is also present in the nrow==2 block.
-              # This logic should also be applied here if necessary before mr_input.
-
-              # Re-applying the SNP ordering and allele flipping logic for > 2 IVs
-              # Calculate ld_correlation_matrix for the >2 IVs case
-              ld_correlation_matrix <-
-                ieugwasr::ld_matrix(
-                  harmonised_clumped_final_data_frame$SNP,
-                  bfile = bfile,
-                  plink_bin = genetics.binaRies::get_plink_binary()
-                )
-
-              # This is duplicated from the nrow == 2 block and should ideally be refactored.
-              rownames(ld_correlation_matrix) <- gsub("\\_.*", "", rownames(ld_correlation_matrix))
-              harmonised_clumped_final_data_frame_duplicate <- harmonised_clumped_final_data_frame[!(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
-              colnames(harmonised_clumped_final_data_frame_duplicate)[which(colnames(harmonised_clumped_final_data_frame_duplicate) %in% c("effect_allele.exposure", "other_allele.exposure", "effect_allele.outcome", "other_allele.outcome"))] <- c("other_allele.exposure", "effect_allele.exposure", "other_allele.outcome", "effect_allele.outcome")
-              harmonised_clumped_final_data_frame_duplicate$beta.exposure <- harmonised_clumped_final_data_frame_duplicate$beta.exposure*-1
-              harmonised_clumped_final_data_frame_duplicate$beta.outcome <- harmonised_clumped_final_data_frame_duplicate$beta.outcome*-1
-              harmonised_clumped_final_data_frame_duplicate$eaf.exposure <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.exposure
-              harmonised_clumped_final_data_frame_duplicate$eaf.outcome <- 1-harmonised_clumped_final_data_frame_duplicate$eaf.outcome
-              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[(paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_") %in% colnames(ld_correlation_matrix)),]
-              harmonised_clumped_final_data_frame <- rbind(harmonised_clumped_final_data_frame, harmonised_clumped_final_data_frame_duplicate)
-              harmonised_clumped_final_data_frame <- harmonised_clumped_final_data_frame[ order(match(harmonised_clumped_final_data_frame$SNP, rownames(ld_correlation_matrix))), ]
-              harmonised_clumped_final_data_frame$marker_ld <- paste(harmonised_clumped_final_data_frame$SNP, harmonised_clumped_final_data_frame$effect_allele.exposure, harmonised_clumped_final_data_frame$other_allele.exposure, sep="_")
-
-              harmonised_clumped_correlated_final_data_frame <-
-                MendelianRandomization::mr_input(
-                  bx = harmonised_clumped_final_data_frame$beta.exposure,
-                  bxse = harmonised_clumped_final_data_frame$se.exposure,
-                  by = harmonised_clumped_final_data_frame$beta.outcome,
-                  byse = harmonised_clumped_final_data_frame$se.outcome,
-                  correlation = ld_correlation_matrix
-                )
-              output_mr_ivw_corr <- # Define for >2 IVs
-                MendelianRandomization::mr_ivw(harmonised_clumped_correlated_final_data_frame, correl = TRUE)
-
-              # Format IVW results
-              results <- data.frame(
-                exp = exposure_id, outc = paste(outcome_id), pvalthreshold = pval_thresh, rsqthreshold = rsq_thresh,
-                nsnp = output_mr_ivw_corr@SNPs, method = "Inverse variance weighted (correlation inc)",
-                b = output_mr_ivw_corr@Estimate, se = output_mr_ivw_corr@StdError, pval = output_mr_ivw_corr@Pvalue
-              )
-            }
-          }
-
-          if (is.null(results) || nrow(results) == 0) {
-            warning(paste0("Skipping ", exposure_id))
-            warning("No results returned from MR analysis")
-          } else {
-            df_sum <-
-              data.frame(
-                exp = as.character(NA),
-                outc = as.character(NA),
-                nsnp = NA,
-                method = NA,
-                b = NA,
-                se = NA,
-                pval = NA
-              )[-1,]
-            df_instr <-
-              data.frame(
-                pos.exposure = NA,
-                pos_id = NA,
-                effect_allele.exposure = NA,
-                other_allele.exposure = NA,
-                effect_allele.outcome = NA,
-                other_allele.outcome = NA,
-                beta.exposure = NA,
-                beta.outcome = NA,
-                eaf.exposure = NA,
-                eaf.outcome = NA,
-                remove = NA,
-                palindromic = NA,
-                ambiguous = NA,
-                id.outcome = NA,
-                chr.outcome = NA,
-                pos.outcome = NA,
-                pval.outcome = NA,
-                se.outcome = NA,
-                outcome = NA,
-                mr_keep.outcome = NA,
-                pval_origin.outcome = NA,
-                chr.exposure = NA,
-                samplesize.exposure = NA,
-                se.exposure = NA,
-                pval.exposure = NA,
-                exposure = NA,
-                pval = NA,
-                mr_keep.exposure = NA,
-                pval_origin.exposure = NA,
-                id.exposure = NA,
-                action = NA,
-                mr_keep = NA,
-                samplesize.outcome = NA,
-                SNP = NA
-              )[-1,]
-
-            df_sum <- rbind(df_sum, results)
-            df_instr <- rbind(df_instr, harmonised_clumped_final_data_frame)
-            result <- list(results = df_sum,
-                           instruments = df_instr)
-          }
+    missing <- setdiff(instruments, exposure_iv$SNP)
+    if (length(missing) > 0) {
+      msg <- "{length(missing)} instrument{?s} not found in exposure data: {.val {missing}}"
+      if (instruments_strict) {
+        cli::cli_abort(msg)
+      } else {
+        cli::cli_warn(msg)
       }
     }
 
-  message(paste(exposure_id, "done"))
+    if (nrow(exposure_iv) == 0) {
+      cli::cli_warn("No manual instruments found in exposure data.")
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = "No manual instruments found in exposure data",
+        params = params
+      ))
+    }
+  } else if (!is.null(instrument_region)) {
+    # Cis-MR mode
+    cli::cli_inform(
+      "Cis-MR mode: chr{instrument_region$chromosome}:{instrument_region$start}-{instrument_region$end} (+/- {window}bp)."
+    )
 
-  return(result)
-}
+    exposure_iv <- exposure |>
+      dplyr::filter(
+        as.character(.data$chr.exposure) ==
+          as.character(instrument_region$chromosome),
+        .data$pos.exposure >= (instrument_region$start - window),
+        .data$pos.exposure <= (instrument_region$end + window)
+      ) |>
+      dplyr::filter(.data$pval.exposure < pval_thresh)
 
-# Private functions --------------------------------------------------------
+    if (nrow(exposure_iv) == 0) {
+      cli::cli_warn(
+        "No significant instruments in cis region for {.val {exposure_id}}."
+      )
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No significant instruments in cis region for '",
+          exposure_id,
+          "'"
+        ),
+        params = params
+      ))
+    }
 
+    # Clump
+    clump_dat <- data.frame(
+      rsid = exposure_iv$SNP,
+      pval = exposure_iv$pval.exposure,
+      id = exposure_iv$id.exposure,
+      beta = exposure_iv$beta.exposure,
+      se = exposure_iv$se.exposure,
+      stringsAsFactors = FALSE
+    )
+    clumped <- clump_instruments(
+      dat = clump_dat,
+      rsq_thresh = rsq_thresh,
+      bfile = bfile,
+      plink_bin = plink_bin,
+      pop = pop
+    )
+    exposure_iv <- exposure_iv[exposure_iv$SNP %in% clumped$rsid, ]
 
-validate_instrument_region_arg <- function(instrument_region) {
+    if (nrow(exposure_iv) == 0) {
+      cli::cli_warn(
+        "No instruments remaining after clumping for {.val {exposure_id}}."
+      )
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No instruments remaining after clumping for '",
+          exposure_id,
+          "'"
+        ),
+        params = params
+      ))
+    }
+  } else {
+    # Genome-wide mode
+    cli::cli_inform(
+      "Genome-wide mode: selecting instruments at p < {pval_thresh}."
+    )
 
-  if (is.null(instrument_region)) {
-    invisible(TRUE)
+    exposure_iv <- exposure |>
+      dplyr::filter(.data$pval.exposure < pval_thresh)
+
+    if (nrow(exposure_iv) == 0) {
+      cli::cli_warn(
+        "No genome-wide significant instruments for {.val {exposure_id}}."
+      )
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No genome-wide significant instruments for '",
+          exposure_id,
+          "'"
+        ),
+        params = params
+      ))
+    }
+
+    # Clump
+    clump_dat <- data.frame(
+      rsid = exposure_iv$SNP,
+      pval = exposure_iv$pval.exposure,
+      id = exposure_iv$id.exposure,
+      beta = exposure_iv$beta.exposure,
+      se = exposure_iv$se.exposure,
+      stringsAsFactors = FALSE
+    )
+    clumped <- clump_instruments(
+      dat = clump_dat,
+      rsq_thresh = rsq_thresh,
+      bfile = bfile,
+      plink_bin = plink_bin,
+      pop = pop
+    )
+    exposure_iv <- exposure_iv[exposure_iv$SNP %in% clumped$rsid, ]
+
+    if (nrow(exposure_iv) == 0) {
+      cli::cli_warn(
+        "No instruments remaining after clumping for {.val {exposure_id}}."
+      )
+      return(new_mr_result(
+        status = "no_instruments",
+        status_reason = paste0(
+          "No instruments remaining after clumping for '",
+          exposure_id,
+          "'"
+        ),
+        params = params
+      ))
+    }
   }
 
-  # check is list
+  # --- Region exclusion -----------------------------------------------------
 
-  # check correct names in list
+  if (!is.null(exclude_regions) && "chr.exposure" %in% colnames(exposure_iv)) {
+    in_excluded <- rep(FALSE, nrow(exposure_iv))
+    for (i in seq_len(nrow(exclude_regions))) {
+      in_excluded <- in_excluded |
+        (as.character(exposure_iv$chr.exposure) ==
+          as.character(exclude_regions$chr[i]) &
+          exposure_iv$pos.exposure >= exclude_regions$start[i] &
+          exposure_iv$pos.exposure <= exclude_regions$end[i])
+    }
 
-  # check chromosome is type integer
+    if (any(in_excluded)) {
+      n_removed <- sum(in_excluded)
+      exposure_iv <- exposure_iv[!in_excluded, ]
+      cli::cli_inform(
+        "Removed {n_removed} instrument{?s} in excluded region{?s}."
+      )
 
-  # check start and end are both integers
+      if (nrow(exposure_iv) == 0) {
+        cli::cli_warn(
+          "All instruments for {.val {exposure_id}} fall in excluded regions."
+        )
+        return(new_mr_result(
+          status = "no_instruments",
+          status_reason = paste0(
+            "All instruments for '",
+            exposure_id,
+            "' fall in excluded regions"
+          ),
+          params = params
+        ))
+      }
+    }
+  }
+
+  # --- Format outcome and harmonise -----------------------------------------
+
+  outcome_data <- TwoSampleMR::format_data(
+    outcome,
+    type = "outcome",
+    phenotype_col = "phenotype",
+    header = TRUE,
+    snp_col = "rsids",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "other_allele",
+    eaf_col = "eaf",
+    beta_col = "beta",
+    se_col = "se",
+    samplesize_col = "n",
+    pval_col = "pval",
+    pos_col = "pos",
+    chr_col = "chr",
+    log_pval = FALSE
+  )
+
+  harmonised <- harmonise_and_filter(exposure_iv, outcome_data)
+
+  if (nrow(harmonised) == 0) {
+    cli::cli_warn(
+      "No variants remaining after harmonisation for {.val {exposure_id}}."
+    )
+    return(new_mr_result(
+      status = "no_harmonised_variants",
+      status_reason = paste0(
+        "No variants remaining after harmonisation for '",
+        exposure_id,
+        "'"
+      ),
+      params = params
+    ))
+  }
+
+  # --- Resolve sample size --------------------------------------------------
+
+  exp_n <- resolve_sample_size(
+    explicit_n = exposure_n,
+    data_column = harmonised$samplesize.exposure,
+    label = "exposure"
+  )
+
+  # --- LD correction --------------------------------------------------------
+
+  ld_mat <- NULL
+  if (ld_correct) {
+    ld_mat <- compute_ld_matrix(
+      snps = harmonised$SNP,
+      bfile = bfile,
+      plink_bin = plink_bin
+    )
+    aligned <- align_to_ld_matrix(harmonised, ld_mat)
+    harmonised <- aligned$data
+    ld_mat <- aligned$ld_matrix
+  }
+
+  # --- F-statistics ---------------------------------------------------------
+
+  f_per_snp <- (harmonised$beta.exposure / harmonised$se.exposure)^2
+  f_stats <- list(
+    per_snp = f_per_snp,
+    mean = mean(f_per_snp),
+    min = min(f_per_snp)
+  )
+
+  # --- Method dispatch ------------------------------------------------------
+
+  n_snps <- nrow(harmonised)
+  results_list <- list()
+  methods_skipped <- character()
+
+  # Wald ratio for single instrument
+
+  if (n_snps == 1) {
+    wald <- TwoSampleMR::mr(harmonised, method_list = "mr_wald_ratio")
+    results_list[["Wald ratio"]] <- data.frame(
+      exposure = exposure_id,
+      outcome = outcome_id,
+      method = "Wald ratio",
+      nsnp = wald$nsnp,
+      b = wald$b,
+      se = wald$se,
+      pval = wald$pval,
+      stringsAsFactors = FALSE
+    )
+
+    # Skip all multi-SNP methods
+    multi_methods <- intersect(
+      methods,
+      c("ivw", "egger", "weighted_median", "presso", "conmix")
+    )
+    for (m in multi_methods) {
+      methods_skipped[m] <- "Only 1 instrument (Wald ratio used)"
+    }
+  } else {
+    # IVW
+    if ("ivw" %in% methods) {
+      if (ld_correct) {
+        mr_input <- MendelianRandomization::mr_input(
+          bx = harmonised$beta.exposure,
+          bxse = harmonised$se.exposure,
+          by = harmonised$beta.outcome,
+          byse = harmonised$se.outcome,
+          correlation = ld_mat
+        )
+        ivw_res <- MendelianRandomization::mr_ivw(mr_input, correl = TRUE)
+        results_list[["IVW (LD-corrected)"]] <- data.frame(
+          exposure = exposure_id,
+          outcome = outcome_id,
+          method = "IVW (LD-corrected)",
+          nsnp = ivw_res@SNPs,
+          b = ivw_res@Estimate,
+          se = ivw_res@StdError,
+          pval = ivw_res@Pvalue,
+          stringsAsFactors = FALSE
+        )
+      } else {
+        ivw_mr <- TwoSampleMR::mr(harmonised, method_list = "mr_ivw")
+        results_list[["IVW"]] <- data.frame(
+          exposure = exposure_id,
+          outcome = outcome_id,
+          method = "Inverse variance weighted",
+          nsnp = ivw_mr$nsnp,
+          b = ivw_mr$b,
+          se = ivw_mr$se,
+          pval = ivw_mr$pval,
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+
+    # Egger (requires >= 3 SNPs)
+    if ("egger" %in% methods) {
+      if (n_snps < 3) {
+        methods_skipped["egger"] <- "Requires >= 3 instruments"
+      } else if (ld_correct) {
+        mr_input <- MendelianRandomization::mr_input(
+          bx = harmonised$beta.exposure,
+          bxse = harmonised$se.exposure,
+          by = harmonised$beta.outcome,
+          byse = harmonised$se.outcome,
+          correlation = ld_mat
+        )
+        egger_res <- MendelianRandomization::mr_egger(mr_input, correl = TRUE)
+        results_list[["Egger (LD-corrected)"]] <- data.frame(
+          exposure = exposure_id,
+          outcome = outcome_id,
+          method = "MR Egger (LD-corrected)",
+          nsnp = egger_res@SNPs,
+          b = egger_res@Estimate,
+          se = egger_res@StdError.Est,
+          pval = egger_res@Pvalue.Est,
+          stringsAsFactors = FALSE
+        )
+      } else {
+        egger_mr <- TwoSampleMR::mr(
+          harmonised,
+          method_list = "mr_egger_regression"
+        )
+        results_list[["Egger"]] <- data.frame(
+          exposure = exposure_id,
+          outcome = outcome_id,
+          method = "MR Egger",
+          nsnp = egger_mr$nsnp,
+          b = egger_mr$b,
+          se = egger_mr$se,
+          pval = egger_mr$pval,
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+
+    # Weighted median (requires >= 3 SNPs)
+    if ("weighted_median" %in% methods) {
+      if (n_snps < 3) {
+        methods_skipped["weighted_median"] <- "Requires >= 3 instruments"
+      } else {
+        wm_mr <- TwoSampleMR::mr(harmonised, method_list = "mr_weighted_median")
+        results_list[["Weighted median"]] <- data.frame(
+          exposure = exposure_id,
+          outcome = outcome_id,
+          method = "Weighted median",
+          nsnp = wm_mr$nsnp,
+          b = wm_mr$b,
+          se = wm_mr$se,
+          pval = wm_mr$pval,
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+
+    # MR-PRESSO (requires >= 3 SNPs)
+    if ("presso" %in% methods) {
+      if (n_snps < 3) {
+        methods_skipped["presso"] <- "Requires >= 3 instruments"
+      } else {
+        presso_result <- tryCatch(
+          {
+            TwoSampleMR::run_mr_presso(
+              harmonised,
+              NbDistribution = presso_n_dist
+            )
+          },
+          error = function(e) {
+            cli::cli_warn("MR-PRESSO failed: {conditionMessage(e)}")
+            NULL
+          }
+        )
+
+        if (!is.null(presso_result) && length(presso_result) > 0) {
+          # MR-PRESSO returns a list; extract main result
+          presso_main <- presso_result[[1]]$`Main MR results`
+          # Use "Raw" estimate (row 1)
+          if (!is.null(presso_main) && nrow(presso_main) > 0) {
+            results_list[["PRESSO"]] <- data.frame(
+              exposure = exposure_id,
+              outcome = outcome_id,
+              method = "MR-PRESSO",
+              nsnp = n_snps,
+              b = presso_main$`Causal Estimate`[1],
+              se = presso_main$Sd[1],
+              pval = presso_main$`P-value`[1],
+              stringsAsFactors = FALSE
+            )
+          }
+        }
+      }
+    }
+
+    # ConMix
+    if ("conmix" %in% methods) {
+      conmix_result <- tryCatch(
+        {
+          mr_input <- MendelianRandomization::mr_input(
+            bx = harmonised$beta.exposure,
+            bxse = harmonised$se.exposure,
+            by = harmonised$beta.outcome,
+            byse = harmonised$se.outcome
+          )
+          MendelianRandomization::mr_conmix(mr_input)
+        },
+        error = function(e) {
+          cli::cli_warn("ConMix failed: {conditionMessage(e)}")
+          NULL
+        }
+      )
+
+      if (!is.null(conmix_result)) {
+        results_list[["ConMix"]] <- data.frame(
+          exposure = exposure_id,
+          outcome = outcome_id,
+          method = "ConMix",
+          nsnp = n_snps,
+          b = conmix_result@Estimate,
+          se = NA_real_,
+          pval = conmix_result@Pvalue,
+          stringsAsFactors = FALSE
+        )
+      }
+    }
+  }
+
+  # Steiger (works with any number of SNPs if sample sizes available)
+  steiger_result <- NULL
+  if ("steiger" %in% methods) {
+    if (is.null(exp_n)) {
+      methods_skipped["steiger"] <- "Exposure sample size not available"
+    } else {
+      steiger_result <- tryCatch(
+        {
+          TwoSampleMR::steiger_filtering(harmonised)
+        },
+        error = function(e) {
+          cli::cli_warn("Steiger filtering failed: {conditionMessage(e)}")
+          methods_skipped["steiger"] <<- paste("Failed:", conditionMessage(e))
+          NULL
+        }
+      )
+    }
+  }
+
+  # --- Assemble results -----------------------------------------------------
+
+  if (length(results_list) == 0) {
+    results_df <- data.frame(
+      exposure = character(),
+      outcome = character(),
+      method = character(),
+      nsnp = integer(),
+      b = numeric(),
+      se = numeric(),
+      pval = numeric(),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    results_df <- do.call(rbind, results_list)
+    rownames(results_df) <- NULL
+  }
+
+  new_mr_result(
+    results = results_df,
+    instruments = harmonised,
+    f_stats = f_stats,
+    steiger = steiger_result,
+    methods_skipped = methods_skipped,
+    ld_matrix = ld_mat,
+    params = params
+  )
+}
+
+#' Validate exclude_regions argument
+#'
+#' @param exclude_regions Data frame to validate.
+#'
+#' @return Invisibly returns `TRUE` if valid; otherwise aborts with an error.
+#'
+#' @keywords internal
+validate_exclude_regions <- function(exclude_regions) {
+  if (!is.data.frame(exclude_regions)) {
+    cli::cli_abort("{.arg exclude_regions} must be a data frame.")
+  }
+
+  required_cols <- c("chr", "start", "end")
+  missing_cols <- setdiff(required_cols, colnames(exclude_regions))
+  if (length(missing_cols) > 0) {
+    cli::cli_abort(
+      "{.arg exclude_regions} must have columns {.val {required_cols}}; missing {.val {missing_cols}}."
+    )
+  }
+
+  if (
+    !rlang::is_integerish(exclude_regions$start) ||
+      !rlang::is_integerish(exclude_regions$end)
+  ) {
+    cli::cli_abort(
+      "{.arg exclude_regions} columns {.val start} and {.val end} must be whole numbers."
+    )
+  }
+
+  if (any(exclude_regions$start < 0) || any(exclude_regions$end < 0)) {
+    cli::cli_abort(
+      "{.arg exclude_regions} columns {.val start} and {.val end} must be positive."
+    )
+  }
+
+  if (any(exclude_regions$start > exclude_regions$end)) {
+    cli::cli_abort(
+      "{.arg exclude_regions}: {.val start} must be <= {.val end} for all rows."
+    )
+  }
 
   invisible(TRUE)
 }

@@ -26,10 +26,41 @@ knitr::opts_chunk$set(
 <!-- TODO: full structure documentation (results, instruments, f_stats, steiger, methods_skipped, ld_matrix, params) -->
 <!-- TODO: print.mr_result() and summary.mr_result() -->
 
+Every `run_mr()` call returns an `mr_result` object — even when no instruments
+survive filtering. The `status` field indicates success or failure:
+
+- `"success"` — analysis completed normally
+- `"no_instruments"` — no instruments survived filtering/clumping/exclusion
+- `"no_harmonised_variants"` — harmonisation removed all variants
+
+The `status_reason` field provides a human-readable explanation (e.g.
+`"No significant instruments in cis region for 'PCSK9'"`).
+
+`print.mr_result()` and `summary.mr_result()` display status information for
+non-success results.
+
 ### `coloc_result`
 
-<!-- TODO: full structure documentation -->
-<!-- TODO: print.coloc_result() and summary.coloc_result() -->
+Every `run_coloc()` call returns a `coloc_result` object — even when analysis
+cannot proceed (e.g. no SNPs in region). The object contains:
+
+- `coloc_abf` — output of `coloc::coloc.abf()`, or `NULL`
+- `coloc_susie` — output of `coloc::coloc.susie()`, or `NULL`
+- `coloc_signals` — output of `coloc::coloc.signals()`, or `NULL`
+- `coloc_prop_test` — output of `colocPropTest::coloc.prop.test()`, or `NULL`
+- `n_snps` — integer, number of SNPs used in the analysis
+- `harmonised_data` — data frame of harmonised data
+- `methods_skipped` — named character vector (method name → reason skipped)
+- `params` — list of all input parameters
+- `status` — one of `"success"`, `"no_snps_in_region"`, `"too_few_snps"`,
+  `"no_harmonised_variants"`
+- `status_reason` — human-readable explanation when `status != "success"`
+
+`print.coloc_result()` shows a one-line summary: N SNPs, ABF PP.H4, and
+SuSiE max PP.H4 with credible set count (if available).
+
+`summary.coloc_result()` shows full details: all posterior probabilities
+(H0–H4), SuSiE credible set pairs, signals hits, and skipped methods.
 
 ## Internal Helper Functions
 
@@ -51,7 +82,7 @@ All helpers live in `R/helpers.R`, are tagged `@keywords internal`, and are not 
 
 <!-- TODO: document intersect-and-reorder approach (simplified from allele-flip logic) -->
 
-### `in_mhc_region()`, `eaf_to_maf()`, `resolve_sample_size()`
+### `eaf_to_maf()`, `resolve_sample_size()`
 
 <!-- TODO: brief documentation for each -->
 
