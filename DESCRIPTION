@@ -24,8 +24,7 @@ Imports:
     rlang,
     Rmpfr,
     stringr (>= 1.5.1),
-    TwoSampleMR (>= 0.6.8),
-    utils
+    TwoSampleMR (>= 0.6.8)
 Additional_repositories:
   https://mrcieu.r-universe.dev
 Suggests:
