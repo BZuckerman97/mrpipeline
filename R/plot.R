@@ -22,22 +22,25 @@ plot.mr_result <- function(x, type = c("scatter", "forest", "funnel"), ...) {
     return(invisible(NULL))
   }
 
-  # TwoSampleMR functions expect their native column names
-  mr_res <- x$results
   harmonised <- x$instruments
 
-  plot_fn <- switch(
-    type,
-    scatter = TwoSampleMR::mr_scatter_plot,
-    forest = TwoSampleMR::mr_forest_plot,
-    funnel = TwoSampleMR::mr_funnel_plot
-  )
+  # TwoSampleMR plot functions expect id.exposure and id.outcome in the
+
+  # results data frame; run_mr() stores only exposure/outcome names, so
+  # we pull the IDs from the harmonised instruments.
+  mr_res <- x$results
+  mr_res$id.exposure <- harmonised$id.exposure[1]
+  mr_res$id.outcome <- harmonised$id.outcome[1]
 
   if (type == "scatter") {
-    plot_fn(mr_res, harmonised)
+    TwoSampleMR::mr_scatter_plot(mr_res, harmonised)
   } else {
     singlesnp <- TwoSampleMR::mr_singlesnp(harmonised)
-    plot_fn(singlesnp, mr_res)
+    if (type == "forest") {
+      TwoSampleMR::mr_forest_plot(singlesnp)
+    } else {
+      TwoSampleMR::mr_funnel_plot(singlesnp)
+    }
   }
 }
 
