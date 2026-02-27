@@ -15,19 +15,31 @@
 #'
 #' @return A list with two elements:
 #'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
-#' @export
 #'
 #' @examples
-format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
-                               decode_included_variants_file_path,
-                               pqtl_assay,
-                               x_y_chr_file = NULL){
-
+#' \dontrun{
+#' result <- format_pqtl_decode(
+#'   decode_proteomic_gwas_file_path = "path/to/decode_gwas.txt.gz",
+#'   decode_included_variants_file_path = "path/to/included_variants.txt.gz",
+#'   pqtl_assay = "CD40"
+#' )
+#' head(result$exposure)
+#' }
+#'
+#' @export
+format_pqtl_decode <- function(
+  decode_proteomic_gwas_file_path,
+  decode_included_variants_file_path,
+  pqtl_assay,
+  x_y_chr_file = NULL
+) {
   # Read and combine deCODE proteomic GWAS data
   if (is.character(decode_proteomic_gwas_file_path)) {
     stopifnot(all(sapply(decode_proteomic_gwas_file_path, file.exists)))
     decode_raw_data <- decode_proteomic_gwas_file_path |>
-      purrr::map(\(path) data.table::fread(path, nThread = parallel::detectCores())) |>
+      purrr::map(\(path) {
+        data.table::fread(path, nThread = parallel::detectCores())
+      }) |>
       dplyr::bind_rows()
   } else {
     stopifnot(is.data.frame(decode_proteomic_gwas_file_path))
@@ -38,7 +50,9 @@ format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
   if (is.character(decode_included_variants_file_path)) {
     stopifnot(all(sapply(decode_included_variants_file_path, file.exists)))
     included_variants_df <- decode_included_variants_file_path |>
-      purrr::map(\(path) data.table::fread(path, nThread = parallel::detectCores())) |>
+      purrr::map(\(path) {
+        data.table::fread(path, nThread = parallel::detectCores())
+      }) |>
       dplyr::bind_rows()
   } else {
     stopifnot(is.data.frame(decode_included_variants_file_path))
@@ -48,11 +62,11 @@ format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
   # Join GWAS data with included variants (which contains effectAlleleFreq)
   # Assuming 'Name' is the common SNP identifier column (e.g., rsID)
   decode_filtered <- decode_raw_data |>
-    dplyr::inner_join(included_variants_df, by = "Name") #' included variants data frame should only contain Name and EAF
+    dplyr::inner_join(included_variants_df, by = "Name") # included variants data frame should only contain Name and EAF
 
   decode_processed <- decode_filtered |>
-    dplyr::mutate(phenotype_col = pqtl_assay) |>  #' Create a phenotype_col
-    #' Rename columns
+    dplyr::mutate(phenotype_col = pqtl_assay) |> # Create a phenotype_col
+    # Rename columns
     dplyr::rename(
       rsid = dplyr::all_of("rsids"),
       beta = dplyr::all_of("Beta"),
@@ -64,42 +78,47 @@ format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
       chr = dplyr::all_of("Chrom"),
       pval = dplyr::all_of("Pval")
     ) |>
-  #' Edit chromosome variable to change it from "chr3" to 3
-    dplyr::mutate(chr = gsub("chr", "", chr)) |>
-  #' Rename 23rd chromosome to X for consistency
-    dplyr::mutate(chr = dplyr::if_else(chr == "23", "X", as.character(chr)))
+    # Edit chromosome variable to change it from "chr3" to 3
+    dplyr::mutate(chr = gsub("chr", "", .data$chr)) |>
+    # Rename 23rd chromosome to X for consistency
+    dplyr::mutate(
+      chr = dplyr::if_else(.data$chr == "23", "X", as.character(.data$chr))
+    )
 
-  #' Handle non-Mendelian chromsosome rsIDs/SNPs
-  #' Check if the chromosome is X
-  if(!is.null(x_y_chr_file)){
+  # Handle non-Mendelian chromosome rsIDs/SNPs
+  # Check if the chromosome is X
+  if (!is.null(x_y_chr_file)) {
     stopifnot(file.exists(x_y_chr_file))
-    if("X" %in% unique(decode_processed$chr)){
-      #' Load x_y_rsid
+    if ("X" %in% unique(decode_processed$chr)) {
+      # Load x_y_rsid
       x_y_info_df <- data.table::fread(x_y_chr_file)
-      #' Rename columns to match
+      # Rename columns to match
       x_y_info_df <- x_y_info_df |>
         dplyr::rename(
           chr_xy = dplyr::all_of("V1"), # Avoid name clash if 'chr' already exists
           pos = dplyr::all_of("V2"),
           rsids_xy = dplyr::all_of("V3") # Use a distinct name for rsids from this file
         )
-      #' Merge with decode_corect_variants by position
-      #' deCODE data is in build37 how should we handle this?
-      decode_processed <- dplyr::left_join(decode_processed,
-                                           x_y_info_df |> dplyr::select(dplyr::all_of("pos"), dplyr::all_of("rsids_xy")),
-                                           by = "pos")
+      # Merge with decode_corect_variants by position
+      # deCODE data is in build37 how should we handle this?
+      decode_processed <- dplyr::left_join(
+        decode_processed,
+        x_y_info_df |>
+          dplyr::select(dplyr::all_of("pos"), dplyr::all_of("rsids_xy")),
+        by = "pos"
+      )
 
-      #' Update rsid column with rsids from x_y_rsid
+      # Update rsid column with rsids from x_y_rsid
       decode_processed <- decode_processed |>
-        dplyr::mutate(rsid = dplyr::coalesce(rsids_xy, rsid)) |>
+        dplyr::mutate(rsid = dplyr::coalesce(.data$rsids_xy, .data$rsid)) |>
         dplyr::select(-dplyr::all_of("rsids_xy")) # Remove temporary column
     }
   }
 
-  #' Convert to a data frame
+  # Convert to a data frame
   decode_final_df <- as.data.frame(decode_processed)
 
-  #' Apply format_data()
+  # Apply format_data()
   result <- TwoSampleMR::format_data(
     decode_final_df,
     type = "exposure",
@@ -117,11 +136,11 @@ format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
     log_pval = FALSE
   )
 
-# Remove the "exposure." prefix from column names to match run_mr.R expectations
+  # Remove the "exposure." prefix from column names to match run_mr.R expectations
   colnames(result) <- sub("^exposure\\.", "", colnames(result))
 
   return(list(exposure = result)) # Return as a list as per roxygen docs
-  }
+}
 
 
 #' DECODE_PQTL_FILE_NAME
@@ -145,9 +164,7 @@ format_pqtl_decode <- function(decode_proteomic_gwas_file_path,
 #'                                   decode_dir = decode_data_dir)
 #' print(file_paths)
 #' }
-decode_pqtl_file_name <- function(unique_id,
-                                  decode_linker_file,
-                                  decode_dir){
+decode_pqtl_file_name <- function(unique_id, decode_linker_file, decode_dir) {
   if (rlang::is_string(decode_linker_file)) {
     stopifnot(file.exists(decode_linker_file))
     decode_linker_file <- data.table::fread(decode_linker_file)
@@ -157,7 +174,7 @@ decode_pqtl_file_name <- function(unique_id,
 
   # get relevant metadata
   metadata <- decode_linker_file |>
-    dplyr::filter(seqID == unique_id)
+    dplyr::filter(.data$seqID == .env$unique_id)
   stopifnot(identical(nrow(metadata), 1L))
   metadata <- as.list(metadata)
 

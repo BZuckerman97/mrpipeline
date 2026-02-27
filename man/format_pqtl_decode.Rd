@@ -36,16 +36,13 @@ processes the data to clean the column headings and uses TwoSampleMR::format_dat
 the exposure dataset before run_mr()
 }
 \examples{
-Rename columns
-Edit chromosome variable to change it from "chr3" to 3
-Rename 23rd chromosome to X for consistency
-Handle non-Mendelian chromsosome rsIDs/SNPs
-Check if the chromosome is X
-Load x_y_rsid
-Rename columns to match
-Merge with decode_corect_variants by position
-deCODE data is in build37 how should we handle this?
-Update rsid column with rsids from x_y_rsid
-Convert to a data frame
-Apply format_data()
+\dontrun{
+result <- format_pqtl_decode(
+  decode_proteomic_gwas_file_path = "path/to/decode_gwas.txt.gz",
+  decode_included_variants_file_path = "path/to/included_variants.txt.gz",
+  pqtl_assay = "CD40"
+)
+head(result$exposure)
+}
+
 }
