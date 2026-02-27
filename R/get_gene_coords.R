@@ -46,22 +46,32 @@ get_gene_coords <- function(genes, build = c("grch38", "grch37")) {
 
   # Filter to standard chromosomes
   standard_chr <- c(as.character(1:22), "X", "Y")
-  result <- raw |>
-    dplyr::filter(.data$chromosome_name %in% standard_chr) |>
-    # Collapse duplicates to widest range per gene + chromosome
-    dplyr::group_by(.data$hgnc_symbol, .data$chromosome_name) |>
-    dplyr::summarise(
-      start = min(.data$start_position),
-      end = max(.data$end_position),
-      .groups = "drop"
-    ) |>
-    # Prefer autosomes over sex chromosomes, then keep one row per gene
-    dplyr::arrange(
-      .data$hgnc_symbol,
-      !.data$chromosome_name %in% as.character(1:22)
-    ) |>
-    dplyr::distinct(.data$hgnc_symbol, .keep_all = TRUE) |>
-    dplyr::rename(chromosome = "chromosome_name")
+  filtered <- dplyr::filter(raw, .data$chromosome_name %in% standard_chr)
+
+  if (nrow(filtered) == 0) {
+    result <- dplyr::tibble(
+      hgnc_symbol = character(),
+      chromosome = character(),
+      start = integer(),
+      end = integer()
+    )
+  } else {
+    result <- filtered |>
+      # Collapse duplicates to widest range per gene + chromosome
+      dplyr::group_by(.data$hgnc_symbol, .data$chromosome_name) |>
+      dplyr::summarise(
+        start = min(.data$start_position),
+        end = max(.data$end_position),
+        .groups = "drop"
+      ) |>
+      # Prefer autosomes over sex chromosomes, then keep one row per gene
+      dplyr::arrange(
+        .data$hgnc_symbol,
+        !.data$chromosome_name %in% as.character(1:22)
+      ) |>
+      dplyr::distinct(.data$hgnc_symbol, .keep_all = TRUE) |>
+      dplyr::rename(chromosome = "chromosome_name")
+  }
 
   # Warn about genes not found
   missing <- setdiff(unique(genes), result$hgnc_symbol)
