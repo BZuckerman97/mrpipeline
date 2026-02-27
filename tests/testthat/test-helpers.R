@@ -148,7 +148,11 @@ test_that("align_to_ld_matrix errors when no shared SNPs", {
 # Integration test: requires local bfile + plink
 
 test_that("compute_ld_matrix works with local reference panel", {
-  bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
   skip_if_not(
     file.exists(paste0(bfile, ".bed")),
     "LD reference panel not available"
@@ -174,7 +178,11 @@ test_that("compute_ld_matrix works with local reference panel", {
 # Integration test: requires local bfile + plink
 
 test_that("clump_instruments works with local reference panel", {
-  bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
   skip_if_not(
     file.exists(paste0(bfile, ".bed")),
     "LD reference panel not available"

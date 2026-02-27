@@ -1,6 +1,6 @@
 Package: mrpipeline
 Title: Functions to set up a pipeline for performing Mendelian randomization
-Version: 0.3.4
+Version: 0.4.0
 Authors@R: c(
     person("Benjamin", "Zuckerman", , "benjamin.zuckerman@kcl.ac.uk", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-0077-6074")),
@@ -30,6 +30,7 @@ Additional_repositories:
 Suggests:
     biomaRt,
     colocPropTest,
+    ggplot2,
     knitr,
     rmarkdown,
     susieR,

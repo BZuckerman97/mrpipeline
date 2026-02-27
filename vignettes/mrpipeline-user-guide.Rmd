@@ -18,6 +18,44 @@ knitr::opts_chunk$set(
 
 <!-- TODO: brief package description and when to use it -->
 
+## Gene Coordinate Lookup
+
+Use `get_gene_coords()` to programmatically retrieve gene coordinates from
+Ensembl via biomaRt. This is useful for defining cis regions in `run_mr()` and
+`run_coloc()` without hard-coding coordinates.
+
+```{r gene-coords, eval = FALSE}
+# GRCh38 (default)
+coords <- get_gene_coords(c("CD40", "APOE"))
+coords
+#> # A tibble: 2 × 4
+#>   hgnc_symbol chromosome     start       end
+#>   <chr>       <chr>          <int>     <int>
+#> 1 APOE        19          44905791  44909393
+#> 2 CD40        20          44746911  44758502
+
+# GRCh37
+coords_37 <- get_gene_coords("CD40", build = "grch37")
+```
+
+The returned tibble can feed directly into `run_mr()` and `run_coloc()`:
+
+```{r use-coords, eval = FALSE}
+cd40 <- get_gene_coords("CD40", build = "grch38")
+
+mr_res <- run_mr(
+  exposure = exposure_data,
+  exposure_id = "CD40",
+  outcome = outcome_data,
+  outcome_id = "SjD",
+  instrument_region = list(
+    chromosome = cd40$chromosome,
+    start = cd40$start,
+    end = cd40$end
+  )
+)
+```
+
 ## Setting Up an LD Reference Panel
 
 <!-- TODO: explain when a local bfile is needed (batch, ld_correct, coloc) vs API -->
@@ -130,10 +168,27 @@ result <- run_mr(
 
 ## Interpreting MR Results
 
-<!-- TODO: print/summary methods -->
 <!-- TODO: F-statistics and what they mean -->
 <!-- TODO: Steiger filtering -->
 <!-- TODO: methods_skipped -->
+
+Use `print()` for a one-line summary and `summary()` for full details:
+
+```{r mr-inspect, eval = FALSE}
+mr_res
+summary(mr_res)
+```
+
+### Plotting MR results
+
+`plot()` produces diagnostic plots using TwoSampleMR plotting functions
+(requires `ggplot2`):
+
+```{r mr-plot, eval = FALSE}
+plot(mr_res, type = "scatter") # scatter plot (default)
+plot(mr_res, type = "forest")  # forest plot
+plot(mr_res, type = "funnel")  # funnel plot
+```
 
 ## Colocalization
 
@@ -203,6 +258,16 @@ result <- run_coloc(
   bfile = "/path/to/ld_reference",
   methods = c("abf", "susie", "signals")
 )
+```
+
+### Plotting coloc results
+
+`plot()` for `coloc_result` objects supports two plot types (requires
+`ggplot2`):
+
+```{r coloc-plot, eval = FALSE}
+plot(coloc_res, type = "pp_bar")    # bar chart of ABF posterior probabilities (default)
+plot(coloc_res, type = "regional")  # regional association plots
 ```
 
 ## Two-Stage Batch Workflow
