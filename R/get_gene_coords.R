@@ -10,11 +10,9 @@
 #' @return A tibble with columns `hgnc_symbol`, `chromosome`, `start`, `end`.
 #'   Genes not found in Ensembl are dropped with a warning.
 #'
-#' @examples
-#' \dontrun{
+#' @examplesIf identical(Sys.getenv("IN_PKGDOWN"), "true")
 #' get_gene_coords("CD40")
 #' get_gene_coords(c("CD40", "APOE"), build = "grch37")
-#' }
 #'
 #' @export
 get_gene_coords <- function(genes, build = c("grch38", "grch37")) {

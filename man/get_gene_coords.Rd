@@ -21,9 +21,8 @@ Results are filtered to standard chromosomes (1--22, X, Y), deduplicated
 (widest range per gene, preferring autosomes), and returned as a tibble.
 }
 \examples{
-\dontrun{
+\dontshow{if (identical(Sys.getenv("IN_PKGDOWN"), "true")) withAutoprint(\{ # examplesIf}
 get_gene_coords("CD40")
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
-}
-
+\dontshow{\}) # examplesIf}
 }
