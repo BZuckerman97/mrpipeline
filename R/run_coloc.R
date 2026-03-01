@@ -54,9 +54,13 @@
 #'   Default `1e-4`.
 #' @param p12 Numeric. Prior probability a SNP is associated with both
 #'   traits. Default `1e-5`.
+#' @param verbose Logical. If `TRUE`, emit informational messages via
+#'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
+#'   Default `TRUE`.
 #'
 #' @return A `coloc_result` object. Check `result$status` for `"success"` vs
-#'   failure reasons.
+#'   failure reasons. The `$timing` field contains a named numeric vector of
+#'   elapsed seconds for each major step.
 #'
 #' @seealso [new_coloc_result()] for the S3 class structure,
 #'   [print.coloc_result()] and [summary.coloc_result()] for display methods.
@@ -98,7 +102,8 @@ run_coloc <- function(
   p1 = 1e-4,
 
   p2 = 1e-4,
-  p12 = 1e-5
+  p12 = 1e-5,
+  verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
 
@@ -145,7 +150,11 @@ run_coloc <- function(
     p12 = p12
   )
 
+  timing <- numeric(0)
+
   # --- Filter exposure to window --------------------------------------------
+
+  t0 <- proc.time()[["elapsed"]]
 
   chr_val <- as.character(gene_chr) |>
     stringr::str_remove("^chr")
@@ -163,6 +172,7 @@ run_coloc <- function(
     cli::cli_warn(
       "No exposure SNPs in region chr{chr_val}:{min_pos}-{max_pos}."
     )
+    timing[["filter_window"]] <- proc.time()[["elapsed"]] - t0
     return(new_coloc_result(
       status = "no_snps_in_region",
       status_reason = paste0(
@@ -173,7 +183,8 @@ run_coloc <- function(
         "-",
         max_pos
       ),
-      params = params
+      params = params,
+      timing = timing
     ))
   }
 
@@ -188,6 +199,7 @@ run_coloc <- function(
 
   if (nrow(outcome_in_window) == 0) {
     cli::cli_warn("No outcome SNPs in region chr{chr_val}:{min_pos}-{max_pos}.")
+    timing[["filter_window"]] <- proc.time()[["elapsed"]] - t0
     return(new_coloc_result(
       status = "no_snps_in_region",
       status_reason = paste0(
@@ -198,7 +210,8 @@ run_coloc <- function(
         "-",
         max_pos
       ),
-      params = params
+      params = params,
+      timing = timing
     ))
   }
 
@@ -219,9 +232,15 @@ run_coloc <- function(
     log_pval = FALSE
   )
 
+  timing[["filter_window"]] <- proc.time()[["elapsed"]] - t0
+
   # --- Harmonise ------------------------------------------------------------
 
+  t0 <- proc.time()[["elapsed"]]
+
   harmonised <- harmonise_and_filter(exposure_filt, outcome_data)
+
+  timing[["harmonisation"]] <- proc.time()[["elapsed"]] - t0
 
   if (nrow(harmonised) < 3) {
     status <- if (nrow(harmonised) == 0) {
@@ -245,7 +264,8 @@ run_coloc <- function(
       harmonised_data = harmonised,
       status = status,
       status_reason = reason,
-      params = params
+      params = params,
+      timing = timing
     ))
   }
 
@@ -275,6 +295,8 @@ run_coloc <- function(
 
   # --- LD matrix ------------------------------------------------------------
 
+  t0 <- proc.time()[["elapsed"]]
+
   ld_mat <- compute_ld_matrix(
     snps = harmonised$SNP,
     bfile = bfile,
@@ -283,6 +305,8 @@ run_coloc <- function(
   aligned <- align_to_ld_matrix(harmonised, ld_mat)
   harmonised <- aligned$data
   ld_mat <- aligned$ld_matrix
+
+  timing[["ld_matrix"]] <- proc.time()[["elapsed"]] - t0
 
   if (nrow(harmonised) < 3) {
     cli::cli_warn(
@@ -297,7 +321,8 @@ run_coloc <- function(
         nrow(harmonised),
         " SNP(s) after LD alignment (need >= 3)"
       ),
-      params = params
+      params = params,
+      timing = timing
     ))
   }
 
@@ -348,6 +373,7 @@ run_coloc <- function(
 
   # ABF
   if ("abf" %in% methods) {
+    t0 <- proc.time()[["elapsed"]]
     coloc_abf_res <- tryCatch(
       coloc::coloc.abf(
         dataset1 = dataset_exp,
@@ -362,12 +388,14 @@ run_coloc <- function(
         NULL
       }
     )
+    timing[["coloc_abf"]] <- proc.time()[["elapsed"]] - t0
   }
 
   # SuSiE
   susie_exp <- NULL
   susie_out <- NULL
   if ("susie" %in% methods) {
+    t0 <- proc.time()[["elapsed"]]
     susie_result <- tryCatch(
       {
         s_exp <- coloc::runsusie(dataset_exp)
@@ -387,10 +415,12 @@ run_coloc <- function(
       susie_out <- susie_result$susie_out
       coloc_susie_res <- susie_result$coloc_susie
     }
+    timing[["coloc_susie"]] <- proc.time()[["elapsed"]] - t0
   }
 
   # Signals (requires SuSiE)
   if ("signals" %in% methods) {
+    t0 <- proc.time()[["elapsed"]]
     if (!"susie" %in% methods) {
       cli::cli_warn(
         "{.val signals} requires {.val susie}; skipping because {.val susie} was not requested."
@@ -417,6 +447,7 @@ run_coloc <- function(
         }
       )
     }
+    timing[["coloc_signals"]] <- proc.time()[["elapsed"]] - t0
   }
 
   # Prop test (requires signals + colocPropTest)
@@ -472,6 +503,7 @@ run_coloc <- function(
     n_snps = n_snps,
     harmonised_data = harmonised,
     methods_skipped = methods_skipped,
-    params = params
+    params = params,
+    timing = timing
   )
 }

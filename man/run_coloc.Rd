@@ -24,7 +24,8 @@ run_coloc(
   methods = c("abf", "susie", "signals"),
   p1 = 1e-04,
   p2 = 1e-04,
-  p12 = 1e-05
+  p12 = 1e-05,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -85,10 +86,15 @@ Default \code{1e-4}.}
 
 \item{p12}{Numeric. Prior probability a SNP is associated with both
 traits. Default \code{1e-5}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emit informational messages via
+\code{\link[cli:cli_abort]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
+Default \code{TRUE}.}
 }
 \value{
 A \code{coloc_result} object. Check \code{result$status} for \code{"success"} vs
-failure reasons.
+failure reasons. The \verb{$timing} field contains a named numeric vector of
+elapsed seconds for each major step.
 }
 \description{
 Runs colocalization between a pre-formatted exposure and a raw outcome
