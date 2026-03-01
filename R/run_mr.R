@@ -61,9 +61,13 @@
 #'   `samplesize.exposure` column.
 #' @param presso_n_dist Integer. Number of distributions for MR-PRESSO. Default
 #'   `1000`.
+#' @param verbose Logical. If `TRUE`, emit informational messages via
+#'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
+#'   Default `TRUE`.
 #'
 #' @return An `mr_result` object. Check `result$status` for `"success"` vs
-#'   failure reasons.
+#'   failure reasons. The `$timing` field contains a named numeric vector of
+#'   elapsed seconds for each major step.
 #'
 #' @examples
 #' \dontrun{
@@ -101,7 +105,8 @@ run_mr <- function(
   methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
   ld_correct = FALSE,
   exposure_n = NULL,
-  presso_n_dist = 1000
+  presso_n_dist = 1000,
+  verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
 
@@ -144,11 +149,17 @@ run_mr <- function(
     presso_n_dist = presso_n_dist
   )
 
+  timing <- numeric(0)
+
   # --- Instrument selection -------------------------------------------------
+
+  t0 <- proc.time()[["elapsed"]]
 
   if (!is.null(instruments)) {
     # Manual mode
-    cli::cli_inform("Using {length(instruments)} manual instrument{?s}.")
+    if (verbose) {
+      cli::cli_inform("Using {length(instruments)} manual instrument{?s}.")
+    }
     exposure_iv <- exposure[exposure$SNP %in% instruments, ]
 
     missing <- setdiff(instruments, exposure_iv$SNP)
@@ -163,17 +174,21 @@ run_mr <- function(
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn("No manual instruments found in exposure data.")
+      timing[["instrument_selection"]] <- proc.time()[["elapsed"]] - t0
       return(new_mr_result(
         status = "no_instruments",
         status_reason = "No manual instruments found in exposure data",
-        params = params
+        params = params,
+        timing = timing
       ))
     }
   } else if (!is.null(instrument_region)) {
     # Cis-MR mode
-    cli::cli_inform(
-      "Cis-MR mode: chr{instrument_region$chromosome}:{instrument_region$start}-{instrument_region$end} (+/- {window}bp)."
-    )
+    if (verbose) {
+      cli::cli_inform(
+        "Cis-MR mode: chr{instrument_region$chromosome}:{instrument_region$start}-{instrument_region$end} (+/- {window}bp)."
+      )
+    }
 
     exposure_iv <- exposure |>
       dplyr::filter(
@@ -188,6 +203,7 @@ run_mr <- function(
       cli::cli_warn(
         "No significant instruments in cis region for {.val {exposure_id}}."
       )
+      timing[["instrument_selection"]] <- proc.time()[["elapsed"]] - t0
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
@@ -195,7 +211,8 @@ run_mr <- function(
           exposure_id,
           "'"
         ),
-        params = params
+        params = params,
+        timing = timing
       ))
     }
 
@@ -221,6 +238,7 @@ run_mr <- function(
       cli::cli_warn(
         "No instruments remaining after clumping for {.val {exposure_id}}."
       )
+      timing[["instrument_selection"]] <- proc.time()[["elapsed"]] - t0
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
@@ -228,14 +246,17 @@ run_mr <- function(
           exposure_id,
           "'"
         ),
-        params = params
+        params = params,
+        timing = timing
       ))
     }
   } else {
     # Genome-wide mode
-    cli::cli_inform(
-      "Genome-wide mode: selecting instruments at p < {pval_thresh}."
-    )
+    if (verbose) {
+      cli::cli_inform(
+        "Genome-wide mode: selecting instruments at p < {pval_thresh}."
+      )
+    }
 
     exposure_iv <- exposure |>
       dplyr::filter(.data$pval.exposure < pval_thresh)
@@ -244,6 +265,7 @@ run_mr <- function(
       cli::cli_warn(
         "No genome-wide significant instruments for {.val {exposure_id}}."
       )
+      timing[["instrument_selection"]] <- proc.time()[["elapsed"]] - t0
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
@@ -251,7 +273,8 @@ run_mr <- function(
           exposure_id,
           "'"
         ),
-        params = params
+        params = params,
+        timing = timing
       ))
     }
 
@@ -277,6 +300,7 @@ run_mr <- function(
       cli::cli_warn(
         "No instruments remaining after clumping for {.val {exposure_id}}."
       )
+      timing[["instrument_selection"]] <- proc.time()[["elapsed"]] - t0
       return(new_mr_result(
         status = "no_instruments",
         status_reason = paste0(
@@ -284,12 +308,17 @@ run_mr <- function(
           exposure_id,
           "'"
         ),
-        params = params
+        params = params,
+        timing = timing
       ))
     }
   }
 
+  timing[["instrument_selection"]] <- proc.time()[["elapsed"]] - t0
+
   # --- Region exclusion -----------------------------------------------------
+
+  t0 <- proc.time()[["elapsed"]]
 
   if (!is.null(exclude_regions) && "chr.exposure" %in% colnames(exposure_iv)) {
     in_excluded <- rep(FALSE, nrow(exposure_iv))
@@ -304,14 +333,17 @@ run_mr <- function(
     if (any(in_excluded)) {
       n_removed <- sum(in_excluded)
       exposure_iv <- exposure_iv[!in_excluded, ]
-      cli::cli_inform(
-        "Removed {n_removed} instrument{?s} in excluded region{?s}."
-      )
+      if (verbose) {
+        cli::cli_inform(
+          "Removed {n_removed} instrument{?s} in excluded region{?s}."
+        )
+      }
 
       if (nrow(exposure_iv) == 0) {
         cli::cli_warn(
           "All instruments for {.val {exposure_id}} fall in excluded regions."
         )
+        timing[["region_exclusion"]] <- proc.time()[["elapsed"]] - t0
         return(new_mr_result(
           status = "no_instruments",
           status_reason = paste0(
@@ -319,13 +351,18 @@ run_mr <- function(
             exposure_id,
             "' fall in excluded regions"
           ),
-          params = params
+          params = params,
+          timing = timing
         ))
       }
     }
   }
 
+  timing[["region_exclusion"]] <- proc.time()[["elapsed"]] - t0
+
   # --- Format outcome and harmonise -----------------------------------------
+
+  t0 <- proc.time()[["elapsed"]]
 
   outcome_data <- TwoSampleMR::format_data(
     outcome,
@@ -347,6 +384,8 @@ run_mr <- function(
 
   harmonised <- harmonise_and_filter(exposure_iv, outcome_data)
 
+  timing[["harmonisation"]] <- proc.time()[["elapsed"]] - t0
+
   if (nrow(harmonised) == 0) {
     cli::cli_warn(
       "No variants remaining after harmonisation for {.val {exposure_id}}."
@@ -358,7 +397,8 @@ run_mr <- function(
         exposure_id,
         "'"
       ),
-      params = params
+      params = params,
+      timing = timing
     ))
   }
 
@@ -372,6 +412,8 @@ run_mr <- function(
 
   # --- LD correction --------------------------------------------------------
 
+  t0 <- proc.time()[["elapsed"]]
+
   ld_mat <- NULL
   if (ld_correct) {
     ld_mat <- compute_ld_matrix(
@@ -383,6 +425,8 @@ run_mr <- function(
     harmonised <- aligned$data
     ld_mat <- aligned$ld_matrix
   }
+
+  timing[["ld_correction"]] <- proc.time()[["elapsed"]] - t0
 
   # --- F-statistics ---------------------------------------------------------
 
@@ -402,6 +446,7 @@ run_mr <- function(
   # Wald ratio for single instrument
 
   if (n_snps == 1) {
+    t0 <- proc.time()[["elapsed"]]
     wald <- TwoSampleMR::mr(harmonised, method_list = "mr_wald_ratio")
     results_list[["Wald ratio"]] <- data.frame(
       exposure = exposure_id,
@@ -413,6 +458,7 @@ run_mr <- function(
       pval = wald$pval,
       stringsAsFactors = FALSE
     )
+    timing[["mr_ivw"]] <- proc.time()[["elapsed"]] - t0
 
     # Skip all multi-SNP methods
     multi_methods <- intersect(
@@ -425,6 +471,7 @@ run_mr <- function(
   } else {
     # IVW
     if ("ivw" %in% methods) {
+      t0 <- proc.time()[["elapsed"]]
       if (ld_correct) {
         mr_input <- MendelianRandomization::mr_input(
           bx = harmonised$beta.exposure,
@@ -457,10 +504,12 @@ run_mr <- function(
           stringsAsFactors = FALSE
         )
       }
+      timing[["mr_ivw"]] <- proc.time()[["elapsed"]] - t0
     }
 
     # Egger (requires >= 3 SNPs)
     if ("egger" %in% methods) {
+      t0 <- proc.time()[["elapsed"]]
       if (n_snps < 3) {
         methods_skipped["egger"] <- "Requires >= 3 instruments"
       } else if (ld_correct) {
@@ -498,10 +547,12 @@ run_mr <- function(
           stringsAsFactors = FALSE
         )
       }
+      timing[["mr_egger"]] <- proc.time()[["elapsed"]] - t0
     }
 
     # Weighted median (requires >= 3 SNPs)
     if ("weighted_median" %in% methods) {
+      t0 <- proc.time()[["elapsed"]]
       if (n_snps < 3) {
         methods_skipped["weighted_median"] <- "Requires >= 3 instruments"
       } else {
@@ -517,10 +568,12 @@ run_mr <- function(
           stringsAsFactors = FALSE
         )
       }
+      timing[["mr_weighted_median"]] <- proc.time()[["elapsed"]] - t0
     }
 
     # MR-PRESSO (requires >= 3 SNPs)
     if ("presso" %in% methods) {
+      t0 <- proc.time()[["elapsed"]]
       if (n_snps < 3) {
         methods_skipped["presso"] <- "Requires >= 3 instruments"
       } else {
@@ -555,10 +608,12 @@ run_mr <- function(
           }
         }
       }
+      timing[["mr_presso"]] <- proc.time()[["elapsed"]] - t0
     }
 
     # ConMix
     if ("conmix" %in% methods) {
+      t0 <- proc.time()[["elapsed"]]
       conmix_result <- tryCatch(
         {
           mr_input <- MendelianRandomization::mr_input(
@@ -587,12 +642,14 @@ run_mr <- function(
           stringsAsFactors = FALSE
         )
       }
+      timing[["mr_conmix"]] <- proc.time()[["elapsed"]] - t0
     }
   }
 
   # Steiger (works with any number of SNPs if sample sizes available)
   steiger_result <- NULL
   if ("steiger" %in% methods) {
+    t0 <- proc.time()[["elapsed"]]
     if (is.null(exp_n)) {
       methods_skipped["steiger"] <- "Exposure sample size not available"
     } else {
@@ -607,6 +664,7 @@ run_mr <- function(
         }
       )
     }
+    timing[["mr_steiger"]] <- proc.time()[["elapsed"]] - t0
   }
 
   # --- Assemble results -----------------------------------------------------
@@ -634,7 +692,8 @@ run_mr <- function(
     steiger = steiger_result,
     methods_skipped = methods_skipped,
     ld_matrix = ld_mat,
-    params = params
+    params = params,
+    timing = timing
   )
 }
 

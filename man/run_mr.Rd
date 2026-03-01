@@ -22,7 +22,8 @@ run_mr(
   methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
   ld_correct = FALSE,
   exposure_n = NULL,
-  presso_n_dist = 1000
+  presso_n_dist = 1000,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -78,10 +79,15 @@ exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 
 \item{presso_n_dist}{Integer. Number of distributions for MR-PRESSO. Default
 \code{1000}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emit informational messages via
+\code{\link[cli:cli_abort]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
+Default \code{TRUE}.}
 }
 \value{
 An \code{mr_result} object. Check \code{result$status} for \code{"success"} vs
-failure reasons.
+failure reasons. The \verb{$timing} field contains a named numeric vector of
+elapsed seconds for each major step.
 }
 \description{
 Runs MR with automatic instrument selection (cis-MR, genome-wide, or manual)

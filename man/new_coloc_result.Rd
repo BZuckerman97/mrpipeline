@@ -14,7 +14,8 @@ new_coloc_result(
   methods_skipped = character(),
   params = list(),
   status = "success",
-  status_reason = NULL
+  status_reason = NULL,
+  timing = numeric(0)
 )
 }
 \arguments{
@@ -41,6 +42,9 @@ values are reasons for skipping.}
 
 \item{status_reason}{Character or \code{NULL}. Human-readable explanation when
 \code{status != "success"}.}
+
+\item{timing}{Named numeric vector of elapsed times (seconds) for each
+major step inside \code{run_coloc()}. Empty by default.}
 }
 \value{
 An object of class \code{coloc_result}.

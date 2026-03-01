@@ -14,6 +14,8 @@
 #'   `"no_harmonised_variants"`. Default `"success"`.
 #' @param status_reason Character or `NULL`. Human-readable explanation when
 #'   `status != "success"`.
+#' @param timing Named numeric vector of elapsed times (seconds) for each
+#'   major step inside `run_mr()`. Empty by default.
 #'
 #' @return An object of class `mr_result`.
 #'
@@ -27,7 +29,8 @@ new_mr_result <- function(
   ld_matrix = NULL,
   params = list(),
   status = "success",
-  status_reason = NULL
+  status_reason = NULL,
+  timing = numeric(0)
 ) {
   structure(
     list(
@@ -39,7 +42,8 @@ new_mr_result <- function(
       ld_matrix = ld_matrix,
       params = params,
       status = status,
-      status_reason = status_reason
+      status_reason = status_reason,
+      timing = timing
     ),
     class = "mr_result"
   )
