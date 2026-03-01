@@ -6,9 +6,3 @@ options(
   )
 )
 
-startup_message <- function() {
-  message(
-    "Welcome to mrpipeline! Enjoy performing succinct mendelian randomization analyses"
-  )
-}
-startup_message()
