@@ -86,7 +86,8 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"abf"</span>, <span class="st">"susie"</span>, <span class="st">"signals"</span><span class="op">)</span>,</span>
 <span>  p1 <span class="op">=</span> <span class="fl">1e-04</span>,</span>
 <span>  p2 <span class="op">=</span> <span class="fl">1e-04</span>,</span>
-<span>  p12 <span class="op">=</span> <span class="fl">1e-05</span></span>
+<span>  p12 <span class="op">=</span> <span class="fl">1e-05</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -191,11 +192,18 @@ Default <code>1e-4</code>.</p></dd>
 <dd><p>Numeric. Prior probability a SNP is associated with both
 traits. Default <code>1e-5</code>.</p></dd>
 
+
+<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
+<dd><p>Logical. If <code>TRUE</code>, emit informational messages via
+<code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>. Warnings and errors are always emitted regardless.
+Default <code>TRUE</code>.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     <p>A <code>coloc_result</code> object. Check <code>result$status</code> for <code>"success"</code> vs
-failure reasons.</p>
+failure reasons. The <code>$timing</code> field contains a named numeric vector of
+elapsed seconds for each major step.</p>
     </div>
     <div id="methods">
     <h2>Methods</h2>

@@ -80,7 +80,8 @@ and optional sensitivity analyses. Returns an <code>mr_result</code> S3 object.<
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"presso"</span>, <span class="st">"conmix"</span>, <span class="st">"steiger"</span><span class="op">)</span>,</span>
 <span>  ld_correct <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  exposure_n <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  presso_n_dist <span class="op">=</span> <span class="fl">1000</span></span>
+<span>  presso_n_dist <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -176,11 +177,18 @@ exclude the MHC region: <code>data.frame(chr = "6", start = 26e6, end = 34e6)</c
 <dd><p>Integer. Number of distributions for MR-PRESSO. Default
 <code>1000</code>.</p></dd>
 
+
+<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
+<dd><p>Logical. If <code>TRUE</code>, emit informational messages via
+<code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>. Warnings and errors are always emitted regardless.
+Default <code>TRUE</code>.</p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     <p>An <code>mr_result</code> object. Check <code>result$status</code> for <code>"success"</code> vs
-failure reasons.</p>
+failure reasons. The <code>$timing</code> field contains a named numeric vector of
+elapsed seconds for each major step.</p>
     </div>
     <div id="instrument-selection-modes">
     <h2>Instrument selection modes</h2>

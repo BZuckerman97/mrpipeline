@@ -70,7 +70,8 @@
 <span>  methods_skipped <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  status <span class="op">=</span> <span class="st">"success"</span>,</span>
-<span>  status_reason <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  status_reason <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  timing <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -120,6 +121,11 @@ values are reasons for skipping.</p></dd>
 <dt id="arg-status-reason">status_reason<a class="anchor" aria-label="anchor" href="#arg-status-reason"></a></dt>
 <dd><p>Character or <code>NULL</code>. Human-readable explanation when
 <code>status != "success"</code>.</p></dd>
+
+
+<dt id="arg-timing">timing<a class="anchor" aria-label="anchor" href="#arg-timing"></a></dt>
+<dd><p>Named numeric vector of elapsed times (seconds) for each
+major step inside <code><a href="run_coloc.html">run_coloc()</a></code>. Empty by default.</p></dd>
 
 </dl></div>
     <div id="value">
