@@ -19,6 +19,14 @@ harmonise_and_filter <- function(exposure, outcome) {
     outcome_dat = outcome
   )
 
+  # Guard: return 0-row frame if harmonisation produced no usable output
+  # (e.g. no SNP overlap, or all SNPs removed as palindromic). This lets
+  # run_mr() hit its nrow == 0 early-return rather than erroring on a missing
+  # `mr_keep` column.
+  if (nrow(harmonised) == 0 || !"mr_keep" %in% names(harmonised)) {
+    return(harmonised[0, , drop = FALSE])
+  }
+
   harmonised <- harmonised |>
     dplyr::filter(.data$mr_keep == TRUE) |>
     dplyr::filter(!duplicated(.data$SNP))
