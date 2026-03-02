@@ -164,12 +164,36 @@ summary.coloc_result <- function(object, ...) {
     cli::cli_h2("coloc.susie")
     susie_summary <- object$coloc_susie$summary
     if (is.data.frame(susie_summary) && nrow(susie_summary) > 0) {
-      for (i in seq_len(nrow(susie_summary))) {
-        row <- susie_summary[i, ]
-        cli::cli_bullets(c(
-          "*" = "Pair {row$idx1}-{row$idx2}: PP.H4 = {round(row$PP.H4.abf, 4)}"
-        ))
+      sort_cols <- intersect(
+        c("PP.H4.abf", "PP.H3.abf", "PP.H2.abf", "PP.H1.abf"),
+        names(susie_summary)
+      )
+      ord <- do.call(order, lapply(susie_summary[sort_cols], `-`))
+      susie_sorted <- susie_summary[ord, , drop = FALSE]
+      cap <- 20L
+      n_total <- nrow(susie_sorted)
+      shown <- utils::head(susie_sorted, cap)
+      bullets <- stats::setNames(
+        paste0(
+          "Pair ",
+          shown$idx1,
+          "-",
+          shown$idx2,
+          ": PP.H4 = ",
+          round(shown$PP.H4.abf, 4)
+        ),
+        rep("*", nrow(shown))
+      )
+      if (n_total > cap) {
+        n_more <- n_total - cap
+        rest <- utils::tail(susie_sorted, n_more)
+        suffix <- if (all(rest$PP.H4.abf == 0)) " (all PP.H4 = 0)" else ""
+        bullets <- c(
+          bullets,
+          c("i" = paste0("... and ", n_more, " more pair(s)", suffix))
+        )
       }
+      cli::cli_bullets(bullets)
     } else {
       cli::cli_alert_info("No credible set pairs found.")
     }
@@ -181,12 +205,36 @@ summary.coloc_result <- function(object, ...) {
     signals_summary <- object$coloc_signals$summary
     if (is.data.frame(signals_summary) && nrow(signals_summary) > 0) {
       cli::cli_alert_info("{nrow(signals_summary)} signal pair{?s} tested")
-      for (i in seq_len(nrow(signals_summary))) {
-        row <- signals_summary[i, ]
-        cli::cli_bullets(c(
-          "*" = "Hit {row$hit1}-{row$hit2}: PP.H4 = {round(row$PP.H4.abf, 4)}"
-        ))
+      sort_cols <- intersect(
+        c("PP.H4.abf", "PP.H3.abf", "PP.H2.abf", "PP.H1.abf"),
+        names(signals_summary)
+      )
+      ord <- do.call(order, lapply(signals_summary[sort_cols], `-`))
+      signals_sorted <- signals_summary[ord, , drop = FALSE]
+      cap <- 20L
+      n_total <- nrow(signals_sorted)
+      shown <- utils::head(signals_sorted, cap)
+      bullets <- stats::setNames(
+        paste0(
+          "Hit ",
+          shown$hit1,
+          "-",
+          shown$hit2,
+          ": PP.H4 = ",
+          round(shown$PP.H4.abf, 4)
+        ),
+        rep("*", nrow(shown))
+      )
+      if (n_total > cap) {
+        n_more <- n_total - cap
+        rest <- utils::tail(signals_sorted, n_more)
+        suffix <- if (all(rest$PP.H4.abf == 0)) " (all PP.H4 = 0)" else ""
+        bullets <- c(
+          bullets,
+          c("i" = paste0("... and ", n_more, " more pair(s)", suffix))
+        )
       }
+      cli::cli_bullets(bullets)
     } else {
       cli::cli_alert_info("No signal pairs found.")
     }
@@ -201,9 +249,15 @@ summary.coloc_result <- function(object, ...) {
   # Skipped methods
   if (length(object$methods_skipped) > 0) {
     cli::cli_h2("Skipped methods")
-    for (nm in names(object$methods_skipped)) {
-      cli::cli_bullets(c("!" = "{nm}: {object$methods_skipped[[nm]]}"))
-    }
+    bullets <- stats::setNames(
+      paste0(
+        names(object$methods_skipped),
+        ": ",
+        unname(object$methods_skipped)
+      ),
+      rep("!", length(object$methods_skipped))
+    )
+    cli::cli_bullets(bullets)
   }
 
   invisible(object)

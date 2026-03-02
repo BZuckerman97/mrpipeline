@@ -236,6 +236,76 @@ test_that("coloc_result summary shows non-success status", {
   expect_message(summary(res), "too_few_snps")
 })
 
+test_that("coloc_result summary caps SuSiE pairs at 20 and adds remainder note", {
+  # 25 pairs, all PP.H4 = 0
+  susie_df <- data.frame(
+    idx1 = seq_len(25),
+    idx2 = seq_len(25) + 1L,
+    PP.H0.abf = rep(1, 25),
+    PP.H1.abf = rep(0, 25),
+    PP.H2.abf = rep(0, 25),
+    PP.H3.abf = rep(0, 25),
+    PP.H4.abf = rep(0, 25)
+  )
+  res <- new_coloc_result(
+    coloc_susie = list(summary = susie_df),
+    n_snps = 50L
+  )
+  expect_message(summary(res), "and 5 more pair")
+  expect_message(summary(res), "all PP.H4 = 0")
+})
+
+test_that("coloc_result summary does not add cap note when pairs <= 20", {
+  susie_df <- data.frame(
+    idx1 = seq_len(20),
+    idx2 = seq_len(20) + 1L,
+    PP.H4.abf = rep(0, 20)
+  )
+  res <- new_coloc_result(
+    coloc_susie = list(summary = susie_df),
+    n_snps = 50L
+  )
+  expect_no_message(
+    expect_message(summary(res), "coloc.susie"),
+    message = "more pair"
+  )
+})
+
+test_that("coloc_result summary shows SuSiE pairs sorted by PP.H4 descending", {
+  susie_df <- data.frame(
+    idx1 = 1:3,
+    idx2 = 2:4,
+    PP.H4.abf = c(0.1, 0.9, 0.5),
+    PP.H3.abf = c(0, 0, 0),
+    PP.H2.abf = c(0, 0, 0),
+    PP.H1.abf = c(0, 0, 0)
+  )
+  res <- new_coloc_result(
+    coloc_susie = list(summary = susie_df),
+    n_snps = 50L
+  )
+  msg <- capture_messages(summary(res))
+  # Pair with PP.H4=0.9 (idx1=2) should appear before PP.H4=0.5 (idx1=3)
+  idx_09 <- grep("PP.H4 = 0.9", msg)
+  idx_05 <- grep("PP.H4 = 0.5", msg)
+  expect_true(length(idx_09) > 0 && length(idx_05) > 0)
+  expect_lt(min(idx_09), min(idx_05))
+})
+
+test_that("coloc_result summary shows signals pairs", {
+  signals_df <- data.frame(
+    hit1 = c("rs1", "rs2"),
+    hit2 = c("rs3", "rs4"),
+    PP.H4.abf = c(0.8, 0.3)
+  )
+  res <- new_coloc_result(
+    coloc_signals = list(summary = signals_df),
+    n_snps = 50L
+  )
+  expect_message(summary(res), "Hit rs1-rs3")
+  expect_message(summary(res), "PP.H4 = 0.8")
+})
+
 # --- Integration tests (require bfile) ---------------------------------------
 
 test_that("run_coloc ABF-only returns correct coloc_result structure", {
