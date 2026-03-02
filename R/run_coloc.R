@@ -107,7 +107,7 @@ run_coloc <- function(
 ) {
   # --- Validate arguments ---------------------------------------------------
 
-  if (missing(bfile)) {
+  if (missing(bfile) || is.null(bfile)) {
     cli::cli_abort("{.arg bfile} is required for colocalization analysis.")
   }
 
