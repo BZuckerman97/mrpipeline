@@ -86,7 +86,10 @@ for use with the TwoSampleMR package.</p>
 
 
 <dt id="arg-x-y-chr-file">x_y_chr_file<a class="anchor" aria-label="anchor" href="#arg-x-y-chr-file"></a></dt>
-<dd><p>String, file path to the file containing rsids for X and Y chromosomes</p></dd>
+<dd><p>Data frame or string file path containing rsIDs for X
+and Y chromosomes, or NULL. When a data frame is supplied, it is used
+directly (skipping <code>fread()</code>). When a string path is supplied, the file is
+read via <code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">data.table::fread()</a></code>.</p></dd>
 
 </dl></div>
     <div id="value">
