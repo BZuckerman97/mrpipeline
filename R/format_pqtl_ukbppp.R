@@ -8,7 +8,10 @@
 #' @param ukbppp Dataframe, file path to the file containing the ukbppp GWAS data
 #' @param ukbppp_rsid Dataframe, file path to the file containing the ukbppp GWAS data rsids
 #' @param pqtl_assay String, of the ukbppp protein assay
-#' @param x_y_chr_file String, file path to the file containing rsids for X and Y chromosomes
+#' @param x_y_chr_file Data frame or string file path containing rsIDs for X
+#'   and Y chromosomes, or NULL. When a data frame is supplied, it is used
+#'   directly (skipping `fread()`). When a string path is supplied, the file is
+#'   read via `data.table::fread()`.
 #'
 #' @return A list with two elements:
 #'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
@@ -111,30 +114,35 @@ format_pqtl_ukbppp <- function(
 
   # Handle non-Mendelian chromosomes rsIDs
   # Check if the chromosome is X
-  if (!is.null(x_y_chr_file)) {
-    stopifnot(file.exists(x_y_chr_file))
-    if ("X" %in% unique(ukbppp$chr)) {
-      # Load x_y_rsid
-      x_y_rsid <- data.table::fread(x_y_chr_file)
-      # Rename columns to match
-      x_y_rsid <- x_y_rsid |>
-        dplyr::rename(
-          pos = dplyr::all_of("V2"),
-          rsids = dplyr::all_of("V3"),
-          chr = dplyr::all_of("V1")
-        )
-      # Merge with ukbppp by position
-      ukbppp <- dplyr::left_join(
-        ukbppp,
-        x_y_rsid[, c("pos", "rsids")],
-        by = "pos"
+  if (!is.null(x_y_chr_file) && "X" %in% unique(ukbppp$chr)) {
+    if (is.character(x_y_chr_file)) {
+      stopifnot(file.exists(x_y_chr_file))
+      x_y_rsid <- data.table::fread(
+        x_y_chr_file,
+        nThread = parallel::detectCores()
       )
-
-      # Update rsid column with rsids from x_y_rsid
-      ukbppp <- ukbppp |>
-        dplyr::mutate(rsid = dplyr::coalesce(.data$rsids, .data$rsid)) |>
-        dplyr::select(-dplyr::all_of("rsids"))
+    } else {
+      stopifnot(is.data.frame(x_y_chr_file))
+      x_y_rsid <- x_y_chr_file
     }
+    # Rename columns to match
+    x_y_rsid <- x_y_rsid |>
+      dplyr::rename(
+        pos = dplyr::all_of("V2"),
+        rsids = dplyr::all_of("V3"),
+        chr = dplyr::all_of("V1")
+      )
+    # Merge with ukbppp by position
+    ukbppp <- dplyr::left_join(
+      ukbppp,
+      x_y_rsid[, c("pos", "rsids")],
+      by = "pos"
+    )
+
+    # Update rsid column with rsids from x_y_rsid
+    ukbppp <- ukbppp |>
+      dplyr::mutate(rsid = dplyr::coalesce(.data$rsids, .data$rsid)) |>
+      dplyr::select(-dplyr::all_of("rsids"))
   }
   # Convert data table to data frame for format_data()
   ukbppp <- as.data.frame(ukbppp)

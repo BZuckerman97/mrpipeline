@@ -13,7 +13,10 @@ format_pqtl_ukbppp(ukbppp, ukbppp_rsid, pqtl_assay, x_y_chr_file = NULL)
 
 \item{pqtl_assay}{String, of the ukbppp protein assay}
 
-\item{x_y_chr_file}{String, file path to the file containing rsids for X and Y chromosomes}
+\item{x_y_chr_file}{Data frame or string file path containing rsIDs for X
+and Y chromosomes, or NULL. When a data frame is supplied, it is used
+directly (skipping \code{fread()}). When a string path is supplied, the file is
+read via \code{data.table::fread()}.}
 }
 \value{
 A list with two elements:
