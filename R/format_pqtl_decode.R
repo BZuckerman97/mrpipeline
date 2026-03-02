@@ -38,7 +38,7 @@ format_pqtl_decode <- function(
     stopifnot(all(sapply(decode_proteomic_gwas_file_path, file.exists)))
     decode_raw_data <- decode_proteomic_gwas_file_path |>
       purrr::map(\(path) {
-        data.table::fread(path, nThread = parallel::detectCores())
+        data.table::fread(path)
       }) |>
       dplyr::bind_rows()
   } else {
@@ -51,7 +51,7 @@ format_pqtl_decode <- function(
     stopifnot(all(sapply(decode_included_variants_file_path, file.exists)))
     included_variants_df <- decode_included_variants_file_path |>
       purrr::map(\(path) {
-        data.table::fread(path, nThread = parallel::detectCores())
+        data.table::fread(path)
       }) |>
       dplyr::bind_rows()
   } else {
@@ -133,6 +133,7 @@ format_pqtl_decode <- function(
     pval_col = "pval",
     chr_col = "chr",
     pos_col = "pos",
+    samplesize_col = "N",
     log_pval = FALSE
   )
 
