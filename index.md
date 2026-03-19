@@ -1,0 +1,62 @@
+# mrpipeline
+
+mrpipeline provides a streamlined interface for Mendelian randomisation
+(MR) and colocalization analysis, with a focus on proteomic GWAS data
+(deCODE, UKB-PPP). It wraps TwoSampleMR, coloc, and
+MendelianRandomization into a consistent workflow with S3 result objects
+and built-in sensitivity analyses.
+
+## Installation
+
+Install from GitHub:
+
+``` r
+# install.packages("pak")
+pak::pak("BZuckerman97/mrpipeline")
+```
+
+## Quick start
+
+``` r
+library(mrpipeline)
+
+# Format exposure data (e.g. UKB-PPP pQTL)
+exposure <- format_pqtl_ukbppp(cd40_sumstats, exposure_id = "CD40")
+
+# Look up gene coordinates
+coords <- get_gene_coords("CD40", build = "grch38")
+
+# Run cis-MR
+mr_res <- run_mr(
+  exposure = exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(
+    chromosome = coords$chromosome,
+    start = coords$start,
+    end = coords$end
+  )
+)
+mr_res
+summary(mr_res)
+
+# Run colocalization
+coloc_res <- run_coloc(
+  exposure = exposure,
+  outcome = sjogren_outcome,
+  gene_chr = coords$chromosome,
+  gene_start = coords$start,
+  gene_end = coords$end,
+  bfile = "path/to/ld_reference"
+)
+coloc_res
+summary(coloc_res)
+```
+
+## Vignettes
+
+- [`vignette("mrpipeline-user-guide")`](https://github.com/BZuckerman97/mrpipeline/articles/mrpipeline-user-guide.md)
+  — end-to-end usage examples
+- [`vignette("mrpipeline-developer-guide")`](https://github.com/BZuckerman97/mrpipeline/articles/mrpipeline-developer-guide.md)
+  — architecture and internals

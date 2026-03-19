@@ -1,0 +1,47 @@
+# Format single-cell RNA eQTL data for analysis
+
+This function processes single-cell eQTL data from the OneK1K project
+for a specific cell type. It uses a mapping data frame to find the path
+to the relevant eQTL summary statistics file, reads the data, and
+formats it for use with the `TwoSampleMR` package.
+
+## Usage
+
+``` r
+format_single_cell_onek1k(onek1k_mapping, onek1k_cell_type)
+```
+
+## Arguments
+
+- onek1k_mapping:
+
+  A data frame containing mapping information for OneK1K eQTL data. Must
+  contain 'cell_type' and 'path_to_eqtl_file' columns.
+
+- onek1k_cell_type:
+
+  Character string. The name of the cell type to be processed (e.g.,
+  "CD4 Naive"). This must correspond to an entry in the 'cell_type'
+  column of `onek1k_mapping`.
+
+## Value
+
+A data frame of the formatted eQTL data, ready for use as an "exposure"
+dataset in `TwoSampleMR`.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# Create a dummy mapping data frame
+mapping_df <- data.frame(
+  cell_type = "CD4 Naive",
+  path_to_eqtl_file = "path/to/your/eqtl_data.tsv.gz"
+)
+# Run the function
+formatted_eqtls <- format_single_cell_onek1k(
+  onek1k_mapping = mapping_df,
+  onek1k_cell_type = "CD4 Naive"
+)
+} # }
+```
