@@ -1,4 +1,6 @@
-url: ~
+url: https://github.com/BZuckerman97/mrpipeline
+template:
+  bootstrap: 5
 
 reference:
   - title: MR Analysis
