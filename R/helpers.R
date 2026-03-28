@@ -43,11 +43,14 @@ harmonise_and_filter <- function(exposure, outcome) {
 #' @param bfile Path to PLINK bfile prefix (without .bed/.bim/.fam).
 #' @param plink_bin Path to PLINK binary. If `NULL`, auto-detected via
 #'   [genetics.binaRies::get_plink_binary()].
+#' @param plink_threads Number of threads for PLINK. `NULL` = auto-detect.
+#' @param plink_memory Memory (MB) for PLINK. `NULL` = auto-detect.
 #'
 #' @return A square correlation matrix with rsID-only row/column names.
 #'
 #' @keywords internal
-compute_ld_matrix <- function(snps, bfile, plink_bin = NULL) {
+compute_ld_matrix <- function(snps, bfile, plink_bin = NULL,
+                              plink_threads = NULL, plink_memory = NULL) {
   if (is.null(plink_bin)) {
     plink_bin <- genetics.binaRies::get_plink_binary()
   }
@@ -55,7 +58,9 @@ compute_ld_matrix <- function(snps, bfile, plink_bin = NULL) {
   ld <- ieugwasr::ld_matrix(
     variants = snps,
     bfile = bfile,
-    plink_bin = plink_bin
+    plink_bin = plink_bin,
+    threads = plink_threads,
+    memory = plink_memory
   )
 
   # Strip allele suffixes: rs123_A_G -> rs123
@@ -94,7 +99,9 @@ clump_instruments <- function(
   clump_kb = 10000,
   bfile = NULL,
   plink_bin = NULL,
-  pop = "EUR"
+  pop = "EUR",
+  plink_threads = NULL,
+  plink_memory = NULL
 ) {
   # Compute pseudo p-values if beta and se are available
   if (all(c("beta", "se") %in% colnames(dat))) {
@@ -130,6 +137,8 @@ clump_instruments <- function(
     }
     clump_args$bfile <- bfile
     clump_args$plink_bin <- plink_bin
+    clump_args$threads <- plink_threads
+    clump_args$memory <- plink_memory
   } else {
     if (!isTRUE(getOption("mrpipeline.api_message_shown"))) {
       cli::cli_inform(

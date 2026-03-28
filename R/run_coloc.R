@@ -103,6 +103,8 @@ run_coloc <- function(
 
   p2 = 1e-4,
   p12 = 1e-5,
+  plink_threads = getOption("mrpipeline.plink_threads"),
+  plink_memory = getOption("mrpipeline.plink_memory"),
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -300,7 +302,9 @@ run_coloc <- function(
   ld_mat <- compute_ld_matrix(
     snps = harmonised$SNP,
     bfile = bfile,
-    plink_bin = plink_bin
+    plink_bin = plink_bin,
+    plink_threads = plink_threads,
+    plink_memory = plink_memory
   )
   aligned <- align_to_ld_matrix(harmonised, ld_mat)
   harmonised <- aligned$data
