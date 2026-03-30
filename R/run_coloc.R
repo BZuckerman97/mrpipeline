@@ -54,6 +54,14 @@
 #'   Default `1e-4`.
 #' @param p12 Numeric. Prior probability a SNP is associated with both
 #'   traits. Default `1e-5`.
+#' @param plink_threads Integer. Number of threads for PLINK. `NULL` (default)
+#'   lets PLINK auto-detect. Read from `getOption("mrpipeline.plink_threads")`
+#'   or the `MRPIPELINE_PLINK_THREADS` environment variable via
+#'   [plink_option()].
+#' @param plink_memory Integer. Memory limit in MB for PLINK. `NULL` (default)
+#'   lets PLINK auto-detect. Read from `getOption("mrpipeline.plink_memory")`
+#'   or the `MRPIPELINE_PLINK_MEMORY` environment variable via
+#'   [plink_option()].
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.

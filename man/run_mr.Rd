@@ -23,6 +23,8 @@ run_mr(
   ld_correct = FALSE,
   exposure_n = NULL,
   presso_n_dist = 1000,
+  plink_threads = plink_option("threads"),
+  plink_memory = plink_option("memory"),
   verbose = TRUE
 )
 }
@@ -79,6 +81,16 @@ exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 
 \item{presso_n_dist}{Integer. Number of distributions for MR-PRESSO. Default
 \code{1000}.}
+
+\item{plink_threads}{Integer. Number of threads for PLINK. \code{NULL} (default)
+lets PLINK auto-detect. Read from \code{getOption("mrpipeline.plink_threads")}
+or the \code{MRPIPELINE_PLINK_THREADS} environment variable via
+\code{\link[=plink_option]{plink_option()}}.}
+
+\item{plink_memory}{Integer. Memory limit in MB for PLINK. \code{NULL} (default)
+lets PLINK auto-detect. Read from \code{getOption("mrpipeline.plink_memory")}
+or the \code{MRPIPELINE_PLINK_MEMORY} environment variable via
+\code{\link[=plink_option]{plink_option()}}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_abort]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.

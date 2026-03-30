@@ -25,6 +25,8 @@ run_coloc(
   p1 = 1e-04,
   p2 = 1e-04,
   p12 = 1e-05,
+  plink_threads = plink_option("threads"),
+  plink_memory = plink_option("memory"),
   verbose = TRUE
 )
 }
@@ -86,6 +88,16 @@ Default \code{1e-4}.}
 
 \item{p12}{Numeric. Prior probability a SNP is associated with both
 traits. Default \code{1e-5}.}
+
+\item{plink_threads}{Integer. Number of threads for PLINK. \code{NULL} (default)
+lets PLINK auto-detect. Read from \code{getOption("mrpipeline.plink_threads")}
+or the \code{MRPIPELINE_PLINK_THREADS} environment variable via
+\code{\link[=plink_option]{plink_option()}}.}
+
+\item{plink_memory}{Integer. Memory limit in MB for PLINK. \code{NULL} (default)
+lets PLINK auto-detect. Read from \code{getOption("mrpipeline.plink_memory")}
+or the \code{MRPIPELINE_PLINK_MEMORY} environment variable via
+\code{\link[=plink_option]{plink_option()}}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_abort]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.

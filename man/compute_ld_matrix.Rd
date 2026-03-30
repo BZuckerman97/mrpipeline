@@ -4,7 +4,13 @@
 \alias{compute_ld_matrix}
 \title{Compute LD correlation matrix from a local reference panel}
 \usage{
-compute_ld_matrix(snps, bfile, plink_bin = NULL)
+compute_ld_matrix(
+  snps,
+  bfile,
+  plink_bin = NULL,
+  plink_threads = NULL,
+  plink_memory = NULL
+)
 }
 \arguments{
 \item{snps}{Character vector of rsIDs.}
@@ -13,6 +19,10 @@ compute_ld_matrix(snps, bfile, plink_bin = NULL)
 
 \item{plink_bin}{Path to PLINK binary. If \code{NULL}, auto-detected via
 \code{\link[genetics.binaRies:get_plink_binary]{genetics.binaRies::get_plink_binary()}}.}
+
+\item{plink_threads}{Number of threads for PLINK. \code{NULL} = auto-detect.}
+
+\item{plink_memory}{Memory (MB) for PLINK. \code{NULL} = auto-detect.}
 }
 \value{
 A square correlation matrix with rsID-only row/column names.

@@ -56,6 +56,39 @@ mr_res <- run_mr(
 )
 ```
 
+## Controlling PLINK Resource Usage
+
+When running many parallel jobs (e.g. on an HPC cluster), PLINK's default
+behaviour of auto-detecting available threads and memory can cause problems —
+each worker may try to reserve half the node's RAM. Use `plink_threads` and
+`plink_memory` to cap resource usage per call.
+
+You can set these per-call, via R options, or via environment variables:
+
+```{r plink-resources, eval = FALSE}
+# Per-call (highest priority)
+result <- run_mr(
+ exposure = exposure_data, exposure_id = "CD40",
+ outcome = outcome_data, outcome_id = "SjD",
+ bfile = "/path/to/ld_ref",
+ plink_threads = 1,
+ plink_memory = 2000
+)
+
+# Via R options (apply to all subsequent calls in the session)
+options(
+ mrpipeline.plink_threads = 1,
+ mrpipeline.plink_memory = 2000
+)
+
+# Via environment variables (e.g. in .Renviron or a job script)
+# MRPIPELINE_PLINK_THREADS=1
+# MRPIPELINE_PLINK_MEMORY=2000
+```
+
+Priority order: explicit argument > R option > environment variable > PLINK
+auto-detect (`NULL`). The same parameters are available in `run_coloc()`.
+
 ## Setting Up an LD Reference Panel
 
 <!-- TODO: explain when a local bfile is needed (batch, ld_correct, coloc) vs API -->

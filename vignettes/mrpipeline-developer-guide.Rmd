@@ -111,6 +111,14 @@ All helpers live in `R/helpers.R`, are tagged `@keywords internal`, and are not 
 
 <!-- TODO: document intersect-and-reorder approach (simplified from allele-flip logic) -->
 
+### `plink_option()`
+
+Resolves PLINK resource limits (threads, memory) from R options or environment
+variables. Checks `getOption("mrpipeline.plink_{param}")` first, then falls back
+to the `MRPIPELINE_PLINK_{PARAM}` environment variable. Returns `NULL` if
+neither is set (PLINK auto-detects). Used as the default value for
+`plink_threads` and `plink_memory` in `run_mr()` and `run_coloc()`.
+
 ### `eaf_to_maf()`, `resolve_sample_size()`
 
 <!-- TODO: brief documentation for each -->

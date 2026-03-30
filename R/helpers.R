@@ -12,7 +12,9 @@
 #' @keywords internal
 plink_option <- function(param) {
   opt <- getOption(paste0("mrpipeline.plink_", param))
-  if (!is.null(opt)) return(as.integer(opt))
+  if (!is.null(opt)) {
+    return(as.integer(opt))
+  }
   env <- Sys.getenv(paste0("MRPIPELINE_PLINK_", toupper(param)), unset = "")
   if (nzchar(env)) as.integer(env) else NULL
 }
@@ -65,8 +67,13 @@ harmonise_and_filter <- function(exposure, outcome) {
 #' @return A square correlation matrix with rsID-only row/column names.
 #'
 #' @keywords internal
-compute_ld_matrix <- function(snps, bfile, plink_bin = NULL,
-                              plink_threads = NULL, plink_memory = NULL) {
+compute_ld_matrix <- function(
+  snps,
+  bfile,
+  plink_bin = NULL,
+  plink_threads = NULL,
+  plink_memory = NULL
+) {
   if (is.null(plink_bin)) {
     plink_bin <- genetics.binaRies::get_plink_binary()
   }

@@ -61,6 +61,14 @@
 #'   `samplesize.exposure` column.
 #' @param presso_n_dist Integer. Number of distributions for MR-PRESSO. Default
 #'   `1000`.
+#' @param plink_threads Integer. Number of threads for PLINK. `NULL` (default)
+#'   lets PLINK auto-detect. Read from `getOption("mrpipeline.plink_threads")`
+#'   or the `MRPIPELINE_PLINK_THREADS` environment variable via
+#'   [plink_option()].
+#' @param plink_memory Integer. Memory limit in MB for PLINK. `NULL` (default)
+#'   lets PLINK auto-detect. Read from `getOption("mrpipeline.plink_memory")`
+#'   or the `MRPIPELINE_PLINK_MEMORY` environment variable via
+#'   [plink_option()].
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
