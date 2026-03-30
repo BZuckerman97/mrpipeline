@@ -30,6 +30,8 @@ not found in Ensembl are dropped with a warning.
 
 ``` r
 get_gene_coords("CD40")
+#> Ensembl site unresponsive, trying asia mirror
+#> Ensembl site unresponsive, trying useast mirror
 #> Error in req_perform(html_request): Failed to perform HTTP request.
 #> Caused by error in `curl::curl_fetch_memory()`:
 #> ! Timeout was reached [www.ensembl.org]:
