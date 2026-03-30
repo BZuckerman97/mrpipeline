@@ -13,7 +13,9 @@ clump_instruments(
   clump_kb = 10000,
   bfile = NULL,
   plink_bin = NULL,
-  pop = "EUR"
+  pop = "EUR",
+  plink_threads = NULL,
+  plink_memory = NULL
 )
 ```
 

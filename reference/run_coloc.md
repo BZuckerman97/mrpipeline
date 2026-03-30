@@ -29,6 +29,8 @@ run_coloc(
   p1 = 1e-04,
   p2 = 1e-04,
   p12 = 1e-05,
+  plink_threads = plink_option("threads"),
+  plink_memory = plink_option("memory"),
   verbose = TRUE
 )
 ```
@@ -133,6 +135,20 @@ run_coloc(
 
   Numeric. Prior probability a SNP is associated with both traits.
   Default `1e-5`.
+
+- plink_threads:
+
+  Integer. Number of threads for PLINK. `NULL` (default) lets PLINK
+  auto-detect. Read from `getOption("mrpipeline.plink_threads")` or the
+  `MRPIPELINE_PLINK_THREADS` environment variable via
+  [`plink_option()`](https://github.com/BZuckerman97/mrpipeline/reference/plink_option.md).
+
+- plink_memory:
+
+  Integer. Memory limit in MB for PLINK. `NULL` (default) lets PLINK
+  auto-detect. Read from `getOption("mrpipeline.plink_memory")` or the
+  `MRPIPELINE_PLINK_MEMORY` environment variable via
+  [`plink_option()`](https://github.com/BZuckerman97/mrpipeline/reference/plink_option.md).
 
 - verbose:
 

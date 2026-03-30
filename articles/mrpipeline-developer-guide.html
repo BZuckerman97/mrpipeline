@@ -240,6 +240,19 @@ autosomes</li>
 <!-- TODO: document intersect-and-reorder approach (simplified from allele-flip logic) -->
 </div>
 <div class="section level3">
+<h3 id="plink_option">
+<code>plink_option()</code><a class="anchor" aria-label="anchor" href="#plink_option"></a>
+</h3>
+<p>Resolves PLINK resource limits (threads, memory) from R options or
+environment variables. Checks
+<code>getOption("mrpipeline.plink_{param}")</code> first, then falls
+back to the <code>MRPIPELINE_PLINK_{PARAM}</code> environment variable.
+Returns <code>NULL</code> if neither is set (PLINK auto-detects). Used
+as the default value for <code>plink_threads</code> and
+<code>plink_memory</code> in <code><a href="../reference/run_mr.html">run_mr()</a></code> and
+<code><a href="../reference/run_coloc.html">run_coloc()</a></code>.</p>
+</div>
+<div class="section level3">
 <h3 id="eaf_to_maf-resolve_sample_size">
 <code>eaf_to_maf()</code>, <code>resolve_sample_size()</code><a class="anchor" aria-label="anchor" href="#eaf_to_maf-resolve_sample_size"></a>
 </h3>

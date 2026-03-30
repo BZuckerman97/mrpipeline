@@ -110,6 +110,17 @@ are not exported.
 
 ### `align_to_ld_matrix()`
 
+### `plink_option()`
+
+Resolves PLINK resource limits (threads, memory) from R options or
+environment variables. Checks `getOption("mrpipeline.plink_{param}")`
+first, then falls back to the `MRPIPELINE_PLINK_{PARAM}` environment
+variable. Returns `NULL` if neither is set (PLINK auto-detects). Used as
+the default value for `plink_threads` and `plink_memory` in
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+and
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md).
+
 ### `eaf_to_maf()`, `resolve_sample_size()`
 
 ## Code Conventions

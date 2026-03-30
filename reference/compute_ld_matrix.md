@@ -8,7 +8,13 @@ column names.
 ## Usage
 
 ``` r
-compute_ld_matrix(snps, bfile, plink_bin = NULL)
+compute_ld_matrix(
+  snps,
+  bfile,
+  plink_bin = NULL,
+  plink_threads = NULL,
+  plink_memory = NULL
+)
 ```
 
 ## Arguments
@@ -25,6 +31,14 @@ compute_ld_matrix(snps, bfile, plink_bin = NULL)
 
   Path to PLINK binary. If `NULL`, auto-detected via
   [`genetics.binaRies::get_plink_binary()`](https://rdrr.io/pkg/genetics.binaRies/man/get_plink_binary.html).
+
+- plink_threads:
+
+  Number of threads for PLINK. `NULL` = auto-detect.
+
+- plink_memory:
+
+  Memory (MB) for PLINK. `NULL` = auto-detect.
 
 ## Value
 

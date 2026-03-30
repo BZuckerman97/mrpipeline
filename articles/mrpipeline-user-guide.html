@@ -107,6 +107,39 @@ hard-coding coordinates.</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="controlling-plink-resource-usage">Controlling PLINK Resource Usage<a class="anchor" aria-label="anchor" href="#controlling-plink-resource-usage"></a>
+</h2>
+<p>When running many parallel jobs (e.g. on an HPC cluster), PLINK’s
+default behaviour of auto-detecting available threads and memory can
+cause problems — each worker may try to reserve half the node’s RAM. Use
+<code>plink_threads</code> and <code>plink_memory</code> to cap resource
+usage per call.</p>
+<p>You can set these per-call, via R options, or via environment
+variables:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Per-call (highest priority)</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span> exposure <span class="op">=</span> <span class="va">exposure_data</span>, exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span> outcome <span class="op">=</span> <span class="va">outcome_data</span>, outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span> bfile <span class="op">=</span> <span class="st">"/path/to/ld_ref"</span>,</span>
+<span> plink_threads <span class="op">=</span> <span class="fl">1</span>,</span>
+<span> plink_memory <span class="op">=</span> <span class="fl">2000</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Via R options (apply to all subsequent calls in the session)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span></span>
+<span> mrpipeline.plink_threads <span class="op">=</span> <span class="fl">1</span>,</span>
+<span> mrpipeline.plink_memory <span class="op">=</span> <span class="fl">2000</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Via environment variables (e.g. in .Renviron or a job script)</span></span>
+<span><span class="co"># MRPIPELINE_PLINK_THREADS=1</span></span>
+<span><span class="co"># MRPIPELINE_PLINK_MEMORY=2000</span></span></code></pre></div>
+<p>Priority order: explicit argument &gt; R option &gt; environment
+variable &gt; PLINK auto-detect (<code>NULL</code>). The same parameters
+are available in <code><a href="../reference/run_coloc.html">run_coloc()</a></code>.</p>
+</div>
+<div class="section level2">
 <h2 id="setting-up-an-ld-reference-panel">Setting Up an LD Reference Panel<a class="anchor" aria-label="anchor" href="#setting-up-an-ld-reference-panel"></a>
 </h2>
 <!-- TODO: explain when a local bfile is needed (batch, ld_correct, coloc) vs API -->
@@ -159,7 +192,7 @@ the MHC region on chromosome 6, which can introduce spurious
 associations due to complex LD structure.</p>
 <p>Supply a data frame with columns <code>chr</code>,
 <code>start</code>, and <code>end</code>:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Exclude MHC region (GRCh37 coordinates: chr6:28,477,797–33,448,354)</span></span>
 <span><span class="va">mhc_grch37</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>chr <span class="op">=</span> <span class="st">"6"</span>, start <span class="op">=</span> <span class="fl">28477797</span>, end <span class="op">=</span> <span class="fl">33448354</span><span class="op">)</span></span>
 <span></span>
@@ -176,7 +209,7 @@ associations due to complex LD structure.</p>
 <p>You can exclude multiple regions by stacking rows. For example, when
 studying age-related macular degeneration (AMD), you might exclude both
 the CFH and ARMS2/HTRA1 loci:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">amd_exclusions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  chr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1"</span>, <span class="st">"10"</span><span class="op">)</span>,</span>
 <span>  start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">196621008</span>, <span class="fl">124214077</span><span class="op">)</span>,</span>
@@ -196,7 +229,7 @@ the CFH and ARMS2/HTRA1 loci:</p>
 </h3>
 <p>You can bypass automatic instrument selection by supplying a
 character vector of rsIDs to the <code>instruments</code> argument:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
@@ -207,7 +240,7 @@ character vector of rsIDs to the <code>instruments</code> argument:</p>
 <p>By default, instruments missing from the exposure data produce a
 warning but the analysis continues with the available SNPs. Set
 <code>instruments_strict = TRUE</code> to error instead:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
@@ -226,7 +259,7 @@ warning but the analysis continues with the available SNPs. Set
 <!-- TODO: methods_skipped -->
 <p>Use <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> for a one-line summary and
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> for full details:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mr_res</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
@@ -234,7 +267,7 @@ warning but the analysis continues with the available SNPs. Set
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> produces diagnostic plots using TwoSampleMR
 plotting functions (requires <code>ggplot2</code>):</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span> <span class="co"># scatter plot (default)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"forest"</span><span class="op">)</span>  <span class="co"># forest plot</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"funnel"</span><span class="op">)</span>  <span class="co"># funnel plot</span></span></code></pre></div>
@@ -249,7 +282,7 @@ plotting functions (requires <code>ggplot2</code>):</p>
 <p>The simplest colocalization test uses Approximate Bayes Factors
 (ABF). Supply pre-formatted exposure data, raw outcome data, the gene
 region, and an LD reference panel:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -275,7 +308,7 @@ region, and an LD reference panel:</p>
 fine-maps each trait independently, then <code>coloc.susie()</code> and
 <code>coloc.signals()</code> test colocalization across all pairs of
 credible sets:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -294,7 +327,7 @@ credible sets:</p>
 </h3>
 <p>For case-control outcomes, set <code>outcome_type = "cc"</code> and
 provide the proportion of cases via <code>outcome_s</code>:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -314,7 +347,7 @@ provide the proportion of cases via <code>outcome_s</code>:</p>
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> for <code>coloc_result</code> objects supports
 two plot types (requires <code>ggplot2</code>):</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>    <span class="co"># bar chart of ABF posterior probabilities (default)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span>  <span class="co"># regional association plots</span></span></code></pre></div>
 </div>
