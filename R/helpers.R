@@ -1,6 +1,22 @@
 # Internal helper functions shared by run_mr() and run_coloc()
 # All functions in this file are @keywords internal and NOT exported.
 
+#' Resolve PLINK resource option from R option or environment variable
+#'
+#' Checks `getOption("mrpipeline.plink_{param}")` first, then falls back to
+#' the environment variable `MRPIPELINE_PLINK_{PARAM}`. Returns `NULL` if
+#' neither is set (PLINK auto-detects).
+#'
+#' @param param Either `"threads"` or `"memory"`.
+#' @return Integer or `NULL`.
+#' @keywords internal
+plink_option <- function(param) {
+  opt <- getOption(paste0("mrpipeline.plink_", param))
+  if (!is.null(opt)) return(as.integer(opt))
+  env <- Sys.getenv(paste0("MRPIPELINE_PLINK_", toupper(param)), unset = "")
+  if (nzchar(env)) as.integer(env) else NULL
+}
+
 #' Harmonise exposure and outcome data, filter, and deduplicate
 #'
 #' Wraps [TwoSampleMR::harmonise_data()], filters to `mr_keep == TRUE`,

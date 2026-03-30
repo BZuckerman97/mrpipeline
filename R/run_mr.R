@@ -106,8 +106,8 @@ run_mr <- function(
   ld_correct = FALSE,
   exposure_n = NULL,
   presso_n_dist = 1000,
-  plink_threads = getOption("mrpipeline.plink_threads"),
-  plink_memory = getOption("mrpipeline.plink_memory"),
+  plink_threads = plink_option("threads"),
+  plink_memory = plink_option("memory"),
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------

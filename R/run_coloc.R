@@ -103,8 +103,8 @@ run_coloc <- function(
 
   p2 = 1e-4,
   p12 = 1e-5,
-  plink_threads = getOption("mrpipeline.plink_threads"),
-  plink_memory = getOption("mrpipeline.plink_memory"),
+  plink_threads = plink_option("threads"),
+  plink_memory = plink_option("memory"),
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
