@@ -100,7 +100,7 @@ or the \code{MRPIPELINE_PLINK_MEMORY} environment variable via
 \code{\link[=plink_option]{plink_option()}}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
-\code{\link[cli:cli_abort]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
+\code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
 Default \code{TRUE}.}
 }
 \value{

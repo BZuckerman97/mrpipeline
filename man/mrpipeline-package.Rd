@@ -13,6 +13,7 @@ Pipeline to perform forward mendelian randomization analyses, including multiple
 
 Authors:
 \itemize{
+  \item Benjamin Zuckerman \email{benjamin.zuckerman@kcl.ac.uk} (\href{https://orcid.org/0000-0002-0077-6074}{ORCID})
   \item Alasdair Warwick (\href{https://orcid.org/0000-0002-0800-2890}{ORCID})
 }
 

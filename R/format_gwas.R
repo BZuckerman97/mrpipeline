@@ -164,20 +164,49 @@ format_gwas <- function(
 
   # ── Column normalisation ─────────────────────────────────────────────────────
   col_aliases <- list(
-    rsids         = c("rsids", "rsid", "rs_id", "rsID", "SNP"),
-    chr           = c("chr", "chromosome", "Chr", "CHROM", "#CHROM", "CHR"),
-    pos           = c("pos", "base_pair_location", "PosB37", "PosB38", "BP",
-                      "POS", "position", "GENPOS"),
-    beta          = c("beta", "Beta", "Effect", "BETA"),
-    se            = c("se", "standard_error", "StdErr", "SE", "sebeta"),
-    eaf           = c("eaf", "effect_allele_frequency", "Freq1", "EAFrq",
-                      "A1FREQ", "af_alt", "EAF"),
-    pval          = c("pval", "p_value", "P-value", "P", "Pval", "p.value"),
-    n             = c("n", "N", "TotalSampleSize", "n_total"),
-    effect_allele = c("effect_allele", "Allele1", "EA", "A1", "ALLELE1",
-                      "effectAllele", "ALT"),
-    other_allele  = c("other_allele", "Allele2", "OA", "A2", "ALLELE0",
-                      "otherAllele", "REF")
+    rsids = c("rsids", "rsid", "rs_id", "rsID", "SNP"),
+    chr = c("chr", "chromosome", "Chr", "CHROM", "#CHROM", "CHR"),
+    pos = c(
+      "pos",
+      "base_pair_location",
+      "PosB37",
+      "PosB38",
+      "BP",
+      "POS",
+      "position",
+      "GENPOS"
+    ),
+    beta = c("beta", "Beta", "Effect", "BETA"),
+    se = c("se", "standard_error", "StdErr", "SE", "sebeta"),
+    eaf = c(
+      "eaf",
+      "effect_allele_frequency",
+      "Freq1",
+      "EAFrq",
+      "A1FREQ",
+      "af_alt",
+      "EAF"
+    ),
+    pval = c("pval", "p_value", "P-value", "P", "Pval", "p.value"),
+    n = c("n", "N", "TotalSampleSize", "n_total"),
+    effect_allele = c(
+      "effect_allele",
+      "Allele1",
+      "EA",
+      "A1",
+      "ALLELE1",
+      "effectAllele",
+      "ALT"
+    ),
+    other_allele = c(
+      "other_allele",
+      "Allele2",
+      "OA",
+      "A2",
+      "ALLELE0",
+      "otherAllele",
+      "REF"
+    )
   )
 
   # User-supplied aliases are prepended so they are found before built-in ones
@@ -188,7 +217,9 @@ format_gwas <- function(
   }
 
   for (canonical in names(col_aliases)) {
-    if (canonical %in% names(dat)) next
+    if (canonical %in% names(dat)) {
+      next
+    }
     found <- intersect(col_aliases[[canonical]], names(dat))
     if (length(found) > 0L) {
       dat <- dplyr::rename(
@@ -228,8 +259,8 @@ format_gwas <- function(
 
     bim <- data.table::fread(
       bim_file,
-      header    = FALSE,
-      select    = c(1L, 2L, 4L),
+      header = FALSE,
+      select = c(1L, 2L, 4L),
       col.names = c("chr", "rsids", "pos")
     ) |>
       as.data.frame() |>
@@ -298,20 +329,20 @@ format_gwas <- function(
   if (type == "exposure") {
     return(TwoSampleMR::format_data(
       dat,
-      type              = "exposure",
-      header            = TRUE,
-      phenotype_col     = "phenotype",
-      snp_col           = "rsids",
-      beta_col          = "beta",
-      se_col            = "se",
-      eaf_col           = if ("eaf" %in% names(dat)) "eaf" else NULL,
+      type = "exposure",
+      header = TRUE,
+      phenotype_col = "phenotype",
+      snp_col = "rsids",
+      beta_col = "beta",
+      se_col = "se",
+      eaf_col = if ("eaf" %in% names(dat)) "eaf" else NULL,
       effect_allele_col = "effect_allele",
-      other_allele_col  = "other_allele",
-      pval_col          = "pval",
-      chr_col           = if ("chr" %in% names(dat)) "chr" else NULL,
-      pos_col           = if ("pos" %in% names(dat)) "pos" else NULL,
-      samplesize_col    = if ("n" %in% names(dat)) "n" else NULL,
-      log_pval          = FALSE
+      other_allele_col = "other_allele",
+      pval_col = "pval",
+      chr_col = if ("chr" %in% names(dat)) "chr" else NULL,
+      pos_col = if ("pos" %in% names(dat)) "pos" else NULL,
+      samplesize_col = if ("n" %in% names(dat)) "n" else NULL,
+      log_pval = FALSE
     ))
   }
 
