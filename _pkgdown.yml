@@ -20,8 +20,9 @@ reference:
       - plot.coloc_result
 
   - title: Data Formatting
-    desc: Format proteomics GWAS data for use with mrpipeline.
+    desc: Format GWAS summary statistics for use with mrpipeline.
     contents:
+      - format_gwas
       - format_pqtl_decode
       - format_pqtl_ukbppp
       - format_single_cell_onek1k
