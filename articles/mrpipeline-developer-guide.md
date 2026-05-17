@@ -133,6 +133,7 @@ Always use the `cli` package. Never use
 [`stop()`](https://rdrr.io/r/base/stop.html) directly.
 
 ``` r
+
 cli::cli_inform("Processing {protein}...")      # informational (goes to stderr)
 cli::cli_warn("Only {n} SNP(s) available.")     # warning
 cli::cli_abort("bfile is required for coloc.")  # error (stops execution)
@@ -152,6 +153,7 @@ Use the native `|>` pipe exclusively. Never use `%>%` from magrittr.
 Prefer `stringr` functions over base R equivalents:
 
 ``` r
+
 # Good
 stringr::str_remove(x, "_.*")
 stringr::str_detect(x, "^chr")
@@ -188,14 +190,14 @@ panel, so integration tests can run without external downloads.
 
 ### Bundled datasets
 
-| Dataset                | Rows | Format                     | Description                                                                                                                                                    |
-|------------------------|------|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `cd40_sumstats`        | 210  | Raw UKB-PPP                | CD40 summary statistics (chr6 MHC + chr20 cis), input for [`format_pqtl_ukbppp()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_ukbppp.md) |
-| `cd40_exposure`        | 50   | TwoSampleMR exposure       | CD40 chr20 cis region, pre-formatted. All SNPs in LD panel                                                                                                     |
-| `sjogren_sumstats`     | 341  | Raw outcome (case-control) | Sjögren’s Disease GWAS, all chromosomes                                                                                                                        |
-| `sjogren_outcome`      | 50   | Standardised outcome       | SjD chr20 CD40 region (1 real + 49 synthetic). All SNPs in LD panel                                                                                            |
-| `cd40_decode_gwas`     | 10   | deCODE GWAS                | Dummy deCODE format data, input for [`format_pqtl_decode()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_decode.md)                       |
-| `cd40_decode_variants` | 10   | deCODE variants            | Allele frequencies for `cd40_decode_gwas`                                                                                                                      |
+| Dataset | Rows | Format | Description |
+|----|----|----|----|
+| `cd40_sumstats` | 210 | Raw UKB-PPP | CD40 summary statistics (chr6 MHC + chr20 cis), input for [`format_pqtl_ukbppp()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_ukbppp.md) |
+| `cd40_exposure` | 50 | TwoSampleMR exposure | CD40 chr20 cis region, pre-formatted. All SNPs in LD panel |
+| `sjogren_sumstats` | 341 | Raw outcome (case-control) | Sjögren’s Disease GWAS, all chromosomes |
+| `sjogren_outcome` | 50 | Standardised outcome | SjD chr20 CD40 region (1 real + 49 synthetic). All SNPs in LD panel |
+| `cd40_decode_gwas` | 10 | deCODE GWAS | Dummy deCODE format data, input for [`format_pqtl_decode()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_decode.md) |
+| `cd40_decode_variants` | 10 | deCODE variants | Allele frequencies for `cd40_decode_gwas` |
 
 ### LD reference panel
 
@@ -208,12 +210,14 @@ frequencies are realistic. Total size ~4 KB.
 Access the bfile prefix in tests:
 
 ``` r
+
 bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 ```
 
 Guard integration tests that need plink:
 
 ``` r
+
 skip_if_not(file.exists(paste0(bfile, ".bed")), "LD reference panel not available")
 ```
 

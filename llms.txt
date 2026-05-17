@@ -11,6 +11,7 @@ and built-in sensitivity analyses.
 Install from GitHub:
 
 ``` r
+
 # install.packages("pak")
 pak::pak("BZuckerman97/mrpipeline")
 ```
@@ -18,6 +19,7 @@ pak::pak("BZuckerman97/mrpipeline")
 ## Quick start
 
 ``` r
+
 library(mrpipeline)
 
 # Format exposure data (e.g. UKB-PPP pQTL)

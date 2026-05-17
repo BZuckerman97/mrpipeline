@@ -14,6 +14,7 @@ and
 without hard-coding coordinates.
 
 ``` r
+
 # GRCh38 (default)
 coords <- get_gene_coords(c("CD40", "APOE"))
 coords
@@ -33,6 +34,7 @@ and
 [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md):
 
 ``` r
+
 cd40 <- get_gene_coords("CD40", build = "grch38")
 
 mr_res <- run_mr(
@@ -58,6 +60,7 @@ cause problems — each worker may try to reserve half the node’s RAM. Use
 You can set these per-call, via R options, or via environment variables:
 
 ``` r
+
 # Per-call (highest priority)
 result <- run_mr(
  exposure = exposure_data, exposure_id = "CD40",
@@ -108,6 +111,7 @@ complex LD structure.
 Supply a data frame with columns `chr`, `start`, and `end`:
 
 ``` r
+
 # Exclude MHC region (GRCh37 coordinates: chr6:28,477,797–33,448,354)
 mhc_grch37 <- data.frame(chr = "6", start = 28477797, end = 33448354)
 
@@ -128,6 +132,7 @@ studying age-related macular degeneration (AMD), you might exclude both
 the CFH and ARMS2/HTRA1 loci:
 
 ``` r
+
 amd_exclusions <- data.frame(
   chr = c("1", "10"),
   start = c(196621008, 124214077),
@@ -149,6 +154,7 @@ You can bypass automatic instrument selection by supplying a character
 vector of rsIDs to the `instruments` argument:
 
 ``` r
+
 result <- run_mr(
   exposure = exposure_data,
   exposure_id = "PCSK9",
@@ -163,6 +169,7 @@ but the analysis continues with the available SNPs. Set
 `instruments_strict = TRUE` to error instead:
 
 ``` r
+
 result <- run_mr(
   exposure = exposure_data,
   exposure_id = "PCSK9",
@@ -180,6 +187,7 @@ summary and [`summary()`](https://rdrr.io/r/base/summary.html) for full
 details:
 
 ``` r
+
 mr_res
 summary(mr_res)
 ```
@@ -191,6 +199,7 @@ diagnostic plots using TwoSampleMR plotting functions (requires
 `ggplot2`):
 
 ``` r
+
 plot(mr_res, type = "scatter") # scatter plot (default)
 plot(mr_res, type = "forest")  # forest plot
 plot(mr_res, type = "funnel")  # funnel plot
@@ -205,6 +214,7 @@ Supply pre-formatted exposure data, raw outcome data, the gene region,
 and an LD reference panel:
 
 ``` r
+
 result <- run_coloc(
   exposure = formatted_exposure,
   outcome = outcome_data,
@@ -231,6 +241,7 @@ the `methods` argument. SuSiE fine-maps each trait independently, then
 pairs of credible sets:
 
 ``` r
+
 result <- run_coloc(
   exposure = formatted_exposure,
   outcome = outcome_data,
@@ -251,6 +262,7 @@ For case-control outcomes, set `outcome_type = "cc"` and provide the
 proportion of cases via `outcome_s`:
 
 ``` r
+
 result <- run_coloc(
   exposure = formatted_exposure,
   outcome = outcome_data,
@@ -272,6 +284,7 @@ result <- run_coloc(
 `coloc_result` objects supports two plot types (requires `ggplot2`):
 
 ``` r
+
 plot(coloc_res, type = "pp_bar")    # bar chart of ABF posterior probabilities (default)
 plot(coloc_res, type = "regional")  # regional association plots
 ```

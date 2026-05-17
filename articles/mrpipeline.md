@@ -11,6 +11,7 @@ and built-in sensitivity analyses.
 Install from GitHub:
 
 ``` r
+
 # install.packages("pak")
 pak::pak("BZuckerman97/mrpipeline")
 ```
@@ -18,6 +19,7 @@ pak::pak("BZuckerman97/mrpipeline")
 ## Quick start
 
 ``` r
+
 library(mrpipeline)
 ```
 
@@ -28,6 +30,7 @@ Sjogren’s disease. Use these to explore the package without any external
 data.
 
 ``` r
+
 # Bundled datasets: cd40_exposure (formatted exposure), sjogren_outcome (outcome)
 bfile <- system.file("extdata", "ld_ref", package = "mrpipeline")
 
@@ -59,6 +62,7 @@ methods — accessible via `mr_res$results`, `mr_res$instruments`, etc.
 ### Colocalization
 
 ``` r
+
 coloc_res <- run_coloc(
   exposure = cd40_exposure,
   outcome = sjogren_outcome,
@@ -80,6 +84,7 @@ Look up genomic coordinates for HGNC gene symbols via Ensembl (requires
 the `biomaRt` package):
 
 ``` r
+
 coords <- get_gene_coords(c("CD40", "APOE"), build = "grch38")
 coords
 ```

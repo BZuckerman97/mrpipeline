@@ -30,7 +30,13 @@ not found in Ensembl are dropped with a warning.
 
 ``` r
 get_gene_coords("CD40")
-#> Error in .processResults(postRes, mart = mart, hostURLsep = sep, fullXmlQuery = fullXmlQuery,     quote = quote, numAttributes = length(attributes)): Query ERROR: caught BioMart::Exception::Database: Could not connect to mysql database ensembl_mart_115: DBI connect('database=ensembl_mart_115;host=127.0.0.1;port=5316','ensro',...) failed: Can't connect to MySQL server on '127.0.0.1' (111) at /nfs/public/ro/ensweb/live/mart/www_115/biomart-perl/lib/BioMart/Configuration/DBLocation.pm line 98.
+#> # A tibble: 1 × 4
+#>   hgnc_symbol chromosome    start      end
+#>   <chr>       <chr>         <int>    <int>
+#> 1 CD40        20         46118249 46129872
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
-#> Error in req_perform(request): HTTP 504 Gateway Timeout.
+#> Error in req_perform(request): Failed to perform HTTP request.
+#> Caused by error in `curl::curl_fetch_memory()`:
+#> ! Unsupported protocol [grch37.ensembl.org]:
+#> Received HTTP/0.9 when not allowed
 ```

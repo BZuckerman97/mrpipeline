@@ -3,7 +3,8 @@
 ## Package Overview
 
 `mrpipeline` is an R package for Mendelian randomisation (MR) and
-colocalization analysis, focused on proteomic GWAS data.
+colocalization analysis, currently focused on proteomic GWAS data.
+However, the plan is to integrate eQTL, scQTL and other GWAS data.
 
 **Core exported functions:**
 
@@ -35,6 +36,7 @@ colocalization analysis, focused on proteomic GWAS data.
 ## Build and Check Commands
 
 ``` r
+
 devtools::load_all()      # load package for interactive development
 devtools::document()      # regenerate NAMESPACE and man/ from roxygen2
 devtools::check()         # R CMD Check (must pass: 0 errors, 0 warnings)
@@ -47,6 +49,7 @@ air format .              # auto-format R code (run before every commit)
 ```
 
 ``` r
+
 lintr::lint_package()     # style/lint checks (run before every commit)
 ```
 
@@ -55,6 +58,7 @@ lintr::lint_package()     # style/lint checks (run before every commit)
 **Messages / warnings / errors:** Use `cli` package exclusively.
 
 ``` r
+
 cli::cli_inform("Loading {protein} data...")   # informational
 cli::cli_warn("Only {n} SNPs retained.")       # warning
 cli::cli_abort("bfile is required for LD-corrected MR.")  # error
@@ -65,6 +69,7 @@ cli::cli_abort("bfile is required for LD-corrected MR.")  # error
 **String operations:** Use `stringr` functions.
 
 ``` r
+
 stringr::str_remove(x, "_.*")      # not gsub("_.*", "", x)
 stringr::str_detect(x, "^chr")     # not grepl("^chr", x)
 stringr::str_starts(x, "rs")       # not startsWith(x, "rs")
