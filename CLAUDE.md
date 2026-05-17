@@ -2,7 +2,8 @@
 
 ## Package Overview
 
-`mrpipeline` is an R package for Mendelian randomisation (MR) and colocalization analysis, focused on proteomic GWAS data.
+`mrpipeline` is an R package for Mendelian randomisation (MR) and colocalization analysis, currently focused on proteomic GWAS data.
+However, the plan is to integrate eQTL, scQTL and other GWAS data.
 
 **Core exported functions:**
 
