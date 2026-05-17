@@ -93,8 +93,10 @@ Run colocalization analysis and inspect results.
 
 ## Data Formatting
 
-Format proteomics GWAS data for use with mrpipeline.
+Format GWAS summary statistics for use with mrpipeline.
 
+- [`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
+  : Format GWAS summary statistics to a standard schema
 - [`format_pqtl_decode()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_decode.md)
   : Formats deCODE genetics proteomic data for Mendelian Randomization
   analysis

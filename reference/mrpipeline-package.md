@@ -11,4 +11,7 @@ package provides manuscript ready tables and figures.
 
 Authors:
 
+- Benjamin Zuckerman <benjamin.zuckerman@kcl.ac.uk>
+  ([ORCID](https://orcid.org/0000-0002-0077-6074))
+
 - Alasdair Warwick ([ORCID](https://orcid.org/0000-0002-0800-2890))
