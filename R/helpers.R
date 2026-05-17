@@ -158,7 +158,7 @@ clump_instruments <- function(
     if (is.null(plink_bin)) {
       plink_bin <- genetics.binaRies::get_plink_binary()
     }
-    clump_args$bfile <- bfile
+    clump_args$bfile <- path.expand(bfile)
     clump_args$plink_bin <- plink_bin
     clump_args$threads <- plink_threads
     clump_args$memory <- plink_memory

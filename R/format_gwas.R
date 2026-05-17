@@ -296,6 +296,26 @@ format_gwas <- function(
     }
   }
 
+  # ── Normalise chromosome values ──────────────────────────────────────────────
+  # Strip "chr" prefix if present (e.g. UCSC-format "chr1" → "1", "chrX" → "X").
+  # Keeps chr as character so sex chromosomes (X, Y, MT) are preserved correctly.
+  if ("chr" %in% names(dat)) {
+    dat[["chr"]] <- sub("^chr", "", dat[["chr"]], ignore.case = FALSE)
+  }
+
+  # ── Coerce canonical numeric columns ────────────────────────────────────────
+  # fread reads entirely-NA or mixed-character columns as logical or character
+  # (e.g. an eaf column that is wholly NA in an EBI harmonised file, or a pval
+  # column that contains "NA" strings alongside numeric values). Coercing here
+  # means TwoSampleMR::format_data() always receives the expected types and does
+  # not emit "column is not numeric. Coercing..." warnings.
+  for (col in intersect(c("beta", "se", "eaf", "pval"), names(dat))) {
+    dat[[col]] <- suppressWarnings(as.numeric(dat[[col]]))
+  }
+  for (col in intersect(c("pos", "n"), names(dat))) {
+    dat[[col]] <- suppressWarnings(as.integer(dat[[col]]))
+  }
+
   # ── Transformations ──────────────────────────────────────────────────────────
   if (log10_pval && "pval" %in% names(dat)) {
     dat <- dplyr::mutate(dat, pval = 10^-.data$pval)
@@ -307,6 +327,12 @@ format_gwas <- function(
 
   if (!is.null(n) && !"n" %in% names(dat)) {
     dat <- dplyr::mutate(dat, n = as.integer(.env$n))
+  }
+  # TwoSampleMR::format_data() does `if (samplesize_col %in% names(dat))` which
+  # errors when samplesize_col is NULL (NULL %in% x returns logical(0), not FALSE).
+  # Guarantee an n column so we always pass a string, never NULL.
+  if (!"n" %in% names(dat)) {
+    dat$n <- NA_integer_
   }
 
   dat <- dplyr::mutate(dat, phenotype = .env$phenotype_id)
@@ -341,7 +367,7 @@ format_gwas <- function(
       pval_col = "pval",
       chr_col = if ("chr" %in% names(dat)) "chr" else NULL,
       pos_col = if ("pos" %in% names(dat)) "pos" else NULL,
-      samplesize_col = if ("n" %in% names(dat)) "n" else NULL,
+      samplesize_col = "n",
       log_pval = FALSE
     ))
   }
