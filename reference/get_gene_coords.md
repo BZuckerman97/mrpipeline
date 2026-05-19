@@ -30,8 +30,13 @@ not found in Ensembl are dropped with a warning.
 
 ``` r
 get_gene_coords("CD40")
-#> Error in .getArchiveList(http_config = http_config): Unable to contact any Ensembl mirror
+#> # A tibble: 1 × 4
+#>   hgnc_symbol chromosome    start      end
+#>   <chr>       <chr>         <int>    <int>
+#> 1 CD40        20         46118249 46129872
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
-#> Error: Your query has been redirected to https://status.ensembl.org indicating this Ensembl service is currently unavailable.
-#> Look at ?useEnsembl for details on how to try a mirror site.
+#> Error in req_perform(request): Failed to perform HTTP request.
+#> Caused by error in `curl::curl_fetch_memory()`:
+#> ! Unsupported protocol [grch37.ensembl.org]:
+#> Received HTTP/0.9 when not allowed
 ```
