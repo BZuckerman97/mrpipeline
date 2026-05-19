@@ -18,7 +18,7 @@ format_gwas(
 )
 }
 \arguments{
-\item{path}{Character file path (\code{.tsv}, \code{.tsv.gz}, \code{.txt.gz}, etc. —
+\item{path}{Character file path (\code{.tsv}, \code{.tsv.gz}, \code{.txt.gz}, etc. --
 \code{data.table::fread()} auto-detects compression) or a pre-loaded data frame.}
 
 \item{phenotype_id}{Character. Trait / phenotype identifier (e.g. \code{"IL-18"},
@@ -48,7 +48,7 @@ When supplied, \code{chr} and \code{pos} are parsed from this column.}
 \item{log10_pval}{Logical. If \code{TRUE}, the p-value column is in \code{-log10}
 scale and is back-transformed via \code{10^-x}. Default \code{FALSE}.}
 
-\item{flip_beta}{Logical. If \code{TRUE}, multiplies \code{beta} by \code{-1} — use when
+\item{flip_beta}{Logical. If \code{TRUE}, multiplies \code{beta} by \code{-1} -- use when
 the source file encodes the inverse direction of the intended exposure
 (e.g. modelling NLRP3 activation rather than suppression). Default \code{FALSE}.}
 
@@ -91,7 +91,7 @@ a built-in table of known aliases for each target column:\tabular{ll}{
 
 
 Supply \code{col_map} \strong{only} when your dataset uses a column name that does not
-appear in the table above — for example, if your p-value column is called
+appear in the table above -- for example, if your p-value column is called
 \code{"PVALUE"}, add \code{col_map = list(pval = "PVALUE")}. Inspect \code{names()} of your
 loaded data to check. User-supplied aliases are checked before the built-in
 list, so they take precedence in the event of ambiguity.
@@ -102,7 +102,7 @@ list, so they take precedence in the event of ambiguity.
 When \code{rsids} is absent (or all \code{NA}) after column normalisation, and
 \code{bim_path} is supplied, the function inner-joins the data to the PLINK bim
 file by chromosome and position to recover rsIDs. Rows without a bim match
-are dropped — they are absent from the reference panel and cannot be used
+are dropped -- they are absent from the reference panel and cannot be used
 in LD-based analyses. A message reports how many SNPs were retained.
 }
 
@@ -138,7 +138,7 @@ ebi_il18 <- format_gwas(
   col_map      = list(pval = "PVALUE")
 )
 
-# Exposure GWAS — flip beta to model NLRP3 activation not suppression
+# Exposure GWAS -- flip beta to model NLRP3 activation not suppression
 exposure <- format_gwas(
   path         = "NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv",
   phenotype_id = "NLRP3",

@@ -6,13 +6,13 @@
 #' `coloc_result` S3 object.
 #'
 #' @section Methods:
-#' - `"abf"` — Approximate Bayes Factor colocalization via
+#' - `"abf"` -- Approximate Bayes Factor colocalization via
 #'   [coloc::coloc.abf()]
-#' - `"susie"` — SuSiE fine-mapping + colocalization via
+#' - `"susie"` -- SuSiE fine-mapping + colocalization via
 #'   [coloc::runsusie()] and [coloc::coloc.susie()]
-#' - `"signals"` — Multi-signal colocalization via
+#' - `"signals"` -- Multi-signal colocalization via
 #'   [coloc::coloc.signals()]. Requires `"susie"` to have run successfully.
-#' - `"prop_test"` — Proportionality test via
+#' - `"prop_test"` -- Proportionality test via
 #'   `colocPropTest::coloc.prop.test()`. Requires `"signals"` to have run
 #'   successfully and the `colocPropTest` package to be installed.
 #'

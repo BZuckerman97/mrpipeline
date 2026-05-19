@@ -117,13 +117,13 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 \section{Methods}{
 
 \itemize{
-\item \code{"abf"} — Approximate Bayes Factor colocalization via
+\item \code{"abf"} -- Approximate Bayes Factor colocalization via
 \code{\link[coloc:coloc.abf]{coloc::coloc.abf()}}
-\item \code{"susie"} — SuSiE fine-mapping + colocalization via
+\item \code{"susie"} -- SuSiE fine-mapping + colocalization via
 \code{\link[coloc:runsusie]{coloc::runsusie()}} and \code{\link[coloc:coloc.susie]{coloc::coloc.susie()}}
-\item \code{"signals"} — Multi-signal colocalization via
+\item \code{"signals"} -- Multi-signal colocalization via
 \code{\link[coloc:coloc.signals]{coloc::coloc.signals()}}. Requires \code{"susie"} to have run successfully.
-\item \code{"prop_test"} — Proportionality test via
+\item \code{"prop_test"} -- Proportionality test via
 \code{colocPropTest::coloc.prop.test()}. Requires \code{"signals"} to have run
 successfully and the \code{colocPropTest} package to be installed.
 }

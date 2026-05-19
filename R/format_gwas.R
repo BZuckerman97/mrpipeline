@@ -25,7 +25,7 @@
 #' | `other_allele`  | `Allele2`, `OA`, `A2`, `ALLELE0`, `otherAllele`, `REF` |
 #'
 #' Supply `col_map` **only** when your dataset uses a column name that does not
-#' appear in the table above — for example, if your p-value column is called
+#' appear in the table above -- for example, if your p-value column is called
 #' `"PVALUE"`, add `col_map = list(pval = "PVALUE")`. Inspect `names()` of your
 #' loaded data to check. User-supplied aliases are checked before the built-in
 #' list, so they take precedence in the event of ambiguity.
@@ -48,7 +48,7 @@
 #' When `rsids` is absent (or all `NA`) after column normalisation, and
 #' `bim_path` is supplied, the function inner-joins the data to the PLINK bim
 #' file by chromosome and position to recover rsIDs. Rows without a bim match
-#' are dropped — they are absent from the reference panel and cannot be used
+#' are dropped -- they are absent from the reference panel and cannot be used
 #' in LD-based analyses. A message reports how many SNPs were retained.
 #'
 #' @section Marker column parsing:
@@ -58,7 +58,7 @@
 #' before the rsID lookup so that the extracted coordinates are available for
 #' the bim join.
 #'
-#' @param path Character file path (`.tsv`, `.tsv.gz`, `.txt.gz`, etc. —
+#' @param path Character file path (`.tsv`, `.tsv.gz`, `.txt.gz`, etc. --
 #'   `data.table::fread()` auto-detects compression) or a pre-loaded data frame.
 #' @param phenotype_id Character. Trait / phenotype identifier (e.g. `"IL-18"`,
 #'   `"CAD"`). Stored in the `phenotype` output column.
@@ -117,7 +117,7 @@
 #'   col_map      = list(pval = "PVALUE")
 #' )
 #'
-#' # Exposure GWAS — flip beta to model NLRP3 activation not suppression
+#' # Exposure GWAS -- flip beta to model NLRP3 activation not suppression
 #' exposure <- format_gwas(
 #'   path         = "NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv",
 #'   phenotype_id = "NLRP3",
@@ -143,7 +143,7 @@ format_gwas <- function(
   type <- match.arg(type)
   path_label <- if (is.character(path)) path else "<data frame>"
 
-  # ── Read data ────────────────────────────────────────────────────────────────
+  # -- Read data ----------------------------------------------------------------
   if (is.character(path)) {
     if (!file.exists(path)) {
       cli::cli_abort("File not found: {.path {path}}")
@@ -155,7 +155,7 @@ format_gwas <- function(
     cli::cli_abort("{.arg path} must be a file path or data frame.")
   }
 
-  # ── Parse chr + pos from compound marker ID column ───────────────────────────
+  # -- Parse chr + pos from compound marker ID column ---------------------------
   if (!is.null(marker_col)) {
     if (!marker_col %in% names(dat)) {
       cli::cli_abort(
@@ -177,7 +177,7 @@ format_gwas <- function(
     )
   }
 
-  # ── Column normalisation ─────────────────────────────────────────────────────
+  # -- Column normalisation -----------------------------------------------------
   col_aliases <- list(
     rsids = c("rsids", "rsid", "rs_id", "rsID", "SNP"),
     chr = c("chr", "chromosome", "Chr", "CHROM", "#CHROM", "CHR"),
@@ -245,13 +245,13 @@ format_gwas <- function(
     }
   }
 
-  # ── Uppercase allele columns ─────────────────────────────────────────────────
+  # -- Uppercase allele columns -------------------------------------------------
   dat <- dplyr::mutate(
     dat,
     dplyr::across(dplyr::any_of(c("effect_allele", "other_allele")), toupper)
   )
 
-  # ── rsID lookup from bim file ────────────────────────────────────────────────
+  # -- rsID lookup from bim file ------------------------------------------------
   has_rsids <- "rsids" %in% names(dat) && !all(is.na(dat[["rsids"]]))
 
   if (!has_rsids) {
@@ -286,7 +286,7 @@ format_gwas <- function(
       col.names = c("chr", "rsids", "pos")
     ) |>
       as.data.frame() |>
-      # One rsID per chr:pos — multi-allelic sites share a position in the bim
+      # One rsID per chr:pos -- multi-allelic sites share a position in the bim
       dplyr::distinct(.data$chr, .data$pos, .keep_all = TRUE) |>
       dplyr::mutate(
         chr = as.character(.data$chr),
@@ -318,14 +318,14 @@ format_gwas <- function(
     }
   }
 
-  # ── Normalise chromosome values ──────────────────────────────────────────────
-  # Strip "chr" prefix if present (e.g. UCSC-format "chr1" → "1", "chrX" → "X").
+  # -- Normalise chromosome values ----------------------------------------------
+  # Strip "chr" prefix if present (e.g. UCSC-format "chr1" -> "1", "chrX" -> "X").
   # Keeps chr as character so sex chromosomes (X, Y, MT) are preserved correctly.
   if ("chr" %in% names(dat)) {
     dat[["chr"]] <- sub("^chr", "", dat[["chr"]], ignore.case = FALSE)
   }
 
-  # ── Coerce canonical numeric columns ────────────────────────────────────────
+  # -- Coerce canonical numeric columns ----------------------------------------
   # fread reads entirely-NA or mixed-character columns as logical or character
   # (e.g. an eaf column that is wholly NA in an EBI harmonised file, or a pval
   # column that contains "NA" strings alongside numeric values). Coercing here
@@ -338,7 +338,7 @@ format_gwas <- function(
     dat[[col]] <- suppressWarnings(as.integer(dat[[col]]))
   }
 
-  # ── Transformations ──────────────────────────────────────────────────────────
+  # -- Transformations ----------------------------------------------------------
   if (log10_pval && "pval" %in% names(dat)) {
     dat <- dplyr::mutate(dat, pval = 10^-.data$pval)
   }
@@ -347,8 +347,8 @@ format_gwas <- function(
     dat <- dplyr::mutate(dat, beta = -.data$beta)
   }
 
-  # ── Derive beta + se from odds ratio when beta is absent ─────────────────────
-  # Triggered when an or column exists but beta does not — e.g. Rashkin 2020
+  # -- Derive beta + se from odds ratio when beta is absent ---------------------
+  # Triggered when an or column exists but beta does not -- e.g. Rashkin 2020
   # cancer GWASes (NHL, melanoma) which publish odds_ratio + p_value only.
   # Formula: beta = log(OR);  se = |beta| / qnorm(pval / 2)  (Z-score method).
   if ("or" %in% names(dat) && !"beta" %in% names(dat)) {
@@ -368,7 +368,7 @@ format_gwas <- function(
         se   = abs(.data$beta) / stats::qnorm(.data$pval / 2, lower.tail = FALSE)
       )
       cli::cli_inform(
-        "{.val {phenotype_id}}: no beta/se columns found — derived beta = log(OR) and se via Z-score method."
+        "{.val {phenotype_id}}: no beta/se columns found -- derived beta = log(OR) and se via Z-score method."
       )
     } else {
       dat <- dplyr::mutate(dat, beta = log(.data$or))
@@ -390,7 +390,7 @@ format_gwas <- function(
 
   dat <- dplyr::mutate(dat, phenotype = .env$phenotype_id)
 
-  # ── Validate required columns ────────────────────────────────────────────────
+  # -- Validate required columns ------------------------------------------------
   required <- c("rsids", "beta", "se", "pval", "effect_allele", "other_allele")
   missing_cols <- setdiff(required, names(dat))
   if (length(missing_cols) > 0L) {
@@ -404,7 +404,7 @@ format_gwas <- function(
     )
   }
 
-  # ── Exposure: return TwoSampleMR-formatted data ──────────────────────────────
+  # -- Exposure: return TwoSampleMR-formatted data ------------------------------
   if (type == "exposure") {
     return(TwoSampleMR::format_data(
       dat,
@@ -425,6 +425,6 @@ format_gwas <- function(
     ))
   }
 
-  # ── Outcome: return normalised data frame ────────────────────────────────────
+  # -- Outcome: return normalised data frame ------------------------------------
   dat
 }
