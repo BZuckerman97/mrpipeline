@@ -164,18 +164,18 @@ elapsed seconds for each major step.
 
 ## Methods
 
-- `"abf"` — Approximate Bayes Factor colocalization via
+- `"abf"` – Approximate Bayes Factor colocalization via
   [`coloc::coloc.abf()`](https://rdrr.io/pkg/coloc/man/coloc.abf.html)
 
-- `"susie"` — SuSiE fine-mapping + colocalization via
+- `"susie"` – SuSiE fine-mapping + colocalization via
   [`coloc::runsusie()`](https://rdrr.io/pkg/coloc/man/runsusie.html) and
   [`coloc::coloc.susie()`](https://rdrr.io/pkg/coloc/man/coloc.susie.html)
 
-- `"signals"` — Multi-signal colocalization via
+- `"signals"` – Multi-signal colocalization via
   [`coloc::coloc.signals()`](https://rdrr.io/pkg/coloc/man/coloc.signals.html).
   Requires `"susie"` to have run successfully.
 
-- `"prop_test"` — Proportionality test via
+- `"prop_test"` – Proportionality test via
   `colocPropTest::coloc.prop.test()`. Requires `"signals"` to have run
   successfully and the `colocPropTest` package to be installed.
 

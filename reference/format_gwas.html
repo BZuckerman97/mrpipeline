@@ -74,7 +74,7 @@ columns (e.g. SCALLOP <code>MarkerName</code> format: <code>"CHR:POS:A1_A2"</cod
 
 
 <dl><dt id="arg-path">path<a class="anchor" aria-label="anchor" href="#arg-path"></a></dt>
-<dd><p>Character file path (<code>.tsv</code>, <code>.tsv.gz</code>, <code>.txt.gz</code>, etc. —
+<dd><p>Character file path (<code>.tsv</code>, <code>.tsv.gz</code>, <code>.txt.gz</code>, etc. –
 <code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">data.table::fread()</a></code> auto-detects compression) or a pre-loaded data frame.</p></dd>
 
 
@@ -120,7 +120,7 @@ scale and is back-transformed via <code>10^-x</code>. Default <code>FALSE</code>
 
 
 <dt id="arg-flip-beta">flip_beta<a class="anchor" aria-label="anchor" href="#arg-flip-beta"></a></dt>
-<dd><p>Logical. If <code>TRUE</code>, multiplies <code>beta</code> by <code>-1</code> — use when
+<dd><p>Logical. If <code>TRUE</code>, multiplies <code>beta</code> by <code>-1</code> – use when
 the source file encodes the inverse direction of the intended exposure
 (e.g. modelling NLRP3 activation rather than suppression). Default <code>FALSE</code>.</p></dd>
 
@@ -146,7 +146,7 @@ for <code><a href="run_mr.html">run_mr()</a></code>'s <code>exposure</code> argu
 
 <p>The function renames source columns to a fixed canonical schema by checking
 a built-in table of known aliases for each target column:</p><table class="table table"><tr><td>Canonical</td><td>Built-in aliases recognised automatically</td></tr><tr><td><code>rsids</code></td><td><code>rsid</code>, <code>rs_id</code>, <code>rsID</code>, <code>SNP</code></td></tr><tr><td><code>chr</code></td><td><code>chromosome</code>, <code>Chr</code>, <code>CHROM</code>, <code>#CHROM</code>, <code>CHR</code></td></tr><tr><td><code>pos</code></td><td><code>base_pair_location</code>, <code>PosB37</code>, <code>PosB38</code>, <code>BP</code>, <code>POS</code>, <code>position</code>, <code>GENPOS</code></td></tr><tr><td><code>beta</code></td><td><code>Beta</code>, <code>Effect</code>, <code>BETA</code></td></tr><tr><td><code>se</code></td><td><code>standard_error</code>, <code>StdErr</code>, <code>SE</code>, <code>sebeta</code></td></tr><tr><td><code>eaf</code></td><td><code>effect_allele_frequency</code>, <code>Freq1</code>, <code>EAFrq</code>, <code>A1FREQ</code>, <code>af_alt</code>, <code>EAF</code></td></tr><tr><td><code>pval</code></td><td><code>p_value</code>, <code>P-value</code>, <code>P</code>, <code>Pval</code>, <code>p.value</code></td></tr><tr><td><code>n</code></td><td><code>N</code>, <code>TotalSampleSize</code>, <code>n_total</code></td></tr><tr><td><code>effect_allele</code></td><td><code>Allele1</code>, <code>EA</code>, <code>A1</code>, <code>ALLELE1</code>, <code>effectAllele</code>, <code>ALT</code></td></tr><tr><td><code>other_allele</code></td><td><code>Allele2</code>, <code>OA</code>, <code>A2</code>, <code>ALLELE0</code>, <code>otherAllele</code>, <code>REF</code></td></tr></table><p>Supply <code>col_map</code> <strong>only</strong> when your dataset uses a column name that does not
-appear in the table above — for example, if your p-value column is called
+appear in the table above – for example, if your p-value column is called
 <code>"PVALUE"</code>, add <code>col_map = list(pval = "PVALUE")</code>. Inspect <code><a href="https://rdrr.io/r/base/names.html" class="external-link">names()</a></code> of your
 loaded data to check. User-supplied aliases are checked before the built-in
 list, so they take precedence in the event of ambiguity.</p>
@@ -158,7 +158,7 @@ list, so they take precedence in the event of ambiguity.</p>
 <p>When <code>rsids</code> is absent (or all <code>NA</code>) after column normalisation, and
 <code>bim_path</code> is supplied, the function inner-joins the data to the PLINK bim
 file by chromosome and position to recover rsIDs. Rows without a bim match
-are dropped — they are absent from the reference panel and cannot be used
+are dropped – they are absent from the reference panel and cannot be used
 in LD-based analyses. A message reports how many SNPs were retained.</p>
     </div>
     <div class="section level2">
@@ -196,7 +196,7 @@ the bim join.</p>
 <span class="r-in"><span>  col_map      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>pval <span class="op">=</span> <span class="st">"PVALUE"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Exposure GWAS — flip beta to model NLRP3 activation not suppression</span></span></span>
+<span class="r-in"><span><span class="co"># Exposure GWAS -- flip beta to model NLRP3 activation not suppression</span></span></span>
 <span class="r-in"><span><span class="va">exposure</span> <span class="op">&lt;-</span> <span class="fu">format_gwas</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  path         <span class="op">=</span> <span class="st">"NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv"</span>,</span></span>
 <span class="r-in"><span>  phenotype_id <span class="op">=</span> <span class="st">"NLRP3"</span>,</span></span>

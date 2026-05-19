@@ -30,7 +30,7 @@ format_gwas(
 
 - path:
 
-  Character file path (`.tsv`, `.tsv.gz`, `.txt.gz`, etc. —
+  Character file path (`.tsv`, `.tsv.gz`, `.txt.gz`, etc. –
   [`data.table::fread()`](https://rdrr.io/pkg/data.table/man/fread.html)
   auto-detects compression) or a pre-loaded data frame.
 
@@ -80,7 +80,7 @@ format_gwas(
 
 - flip_beta:
 
-  Logical. If `TRUE`, multiplies `beta` by `-1` — use when the source
+  Logical. If `TRUE`, multiplies `beta` by `-1` – use when the source
   file encodes the inverse direction of the intended exposure (e.g.
   modelling NLRP3 activation rather than suppression). Default `FALSE`.
 
@@ -121,7 +121,7 @@ checking a built-in table of known aliases for each target column:
 | `other_allele` | `Allele2`, `OA`, `A2`, `ALLELE0`, `otherAllele`, `REF` |
 
 Supply `col_map` **only** when your dataset uses a column name that does
-not appear in the table above — for example, if your p-value column is
+not appear in the table above – for example, if your p-value column is
 called `"PVALUE"`, add `col_map = list(pval = "PVALUE")`. Inspect
 [`names()`](https://rdrr.io/r/base/names.html) of your loaded data to
 check. User-supplied aliases are checked before the built-in list, so
@@ -132,7 +132,7 @@ they take precedence in the event of ambiguity.
 When `rsids` is absent (or all `NA`) after column normalisation, and
 `bim_path` is supplied, the function inner-joins the data to the PLINK
 bim file by chromosome and position to recover rsIDs. Rows without a bim
-match are dropped — they are absent from the reference panel and cannot
+match are dropped – they are absent from the reference panel and cannot
 be used in LD-based analyses. A message reports how many SNPs were
 retained.
 
@@ -169,7 +169,7 @@ ebi_il18 <- format_gwas(
   col_map      = list(pval = "PVALUE")
 )
 
-# Exposure GWAS — flip beta to model NLRP3 activation not suppression
+# Exposure GWAS -- flip beta to model NLRP3 activation not suppression
 exposure <- format_gwas(
   path         = "NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv",
   phenotype_id = "NLRP3",
