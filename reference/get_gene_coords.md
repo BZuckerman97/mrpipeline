@@ -30,9 +30,7 @@ not found in Ensembl are dropped with a warning.
 
 ``` r
 get_gene_coords("CD40")
-#> Ensembl site unresponsive, trying asia mirror
-#> Ensembl site unresponsive, trying useast mirror
-#> Error in .chooseEnsemblMirror(mirror = mirror, http_config = http_config): Unable to query any Ensembl site
+#> Error in .getArchiveList(http_config = http_config): Unable to contact any Ensembl mirror
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
 #> Error: Your query has been redirected to https://status.ensembl.org indicating this Ensembl service is currently unavailable.
 #> Look at ?useEnsembl for details on how to try a mirror site.
