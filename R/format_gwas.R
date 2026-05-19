@@ -17,6 +17,7 @@
 #' | `pos`     | `base_pair_location`, `PosB37`, `PosB38`, `BP`, `POS`, `position`, `GENPOS` |
 #' | `beta`    | `Beta`, `Effect`, `BETA` |
 #' | `se`      | `standard_error`, `StdErr`, `SE`, `sebeta` |
+#' | `or`      | `odds_ratio`, `OR` |
 #' | `eaf`     | `effect_allele_frequency`, `Freq1`, `EAFrq`, `A1FREQ`, `af_alt`, `EAF` |
 #' | `pval`    | `p_value`, `P-value`, `P`, `Pval`, `p.value` |
 #' | `n`       | `N`, `TotalSampleSize`, `n_total` |
@@ -28,6 +29,20 @@
 #' `"PVALUE"`, add `col_map = list(pval = "PVALUE")`. Inspect `names()` of your
 #' loaded data to check. User-supplied aliases are checked before the built-in
 #' list, so they take precedence in the event of ambiguity.
+#'
+#' @section Automatic odds-ratio to log-odds conversion:
+#' Some GWAS files (particularly older EBI deposits) report effect sizes as odds
+#' ratios rather than log-odds. When `beta` is absent after column normalisation
+#' but an `or` column is present, the function automatically derives:
+#'
+#' - `beta = log(or)` (natural log; converts OR to the log-odds scale MR requires)
+#' - `se = |beta| / qnorm(pval / 2)` (Z-score back-calculation from p-value)
+#'
+#' The Z-score method requires `pval` to be present and is accurate when effect
+#' sizes are small (OR close to 1), which is typical for common-variant GWAS.
+#' An informative message is emitted whenever the conversion is applied.
+#' If your file has an OR column under a non-standard name, add it via
+#' `col_map = list(or = "MY_OR_COLUMN")`.
 #'
 #' @section rsID lookup from bim file:
 #' When `rsids` is absent (or all `NA`) after column normalisation, and
@@ -178,6 +193,7 @@ format_gwas <- function(
     ),
     beta = c("beta", "Beta", "Effect", "BETA"),
     se = c("se", "standard_error", "StdErr", "SE", "sebeta"),
+    or = c("or", "odds_ratio", "OR"),
     eaf = c(
       "eaf",
       "effect_allele_frequency",
@@ -228,6 +244,12 @@ format_gwas <- function(
       )
     }
   }
+
+  # ── Uppercase allele columns ─────────────────────────────────────────────────
+  dat <- dplyr::mutate(
+    dat,
+    dplyr::across(dplyr::any_of(c("effect_allele", "other_allele")), toupper)
+  )
 
   # ── rsID lookup from bim file ────────────────────────────────────────────────
   has_rsids <- "rsids" %in% names(dat) && !all(is.na(dat[["rsids"]]))
@@ -309,7 +331,7 @@ format_gwas <- function(
   # column that contains "NA" strings alongside numeric values). Coercing here
   # means TwoSampleMR::format_data() always receives the expected types and does
   # not emit "column is not numeric. Coercing..." warnings.
-  for (col in intersect(c("beta", "se", "eaf", "pval"), names(dat))) {
+  for (col in intersect(c("beta", "se", "or", "eaf", "pval"), names(dat))) {
     dat[[col]] <- suppressWarnings(as.numeric(dat[[col]]))
   }
   for (col in intersect(c("pos", "n"), names(dat))) {
@@ -323,6 +345,37 @@ format_gwas <- function(
 
   if (flip_beta && "beta" %in% names(dat)) {
     dat <- dplyr::mutate(dat, beta = -.data$beta)
+  }
+
+  # ── Derive beta + se from odds ratio when beta is absent ─────────────────────
+  # Triggered when an or column exists but beta does not — e.g. Rashkin 2020
+  # cancer GWASes (NHL, melanoma) which publish odds_ratio + p_value only.
+  # Formula: beta = log(OR);  se = |beta| / qnorm(pval / 2)  (Z-score method).
+  if ("or" %in% names(dat) && !"beta" %in% names(dat)) {
+    if (!"pval" %in% names(dat)) {
+      cli::cli_abort(
+        c(
+          "{.val {phenotype_id}}: cannot derive {.val se} from OR without a p-value column.",
+          "i" = "The Z-score method requires: se = |log(OR)| / qnorm(pval / 2).",
+          "i" = "Supply a p-value column via {.arg col_map}."
+        )
+      )
+    }
+    if (!"se" %in% names(dat)) {
+      dat <- dplyr::mutate(
+        dat,
+        beta = log(.data$or),
+        se   = abs(.data$beta) / stats::qnorm(.data$pval / 2, lower.tail = FALSE)
+      )
+      cli::cli_inform(
+        "{.val {phenotype_id}}: no beta/se columns found — derived beta = log(OR) and se via Z-score method."
+      )
+    } else {
+      dat <- dplyr::mutate(dat, beta = log(.data$or))
+      cli::cli_inform(
+        "{.val {phenotype_id}}: derived beta = log(OR); using existing se column."
+      )
+    }
   }
 
   if (!is.null(n) && !"n" %in% names(dat)) {
