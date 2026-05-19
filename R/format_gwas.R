@@ -82,7 +82,7 @@
 #'   scale and is back-transformed via `10^-x`. Default `FALSE`.
 #' @param flip_beta Logical. If `TRUE`, multiplies `beta` by `-1` — use when
 #'   the source file encodes the inverse direction of the intended exposure
-#'   (e.g. modelling NLRP3 activation rather than suppression). Default `FALSE`.
+#'   (e.g. modelling NLRP3 inhibition rather than activation). Default `FALSE`.
 #' @param n Integer. Explicit sample size. Added as the `n` column only when no
 #'   sample-size column is already present in the data.
 #'
