@@ -1,4 +1,4 @@
-# mrpipeline — Package Developer Guide for Claude Code
+# mrpipeline -- Package Developer Guide for Claude Code
 
 ## Package Overview
 
@@ -7,11 +7,11 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 
 **Core exported functions:**
 
-- `run_mr()` — Cis-MR, genome-wide MR, or manual-instrument MR with sensitivity methods
-- `run_coloc()` — Colocalization (coloc.abf, SuSiE, coloc.signals, colocPropTest)
-- `format_pqtl_decode()` — Format deCODE proteomics GWAS to TwoSampleMR exposure format
-- `format_pqtl_ukbppp()` — Format UKB-PPP pQTL data to TwoSampleMR exposure format
-- `format_single_cell_onek1k()` — Format OneK1K single-cell eQTL data
+- `run_mr()` -- Cis-MR, genome-wide MR, or manual-instrument MR with sensitivity methods
+- `run_coloc()` -- Colocalization (coloc.abf, SuSiE, coloc.signals, colocPropTest)
+- `format_pqtl_decode()` -- Format deCODE proteomics GWAS to TwoSampleMR exposure format
+- `format_pqtl_ukbppp()` -- Format UKB-PPP pQTL data to TwoSampleMR exposure format
+- `format_single_cell_onek1k()` -- Format OneK1K single-cell eQTL data
 
 **Internal helpers** (not exported, in `R/helpers.R`):
 `harmonise_and_filter()`, `compute_ld_matrix()`, `clump_instruments()`, `align_to_ld_matrix()`, `eaf_to_maf()`, `resolve_sample_size()`
@@ -38,6 +38,14 @@ lintr::lint_package()     # style/lint checks (run before every commit)
 
 ## Code Conventions
 
+**ASCII only:** Never use non-ASCII characters anywhere in `.R` or `.Rd` files -- R CMD check warns on them and CI will fail. Common offenders:
+- Em dash (Unicode U+2014) -- write `--` instead
+- Box-drawing horizontal (Unicode U+2500, used in RStudio section headers) -- write `-` instead
+- Right arrow (Unicode U+2192) -- write `->` instead
+- Any other Unicode punctuation or symbols
+
+Section dividers in code comments must use plain hyphens: `# -- Section name --`.
+
 **Messages / warnings / errors:** Use `cli` package exclusively.
 ```r
 cli::cli_inform("Loading {protein} data...")   # informational
@@ -58,7 +66,7 @@ stringr::str_starts(x, "rs")       # not startsWith(x, "rs")
 
 **Internal helpers:** Tag with `@keywords internal`; do NOT use `@export`.
 
-**Documentation:** Use roxygen2 for all functions. Vignettes (`mrpipeline-user-guide.Rmd`, `mrpipeline-developer-guide.Rmd`) are **living documents** — update them in the same commit as any API change:
+**Documentation:** Use roxygen2 for all functions. Vignettes (`mrpipeline-user-guide.Rmd`, `mrpipeline-developer-guide.Rmd`) are **living documents** -- update them in the same commit as any API change:
 - When adding/changing/removing a function parameter: update roxygen, user guide (usage examples), developer guide (architecture/internals)
 - When adding/removing internal helpers: update the developer guide's helpers section
 - When modifying S3 class structure: update the developer guide's S3 classes section
@@ -69,11 +77,11 @@ stringr::str_starts(x, "rs")       # not startsWith(x, "rs")
 
 Before opening any pull request:
 
-1. `air format .` — auto-format R files
-2. `lintr::lint_package()` — fix any lint warnings
-3. `pkgdown::build_site()` — confirm site builds without errors
-4. `devtools::check()` — must produce 0 errors, 0 warnings
-5. `devtools::test()` — all tests must pass
+1. `air format .` -- auto-format R files
+2. `lintr::lint_package()` -- fix any lint warnings
+3. `pkgdown::build_site()` -- confirm site builds without errors
+4. `devtools::check()` -- must produce 0 errors, 0 warnings
+5. `devtools::test()` -- all tests must pass
 
 ## Workflow
 
