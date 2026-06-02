@@ -9,6 +9,7 @@ new_mr_result(
   instruments = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
+  pleiotropy = NULL,
   methods_skipped = character(),
   ld_matrix = NULL,
   params = list(),
@@ -27,6 +28,8 @@ b, se, pval.}
 \code{mean} (numeric scalar), \code{min} (numeric scalar).}
 
 \item{steiger}{Output of \code{\link[TwoSampleMR:steiger_filtering]{TwoSampleMR::steiger_filtering()}}, or \code{NULL}.}
+
+\item{pleiotropy}{Output of \code{\link[TwoSampleMR:mr_pleiotropy_test]{TwoSampleMR::mr_pleiotropy_test()}}, or \code{NULL}.}
 
 \item{methods_skipped}{Named character vector: names are method names,
 values are reasons for skipping.}

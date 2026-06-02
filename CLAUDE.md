@@ -89,6 +89,30 @@ Feature branches are created off `dev` and merged back to `dev` via PR. Each fea
 
 Branch naming: `phase-N/short-description` (e.g. `phase-1/shared-helpers`).
 
+## Session Logging (Obsidian)
+
+At the end of each session, when the user requests it, write a session log for
+their Obsidian vault. Output it as markdown text in the chat for the user to copy --
+do not attempt to write to a file path.
+
+**Format -- use these four headings every time:**
+
+```
+## YYYY-MM-DD -- mrpipeline session
+
+### What we did
+- Bullet list of concrete actions taken (code written, targets run, results reviewed)
+
+### Why this matters
+- How the session's work connects to the broader analysis goals
+
+### What we noticed / questions
+- Interesting findings, unexpected results, open questions, things to investigate
+
+### Next steps
+- Specific actionable tasks for the next session, in priority order
+```
+
 ## Architecture Pointers
 
 - Full architectural context: `vignettes/mrpipeline-developer-guide.Rmd`

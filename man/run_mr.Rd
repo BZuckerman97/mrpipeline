@@ -70,8 +70,13 @@ are missing from exposure data. If \code{FALSE}, warn. Default \code{FALSE}.}
 genomic regions to exclude instruments from, or \code{NULL}. For example, to
 exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 
-\item{methods}{Character vector of MR methods to run. Options: \code{"ivw"},
-\code{"egger"}, \code{"weighted_median"}, \code{"presso"}, \code{"conmix"}, \code{"steiger"}.}
+\item{methods}{Character vector of MR methods to run. Named shortcuts:
+\code{"ivw"} (IVW random effects), \code{"ivw_fe"} (IVW fixed effects),
+\code{"egger"} (MR Egger), \code{"weighted_median"} (weighted median),
+\code{"presso"} (MR-PRESSO), \code{"conmix"} (ContMix), \code{"steiger"}
+(Steiger filtering), \code{"pleiotropy"} (Egger intercept test; result
+stored in \code{$pleiotropy}, not \code{$results}). You may also pass any
+method name from \code{TwoSampleMR::mr_method_list()$obj} directly.}
 
 \item{ld_correct}{Logical. Use LD-corrected IVW/Egger via the
 \code{MendelianRandomization} package. Requires \code{bfile}. Default \code{FALSE}.}
