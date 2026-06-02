@@ -73,15 +73,33 @@ stringr::str_starts(x, "rs")       # not startsWith(x, "rs")
 
 **`verbose` argument:** Planned future feature. When added, gate all `cli::cli_inform()` calls behind it.
 
+## Documentation Rule -- ALWAYS regenerate man/ after changing function signatures
+
+Any time you add, remove, or rename a parameter in ANY function (exported or
+internal), you MUST regenerate the man/ files before committing. Failure to do
+this causes R CMD check to error on all CI platforms.
+
+**After every function signature change, remind the user to run:**
+```r
+devtools::document()   # must be run in an R session, not via Rscript
+```
+Then stage and commit the updated `man/*.Rd` files in the same commit as the
+code change. Never let a signature change and its .Rd update go in separate
+commits.
+
+If `devtools::document()` fails (e.g. missing dependency), patch the `.Rd`
+file manually: update the `\usage{}` block and add a `\item{}` in `\arguments{}`.
+
 ## PR Checklist
 
 Before opening any pull request:
 
-1. `air format .` -- auto-format R files
-2. `lintr::lint_package()` -- fix any lint warnings
-3. `pkgdown::build_site()` -- confirm site builds without errors
-4. `devtools::check()` -- must produce 0 errors, 0 warnings
-5. `devtools::test()` -- all tests must pass
+1. `devtools::document()` -- regenerate man/ files (run in R, not terminal)
+2. `air format .` -- auto-format R files
+3. `lintr::lint_package()` -- fix any lint warnings
+4. `pkgdown::build_site()` -- confirm site builds without errors
+5. `devtools::check()` -- must produce 0 errors, 0 warnings
+6. `devtools::test()` -- all tests must pass
 
 ## Workflow
 
