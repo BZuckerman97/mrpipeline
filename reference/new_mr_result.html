@@ -48,6 +48,7 @@
 <span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  f_stats <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>per_snp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span>, mean <span class="op">=</span> <span class="cn">NA_real_</span>, min <span class="op">=</span> <span class="cn">NA_real_</span><span class="op">)</span>,</span>
 <span>  steiger <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  pleiotropy <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  methods_skipped <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  ld_matrix <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
@@ -77,6 +78,10 @@ b, se, pval.</p></dd>
 
 <dt id="arg-steiger">steiger<a class="anchor" aria-label="anchor" href="#arg-steiger"></a></dt>
 <dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/steiger_filtering.html" class="external-link">TwoSampleMR::steiger_filtering()</a></code>, or <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-pleiotropy">pleiotropy<a class="anchor" aria-label="anchor" href="#arg-pleiotropy"></a></dt>
+<dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code>, or <code>NULL</code>.</p></dd>
 
 
 <dt id="arg-methods-skipped">methods_skipped<a class="anchor" aria-label="anchor" href="#arg-methods-skipped"></a></dt>

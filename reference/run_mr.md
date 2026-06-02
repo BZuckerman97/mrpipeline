@@ -103,8 +103,13 @@ run_mr(
 
 - methods:
 
-  Character vector of MR methods to run. Options: `"ivw"`, `"egger"`,
-  `"weighted_median"`, `"presso"`, `"conmix"`, `"steiger"`.
+  Character vector of MR methods to run. Named shortcuts: `"ivw"` (IVW
+  random effects), `"ivw_fe"` (IVW fixed effects), `"egger"` (MR Egger),
+  `"weighted_median"` (weighted median), `"presso"` (MR-PRESSO),
+  `"conmix"` (ContMix), `"steiger"` (Steiger filtering), `"pleiotropy"`
+  (Egger intercept test; result stored in `$pleiotropy`, not
+  `$results`). You may also pass any method name from
+  `TwoSampleMR::mr_method_list()$obj` directly.
 
 - ld_correct:
 

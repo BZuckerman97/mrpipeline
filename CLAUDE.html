@@ -88,9 +88,20 @@
 <p><strong><code>verbose</code> argument:</strong> Planned future feature. When added, gate all <code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code> calls behind it.</p>
 </div>
 <div class="section level2">
+<h2 id="documentation-rule--always-regenerate-man-after-changing-function-signatures">Documentation Rule – ALWAYS regenerate man/ after changing function signatures<a class="anchor" aria-label="anchor" href="#documentation-rule--always-regenerate-man-after-changing-function-signatures"></a></h2>
+<p>Any time you add, remove, or rename a parameter in ANY function (exported or internal), you MUST regenerate the man/ files before committing. Failure to do this causes R CMD check to error on all CI platforms.</p>
+<p><strong>After every function signature change, remind the user to run:</strong></p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">document</span><span class="op">(</span><span class="op">)</span>   <span class="co"># must be run in an R session, not via Rscript</span></span></code></pre></div>
+<p>Then stage and commit the updated <code>man/*.Rd</code> files in the same commit as the code change. Never let a signature change and its .Rd update go in separate commits.</p>
+<p>If <code>devtools::document()</code> fails (e.g. missing dependency), patch the <code>.Rd</code> file manually: update the <code>\usage{}</code> block and add a <code>\item{}</code> in <code>\arguments{}</code>.</p>
+</div>
+<div class="section level2">
 <h2 id="pr-checklist">PR Checklist<a class="anchor" aria-label="anchor" href="#pr-checklist"></a></h2>
 <p>Before opening any pull request:</p>
 <ol style="list-style-type: decimal"><li>
+<code>devtools::document()</code> – regenerate man/ files (run in R, not terminal)</li>
+<li>
 <code>air format .</code> – auto-format R files</li>
 <li>
 <code>lintr::lint_package()</code> – fix any lint warnings</li>
@@ -105,6 +116,24 @@
 <h2 id="workflow">Workflow<a class="anchor" aria-label="anchor" href="#workflow"></a></h2>
 <p>Feature branches are created off <code>dev</code> and merged back to <code>dev</code> via PR. Each feature should have a corresponding GitHub issue.</p>
 <p>Branch naming: <code>phase-N/short-description</code> (e.g. <code>phase-1/shared-helpers</code>).</p>
+</div>
+<div class="section level2">
+<h2 id="session-logging-obsidian">Session Logging (Obsidian)<a class="anchor" aria-label="anchor" href="#session-logging-obsidian"></a></h2>
+<p>At the end of each session, when the user requests it, write a session log for their Obsidian vault. Output it as markdown text in the chat for the user to copy – do not attempt to write to a file path.</p>
+<p><strong>Format – use these four headings every time:</strong></p>
+<pre><code>## YYYY-MM-DD -- mrpipeline session
+
+### What we did
+- Bullet list of concrete actions taken (code written, targets run, results reviewed)
+
+### Why this matters
+- How the session's work connects to the broader analysis goals
+
+### What we noticed / questions
+- Interesting findings, unexpected results, open questions, things to investigate
+
+### Next steps
+- Specific actionable tasks for the next session, in priority order</code></pre>
 </div>
 <div class="section level2">
 <h2 id="architecture-pointers">Architecture Pointers<a class="anchor" aria-label="anchor" href="#architecture-pointers"></a></h2>

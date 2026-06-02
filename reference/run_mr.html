@@ -145,8 +145,13 @@ exclude the MHC region: <code>data.frame(chr = "6", start = 26e6, end = 34e6)</c
 
 
 <dt id="arg-methods">methods<a class="anchor" aria-label="anchor" href="#arg-methods"></a></dt>
-<dd><p>Character vector of MR methods to run. Options: <code>"ivw"</code>,
-<code>"egger"</code>, <code>"weighted_median"</code>, <code>"presso"</code>, <code>"conmix"</code>, <code>"steiger"</code>.</p></dd>
+<dd><p>Character vector of MR methods to run. Named shortcuts:
+<code>"ivw"</code> (IVW random effects), <code>"ivw_fe"</code> (IVW fixed effects),
+<code>"egger"</code> (MR Egger), <code>"weighted_median"</code> (weighted median),
+<code>"presso"</code> (MR-PRESSO), <code>"conmix"</code> (ContMix), <code>"steiger"</code>
+(Steiger filtering), <code>"pleiotropy"</code> (Egger intercept test; result
+stored in <code>$pleiotropy</code>, not <code>$results</code>). You may also pass any
+method name from <code>TwoSampleMR::mr_method_list()$obj</code> directly.</p></dd>
 
 
 <dt id="arg-ld-correct">ld_correct<a class="anchor" aria-label="anchor" href="#arg-ld-correct"></a></dt>

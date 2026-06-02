@@ -10,6 +10,7 @@ new_mr_result(
   instruments = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
+  pleiotropy = NULL,
   methods_skipped = character(),
   ld_matrix = NULL,
   params = list(),
@@ -38,6 +39,12 @@ new_mr_result(
 
   Output of
   [`TwoSampleMR::steiger_filtering()`](https://mrcieu.github.io/TwoSampleMR/reference/steiger_filtering.html),
+  or `NULL`.
+
+- pleiotropy:
+
+  Output of
+  [`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html),
   or `NULL`.
 
 - methods_skipped:

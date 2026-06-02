@@ -103,16 +103,40 @@ structure: update the developer guide’s S3 classes section
 [`cli::cli_inform()`](https://cli.r-lib.org/reference/cli_abort.html)
 calls behind it.
 
+## Documentation Rule – ALWAYS regenerate man/ after changing function signatures
+
+Any time you add, remove, or rename a parameter in ANY function
+(exported or internal), you MUST regenerate the man/ files before
+committing. Failure to do this causes R CMD check to error on all CI
+platforms.
+
+**After every function signature change, remind the user to run:**
+
+``` r
+
+devtools::document()   # must be run in an R session, not via Rscript
+```
+
+Then stage and commit the updated `man/*.Rd` files in the same commit as
+the code change. Never let a signature change and its .Rd update go in
+separate commits.
+
+If `devtools::document()` fails (e.g. missing dependency), patch the
+`.Rd` file manually: update the `\usage{}` block and add a `\item{}` in
+`\arguments{}`.
+
 ## PR Checklist
 
 Before opening any pull request:
 
-1.  `air format .` – auto-format R files
-2.  `lintr::lint_package()` – fix any lint warnings
-3.  [`pkgdown::build_site()`](https://pkgdown.r-lib.org/reference/build_site.html)
+1.  `devtools::document()` – regenerate man/ files (run in R, not
+    terminal)
+2.  `air format .` – auto-format R files
+3.  `lintr::lint_package()` – fix any lint warnings
+4.  [`pkgdown::build_site()`](https://pkgdown.r-lib.org/reference/build_site.html)
     – confirm site builds without errors
-4.  `devtools::check()` – must produce 0 errors, 0 warnings
-5.  `devtools::test()` – all tests must pass
+5.  `devtools::check()` – must produce 0 errors, 0 warnings
+6.  `devtools::test()` – all tests must pass
 
 ## Workflow
 
@@ -121,6 +145,28 @@ Each feature should have a corresponding GitHub issue.
 
 Branch naming: `phase-N/short-description`
 (e.g. `phase-1/shared-helpers`).
+
+## Session Logging (Obsidian)
+
+At the end of each session, when the user requests it, write a session
+log for their Obsidian vault. Output it as markdown text in the chat for
+the user to copy – do not attempt to write to a file path.
+
+**Format – use these four headings every time:**
+
+    ## YYYY-MM-DD -- mrpipeline session
+
+    ### What we did
+    - Bullet list of concrete actions taken (code written, targets run, results reviewed)
+
+    ### Why this matters
+    - How the session's work connects to the broader analysis goals
+
+    ### What we noticed / questions
+    - Interesting findings, unexpected results, open questions, things to investigate
+
+    ### Next steps
+    - Specific actionable tasks for the next session, in priority order
 
 ## Architecture Pointers
 
