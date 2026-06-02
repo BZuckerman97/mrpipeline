@@ -6,6 +6,7 @@
 #' @param f_stats List with elements `per_snp` (numeric vector),
 #'   `mean` (numeric scalar), `min` (numeric scalar).
 #' @param steiger Output of [TwoSampleMR::steiger_filtering()], or `NULL`.
+#' @param pleiotropy Output of [TwoSampleMR::mr_pleiotropy_test()], or `NULL`.
 #' @param methods_skipped Named character vector: names are method names,
 #'   values are reasons for skipping.
 #' @param ld_matrix LD correlation matrix if `ld_correct = TRUE`, or `NULL`.
@@ -25,6 +26,7 @@ new_mr_result <- function(
   instruments = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
+  pleiotropy = NULL,
   methods_skipped = character(),
   ld_matrix = NULL,
   params = list(),
@@ -38,6 +40,7 @@ new_mr_result <- function(
       instruments = instruments,
       f_stats = f_stats,
       steiger = steiger,
+      pleiotropy = pleiotropy,
       methods_skipped = methods_skipped,
       ld_matrix = ld_matrix,
       params = params,
@@ -159,6 +162,17 @@ summary.mr_result <- function(object, ...) {
     cli::cli_bullets(c(
       "*" = "Correct direction: {object$steiger$correct_causal_direction}",
       "*" = "Steiger p-value: {signif(object$steiger$steiger_pval, 3)}"
+    ))
+  }
+
+  # Pleiotropy test
+  if (!is.null(object$pleiotropy)) {
+    pt <- object$pleiotropy
+    cli::cli_h2("Pleiotropy test (Egger intercept)")
+    cli::cli_bullets(c(
+      "*" = "Intercept: {round(pt$egger_intercept, 4)}",
+      "*" = "SE: {round(pt$se, 4)}",
+      "*" = "p-value: {signif(pt$pval, 3)}"
     ))
   }
 

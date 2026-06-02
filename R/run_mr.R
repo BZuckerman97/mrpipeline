@@ -60,7 +60,8 @@
 #'   `"ivw"` (IVW random effects), `"ivw_fe"` (IVW fixed effects),
 #'   `"egger"` (MR Egger), `"weighted_median"` (weighted median),
 #'   `"presso"` (MR-PRESSO), `"conmix"` (ContMix), `"steiger"` (Steiger
-#'   filtering). You may also pass any method name from
+#'   filtering), `"pleiotropy"` (Egger intercept test; result stored in
+#'   `$pleiotropy`, not `$results`). You may also pass any method name from
 #'   `TwoSampleMR::mr_method_list()$obj` directly (e.g. `"mr_simple_median"`,
 #'   `"mr_raps"`). Note: `"ivw_fe"` does not support `ld_correct = TRUE`.
 #' @param ld_correct Logical. Use LD-corrected IVW/Egger via the
@@ -133,7 +134,8 @@ run_mr <- function(
   }
 
   shortcut_methods <- c(
-    "ivw", "ivw_fe", "egger", "weighted_median", "presso", "conmix", "steiger"
+    "ivw", "ivw_fe", "egger", "weighted_median",
+    "presso", "conmix", "steiger", "pleiotropy"
   )
   tsm_available <- setdiff(TwoSampleMR::mr_method_list()$obj, "mr_wald_ratio")
   unknown_methods <- setdiff(methods, c(shortcut_methods, tsm_available))
@@ -750,6 +752,31 @@ run_mr <- function(
     timing[["mr_steiger"]] <- proc.time()[["elapsed"]] - t0
   }
 
+  # Pleiotropy test -- Egger intercept (requires >= 3 SNPs)
+  pleiotropy_result <- NULL
+  if ("pleiotropy" %in% methods) {
+    t0 <- proc.time()[["elapsed"]]
+    if (n_snps < 3) {
+      methods_skipped["pleiotropy"] <- "Requires >= 3 instruments"
+    } else {
+      pleiotropy_result <- tryCatch(
+        {
+          TwoSampleMR::mr_pleiotropy_test(harmonised)
+        },
+        error = function(e) {
+          cli::cli_warn(
+            "Pleiotropy test failed: {conditionMessage(e)}"
+          )
+          methods_skipped["pleiotropy"] <<- paste(
+            "Failed:", conditionMessage(e)
+          )
+          NULL
+        }
+      )
+    }
+    timing[["mr_pleiotropy"]] <- proc.time()[["elapsed"]] - t0
+  }
+
   # --- Assemble results -----------------------------------------------------
 
   if (length(results_list) == 0) {
@@ -773,6 +800,7 @@ run_mr <- function(
     instruments = harmonised,
     f_stats = f_stats,
     steiger = steiger_result,
+    pleiotropy = pleiotropy_result,
     methods_skipped = methods_skipped,
     ld_matrix = ld_mat,
     params = params,
