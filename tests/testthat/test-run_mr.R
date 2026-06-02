@@ -25,7 +25,7 @@ test_that("run_mr validates methods argument", {
       outcome_id = "test",
       methods = "not_a_method"
     ),
-    "should be one of"
+    "Unknown method"
   )
 })
 
