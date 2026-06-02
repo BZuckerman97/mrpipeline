@@ -17,10 +17,13 @@
 #'
 #' @section Method dispatch:
 #' Methods are dispatched based on the number of instruments after clumping:
-#' - 1 SNP: Wald ratio only
-#' - 2 SNPs: IVW (+ ConMix/Steiger if requested); Egger/weighted_median/PRESSO
-#'   skipped
+#' - 1 SNP: Wald ratio only; all other methods skipped
+#' - 2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
+#'   are attempted; Egger, weighted median, and PRESSO require >= 3 SNPs
 #' - 3+ SNPs: all methods in `methods` are attempted
+#'
+#' Generic TwoSampleMR methods (raw `mr_*` names) are dispatched via
+#' `TwoSampleMR::mr()` and errors are caught and reported as skipped.
 #'
 #' When `ld_correct = TRUE`, IVW and Egger use
 #' `MendelianRandomization::mr_ivw()` and `MendelianRandomization::mr_egger()`
@@ -53,8 +56,13 @@
 #' @param exclude_regions Data frame with columns `chr`, `start`, `end` defining
 #'   genomic regions to exclude instruments from, or `NULL`. For example, to
 #'   exclude the MHC region: `data.frame(chr = "6", start = 26e6, end = 34e6)`.
-#' @param methods Character vector of MR methods to run. Options: `"ivw"`,
-#'   `"egger"`, `"weighted_median"`, `"presso"`, `"conmix"`, `"steiger"`.
+#' @param methods Character vector of MR methods to run. Named shortcuts:
+#'   `"ivw"` (IVW random effects), `"ivw_fe"` (IVW fixed effects),
+#'   `"egger"` (MR Egger), `"weighted_median"` (weighted median),
+#'   `"presso"` (MR-PRESSO), `"conmix"` (ContMix), `"steiger"` (Steiger
+#'   filtering). You may also pass any method name from
+#'   `TwoSampleMR::mr_method_list()$obj` directly (e.g. `"mr_simple_median"`,
+#'   `"mr_raps"`). Note: `"ivw_fe"` does not support `ld_correct = TRUE`.
 #' @param ld_correct Logical. Use LD-corrected IVW/Egger via the
 #'   `MendelianRandomization` package. Requires `bfile`. Default `FALSE`.
 #' @param exposure_n Numeric. Exposure sample size. If `NULL`, inferred from
@@ -124,18 +132,20 @@ run_mr <- function(
     cli::cli_abort("{.arg bfile} is required when {.code ld_correct = TRUE}.")
   }
 
-  methods <- match.arg(
-    methods,
-    choices = c(
-      "ivw",
-      "egger",
-      "weighted_median",
-      "presso",
-      "conmix",
-      "steiger"
-    ),
-    several.ok = TRUE
+  shortcut_methods <- c(
+    "ivw", "ivw_fe", "egger", "weighted_median", "presso", "conmix", "steiger"
   )
+  tsm_available <- setdiff(TwoSampleMR::mr_method_list()$obj, "mr_wald_ratio")
+  unknown_methods <- setdiff(methods, c(shortcut_methods, tsm_available))
+  if (length(unknown_methods) > 0) {
+    cli::cli_abort(
+      c(
+        "Unknown method{?s}: {.val {unknown_methods}}.",
+        "i" = "Named shortcuts: {.val {shortcut_methods}}.",
+        "i" = "Or pass any name from {.code TwoSampleMR::mr_method_list()}."
+      )
+    )
+  }
 
   if (!is.null(exclude_regions)) {
     validate_exclude_regions(exclude_regions)
@@ -476,12 +486,15 @@ run_mr <- function(
     )
     timing[["mr_ivw"]] <- proc.time()[["elapsed"]] - t0
 
-    # Skip all multi-SNP methods
-    multi_methods <- intersect(
-      methods,
-      c("ivw", "egger", "weighted_median", "presso", "conmix")
+    # Skip all multi-SNP methods (shortcuts + any raw TwoSampleMR names)
+    multi_shortcut_names <- c(
+      "ivw", "ivw_fe", "egger", "weighted_median", "presso", "conmix"
     )
-    for (m in multi_methods) {
+    generic_tsm_methods <- setdiff(methods, c(multi_shortcut_names, "steiger"))
+    all_multi <- c(
+      intersect(methods, multi_shortcut_names), generic_tsm_methods
+    )
+    for (m in all_multi) {
       methods_skipped[m] <- "Only 1 instrument (Wald ratio used)"
     }
   } else {
@@ -521,6 +534,28 @@ run_mr <- function(
         )
       }
       timing[["mr_ivw"]] <- proc.time()[["elapsed"]] - t0
+    }
+
+    # IVW fixed effects
+    if ("ivw_fe" %in% methods) {
+      t0 <- proc.time()[["elapsed"]]
+      if (ld_correct) {
+        cli::cli_warn(
+          "{.val 'ivw_fe'} does not support ld_correct; running uncorrected."
+        )
+      }
+      ivw_fe_mr <- TwoSampleMR::mr(harmonised, method_list = "mr_ivw_fe")
+      results_list[["IVW (fixed effects)"]] <- data.frame(
+        exposure = exposure_id,
+        outcome = outcome_id,
+        method = "IVW (fixed effects)",
+        nsnp = ivw_fe_mr$nsnp,
+        b = ivw_fe_mr$b,
+        se = ivw_fe_mr$se,
+        pval = ivw_fe_mr$pval,
+        stringsAsFactors = FALSE
+      )
+      timing[["mr_ivw_fe"]] <- proc.time()[["elapsed"]] - t0
     }
 
     # Egger (requires >= 3 SNPs)
@@ -659,6 +694,38 @@ run_mr <- function(
         )
       }
       timing[["mr_conmix"]] <- proc.time()[["elapsed"]] - t0
+    }
+
+    # Generic TwoSampleMR methods (raw mr_* names not handled by shortcuts)
+    shortcut_names <- c(
+      "ivw", "ivw_fe", "egger", "weighted_median", "presso", "conmix", "steiger"
+    )
+    generic_tsm <- methods[!methods %in% shortcut_names]
+    for (m in generic_tsm) {
+      t0 <- proc.time()[["elapsed"]]
+      generic_res <- tryCatch(
+        {
+          TwoSampleMR::mr(harmonised, method_list = m)
+        },
+        error = function(e) {
+          cli::cli_warn("{.val {m}} failed: {conditionMessage(e)}")
+          methods_skipped[m] <<- paste("Failed:", conditionMessage(e))
+          NULL
+        }
+      )
+      if (!is.null(generic_res) && nrow(generic_res) > 0) {
+        results_list[[m]] <- data.frame(
+          exposure = exposure_id,
+          outcome = outcome_id,
+          method = generic_res$method,
+          nsnp = generic_res$nsnp,
+          b = generic_res$b,
+          se = generic_res$se,
+          pval = generic_res$pval,
+          stringsAsFactors = FALSE
+        )
+      }
+      timing[[paste0("mr_generic_", m)]] <- proc.time()[["elapsed"]] - t0
     }
   }
 

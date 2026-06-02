@@ -18,7 +18,7 @@
 #' | `beta`    | `Beta`, `Effect`, `BETA` |
 #' | `se`      | `standard_error`, `StdErr`, `SE`, `sebeta` |
 #' | `or`      | `odds_ratio`, `OR` |
-#' | `eaf`     | `effect_allele_frequency`, `Freq1`, `EAFrq`, `A1FREQ`, `af_alt`, `EAF` |
+#' | `eaf`     | `effect_allele_frequency`, `Freq1`, `EAFrq`, `A1FREQ`, `af_alt`, `EAF`, `FRQ` |
 #' | `pval`    | `p_value`, `P-value`, `P`, `Pval`, `p.value` |
 #' | `n`       | `N`, `TotalSampleSize`, `n_total` |
 #' | `effect_allele` | `Allele1`, `EA`, `A1`, `ALLELE1`, `effectAllele`, `ALT` |
@@ -201,7 +201,8 @@ format_gwas <- function(
       "EAFrq",
       "A1FREQ",
       "af_alt",
-      "EAF"
+      "EAF",
+      "FRQ"
     ),
     pval = c("pval", "p_value", "P-value", "P", "Pval", "p.value"),
     n = c("n", "N", "TotalSampleSize", "n_total"),
