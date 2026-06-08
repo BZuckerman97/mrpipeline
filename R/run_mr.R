@@ -390,6 +390,15 @@ run_mr <- function(
 
   t0 <- proc.time()[["elapsed"]]
 
+  # Pre-filter outcome to instrument SNPs before passing to TwoSampleMR.
+  # format_gwas() returns the full GWAS file (potentially millions of rows).
+  # TwoSampleMR::format_data() on a multi-million-row frame can overflow the
+  # C stack; restricting to the ~10-50 instrument rsIDs avoids this and
+  # speeds up harmonisation without affecting results.
+  if ("rsids" %in% names(outcome) && nrow(exposure_iv) > 0) {
+    outcome <- outcome[outcome$rsids %in% exposure_iv$SNP, , drop = FALSE]
+  }
+
   outcome_data <- TwoSampleMR::format_data(
     outcome,
     type = "outcome",

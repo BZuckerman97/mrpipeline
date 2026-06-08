@@ -204,7 +204,7 @@ format_gwas <- function(
       "EAF",
       "FRQ"
     ),
-    pval = c("pval", "p_value", "P-value", "P", "Pval", "p.value"),
+    pval = c("pval", "p_value", "P-value", "P", "Pval", "p.value", "neg_log_10_p_value"),
     n = c("n", "N", "TotalSampleSize", "n_total"),
     effect_allele = c(
       "effect_allele",
@@ -225,6 +225,9 @@ format_gwas <- function(
       "REF"
     )
   )
+
+  # Detect neg_log10 p-value before any renaming so we can back-transform later
+  auto_neg_log_pval <- "neg_log_10_p_value" %in% names(dat) && !"pval" %in% names(dat)
 
   # User-supplied aliases are prepended so they are found before built-in ones
   if (!is.null(col_map)) {
@@ -341,6 +344,10 @@ format_gwas <- function(
 
   # -- Transformations ----------------------------------------------------------
   if (log10_pval && "pval" %in% names(dat)) {
+    dat <- dplyr::mutate(dat, pval = 10^-.data$pval)
+  }
+  # Auto back-transform when the source column was neg_log_10_p_value
+  if (auto_neg_log_pval && "pval" %in% names(dat)) {
     dat <- dplyr::mutate(dat, pval = 10^-.data$pval)
   }
 
