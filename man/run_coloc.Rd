@@ -6,7 +6,9 @@
 \usage{
 run_coloc(
   exposure,
+  exposure_id,
   outcome,
+  outcome_id,
   gene_chr,
   gene_start,
   gene_end,
@@ -36,9 +38,15 @@ run_coloc(
 \item{exposure}{Data frame of formatted exposure data (output of
 \code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}} or \verb{format_pqtl_*()} functions).}
 
+\item{exposure_id}{Character. Label for the exposure (e.g. protein name or
+trait). Used in printed output and stored in the returned object.}
+
 \item{outcome}{Data frame of outcome summary statistics with standardised
 columns: \code{rsids}, \code{chr}, \code{pos}, \code{beta}, \code{se}, \code{eaf}, \code{pval}, \code{n},
 \code{effect_allele}, \code{other_allele}.}
+
+\item{outcome_id}{Character. Label for the outcome (e.g. disease name or
+trait). Used in printed output and stored in the returned object.}
 
 \item{gene_chr}{Character or integer. Chromosome of the gene/region.}
 

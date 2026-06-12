@@ -1,5 +1,7 @@
 #' Create a coloc_result object
 #'
+#' @param exposure_id Character. Label for the exposure trait.
+#' @param outcome_id Character. Label for the outcome trait.
 #' @param coloc_abf Output of [coloc::coloc.abf()], or `NULL`.
 #' @param coloc_susie Output of [coloc::coloc.susie()], or `NULL`.
 #' @param coloc_signals Output of [coloc::coloc.signals()], or `NULL`.
@@ -21,6 +23,8 @@
 #'
 #' @keywords internal
 new_coloc_result <- function(
+  exposure_id = NULL,
+  outcome_id = NULL,
   coloc_abf = NULL,
   coloc_susie = NULL,
   coloc_signals = NULL,
@@ -35,6 +39,8 @@ new_coloc_result <- function(
 ) {
   structure(
     list(
+      exposure_id = exposure_id,
+      outcome_id = outcome_id,
       coloc_abf = coloc_abf,
       coloc_susie = coloc_susie,
       coloc_signals = coloc_signals,
@@ -75,9 +81,15 @@ new_coloc_result <- function(
 #'
 #' @export
 print.coloc_result <- function(x, ...) {
+  label <- if (!is.null(x$exposure_id) && !is.null(x$outcome_id)) {
+    paste0("[", x$exposure_id, " -> ", x$outcome_id, "]")
+  } else {
+    ""
+  }
+
   if (x$status != "success") {
     reason <- x$status_reason %||% "unknown reason"
-    cli::cli_inform("coloc_result: {x$status} \u2014 {reason}")
+    cli::cli_inform("coloc_result{label}: {x$status} -- {reason}")
     return(invisible(x))
   }
 
@@ -86,26 +98,40 @@ print.coloc_result <- function(x, ...) {
   # ABF summary
   if (!is.null(x$coloc_abf)) {
     pp_h4 <- x$coloc_abf$summary["PP.H4.abf"]
-    parts <- c(parts, "ABF PP.H4 = {round(pp_h4, 3)}")
+    pp_h3 <- x$coloc_abf$summary["PP.H3.abf"]
+    denom <- pp_h3 + pp_h4
+    ratio_str <- if (!is.na(denom) && denom >= 1e-6) {
+      paste0(" | PP4/(PP3+PP4) = ", round(pp_h4 / denom, 3))
+    } else {
+      ""
+    }
+    parts <- c(parts, "ABF PP.H4 = {round(pp_h4, 3)}{ratio_str}")
   }
 
   # SuSiE summary
   if (!is.null(x$coloc_susie) && !is.null(x$coloc_susie$summary)) {
     susie_summary <- x$coloc_susie$summary
     if (is.data.frame(susie_summary) && nrow(susie_summary) > 0) {
-      max_h4 <- max(susie_summary$PP.H4.abf, na.rm = TRUE)
+      best_row <- susie_summary[which.max(susie_summary$PP.H4.abf), ]
+      max_h4 <- best_row$PP.H4.abf
+      denom <- best_row$PP.H3.abf + max_h4
+      ratio_str <- if (!is.na(denom) && denom >= 1e-6) {
+        paste0(" | PP4/(PP3+PP4) = ", round(max_h4 / denom, 3))
+      } else {
+        ""
+      }
       n_pairs <- nrow(susie_summary)
       parts <- c(
         parts,
-        "SuSiE max PP.H4 = {round(max_h4, 3)} ({n_pairs} credible set pair{?s})"
+        "SuSiE max PP.H4 = {round(max_h4, 3)}{ratio_str} ({n_pairs} credible set pair{?s})"
       )
     }
   }
 
   if (length(parts) == 0) {
-    cli::cli_inform("coloc_result: {x$n_snps} SNPs, no method results")
+    cli::cli_inform("coloc_result{label}: {x$n_snps} SNPs, no method results")
   } else {
-    header <- "coloc_result: {x$n_snps} SNPs"
+    header <- "coloc_result{label}: {x$n_snps} SNPs"
     cli::cli_inform(c(header, stats::setNames(parts, rep("i", length(parts)))))
   }
 
@@ -137,9 +163,13 @@ print.coloc_result <- function(x, ...) {
 summary.coloc_result <- function(object, ...) {
   cli::cli_h1("Colocalization Results")
 
+  if (!is.null(object$exposure_id) && !is.null(object$outcome_id)) {
+    cli::cli_alert_info("{object$exposure_id} -> {object$outcome_id}")
+  }
+
   if (object$status != "success") {
     reason <- object$status_reason %||% "unknown reason"
-    cli::cli_alert_warning("Status: {object$status} \u2014 {reason}")
+    cli::cli_alert_warning("Status: {object$status} -- {reason}")
     return(invisible(object))
   }
 
@@ -149,12 +179,19 @@ summary.coloc_result <- function(object, ...) {
   if (!is.null(object$coloc_abf)) {
     cli::cli_h2("coloc.abf")
     s <- object$coloc_abf$summary
+    denom_abf <- s["PP.H3.abf"] + s["PP.H4.abf"]
+    ratio_abf <- if (!is.na(denom_abf) && denom_abf >= 1e-6) {
+      round(s["PP.H4.abf"] / denom_abf, 4)
+    } else {
+      NA_real_
+    }
     cli::cli_bullets(c(
       "*" = "PP.H0 = {round(s['PP.H0.abf'], 4)}",
       "*" = "PP.H1 = {round(s['PP.H1.abf'], 4)}",
       "*" = "PP.H2 = {round(s['PP.H2.abf'], 4)}",
       "*" = "PP.H3 = {round(s['PP.H3.abf'], 4)}",
       "*" = "PP.H4 = {round(s['PP.H4.abf'], 4)}",
+      "*" = "PP.H4/(PP.H3+PP.H4) = {ratio_abf}",
       "*" = "N SNPs = {s['nsnps']}"
     ))
   }
@@ -173,6 +210,12 @@ summary.coloc_result <- function(object, ...) {
       cap <- 20L
       n_total <- nrow(susie_sorted)
       shown <- utils::head(susie_sorted, cap)
+      susie_denom <- shown$PP.H3.abf + shown$PP.H4.abf
+      susie_ratio <- ifelse(
+        !is.na(susie_denom) & susie_denom >= 1e-6,
+        round(shown$PP.H4.abf / susie_denom, 4),
+        NA_real_
+      )
       bullets <- stats::setNames(
         paste0(
           "Pair ",
@@ -180,7 +223,9 @@ summary.coloc_result <- function(object, ...) {
           "-",
           shown$idx2,
           ": PP.H4 = ",
-          round(shown$PP.H4.abf, 4)
+          round(shown$PP.H4.abf, 4),
+          " | PP4/(PP3+PP4) = ",
+          susie_ratio
         ),
         rep("*", nrow(shown))
       )
@@ -214,6 +259,12 @@ summary.coloc_result <- function(object, ...) {
       cap <- 20L
       n_total <- nrow(signals_sorted)
       shown <- utils::head(signals_sorted, cap)
+      sig_denom <- shown$PP.H3.abf + shown$PP.H4.abf
+      sig_ratio <- ifelse(
+        !is.na(sig_denom) & sig_denom >= 1e-6,
+        round(shown$PP.H4.abf / sig_denom, 4),
+        NA_real_
+      )
       bullets <- stats::setNames(
         paste0(
           "Hit ",
@@ -221,7 +272,9 @@ summary.coloc_result <- function(object, ...) {
           "-",
           shown$hit2,
           ": PP.H4 = ",
-          round(shown$PP.H4.abf, 4)
+          round(shown$PP.H4.abf, 4),
+          " | PP4/(PP3+PP4) = ",
+          sig_ratio
         ),
         rep("*", nrow(shown))
       )

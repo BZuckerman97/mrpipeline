@@ -18,9 +18,13 @@
 #'
 #' @param exposure Data frame of formatted exposure data (output of
 #'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
+#' @param exposure_id Character. Label for the exposure (e.g. protein name or
+#'   trait). Used in printed output and stored in the returned object.
 #' @param outcome Data frame of outcome summary statistics with standardised
 #'   columns: `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
 #'   `effect_allele`, `other_allele`.
+#' @param outcome_id Character. Label for the outcome (e.g. disease name or
+#'   trait). Used in printed output and stored in the returned object.
 #' @param gene_chr Character or integer. Chromosome of the gene/region.
 #' @param gene_start Integer. Start position (bp) of the gene/region.
 #' @param gene_end Integer. End position (bp) of the gene/region.
@@ -97,7 +101,9 @@
 #' }
 run_coloc <- function(
   exposure,
+  exposure_id,
   outcome,
+  outcome_id,
   gene_chr,
   gene_start,
   gene_end,
@@ -149,6 +155,8 @@ run_coloc <- function(
   }
 
   params <- list(
+    exposure_id = exposure_id,
+    outcome_id = outcome_id,
     gene_chr = gene_chr,
     gene_start = gene_start,
     gene_end = gene_end,
@@ -194,6 +202,8 @@ run_coloc <- function(
     )
     timing[["filter_window"]] <- proc.time()[["elapsed"]] - t0
     return(new_coloc_result(
+      exposure_id = exposure_id,
+      outcome_id = outcome_id,
       status = "no_snps_in_region",
       status_reason = paste0(
         "No exposure SNPs in region chr",
@@ -221,6 +231,8 @@ run_coloc <- function(
     cli::cli_warn("No outcome SNPs in region chr{chr_val}:{min_pos}-{max_pos}.")
     timing[["filter_window"]] <- proc.time()[["elapsed"]] - t0
     return(new_coloc_result(
+      exposure_id = exposure_id,
+      outcome_id = outcome_id,
       status = "no_snps_in_region",
       status_reason = paste0(
         "No outcome SNPs in region chr",
@@ -280,6 +292,8 @@ run_coloc <- function(
 
     cli::cli_warn(reason)
     return(new_coloc_result(
+      exposure_id = exposure_id,
+      outcome_id = outcome_id,
       n_snps = nrow(harmonised),
       harmonised_data = harmonised,
       status = status,
@@ -335,6 +349,8 @@ run_coloc <- function(
       "Only {nrow(harmonised)} SNP(s) after LD alignment (need >= 3)."
     )
     return(new_coloc_result(
+      exposure_id = exposure_id,
+      outcome_id = outcome_id,
       n_snps = nrow(harmonised),
       harmonised_data = harmonised,
       status = "too_few_snps",
@@ -556,6 +572,8 @@ run_coloc <- function(
   # --- Return ---------------------------------------------------------------
 
   new_coloc_result(
+    exposure_id = exposure_id,
+    outcome_id = outcome_id,
     coloc_abf = coloc_abf_res,
     coloc_susie = coloc_susie_res,
     coloc_signals = coloc_signals_res,

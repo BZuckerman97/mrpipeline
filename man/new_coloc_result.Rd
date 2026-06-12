@@ -5,6 +5,8 @@
 \title{Create a coloc_result object}
 \usage{
 new_coloc_result(
+  exposure_id = NULL,
+  outcome_id = NULL,
   coloc_abf = NULL,
   coloc_susie = NULL,
   coloc_signals = NULL,
@@ -19,6 +21,10 @@ new_coloc_result(
 )
 }
 \arguments{
+\item{exposure_id}{Character. Label for the exposure trait.}
+
+\item{outcome_id}{Character. Label for the outcome trait.}
+
 \item{coloc_abf}{Output of \code{\link[coloc:coloc.abf]{coloc::coloc.abf()}}, or \code{NULL}.}
 
 \item{coloc_susie}{Output of \code{\link[coloc:coloc.susie]{coloc::coloc.susie()}}, or \code{NULL}.}
