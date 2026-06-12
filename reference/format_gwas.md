@@ -80,9 +80,9 @@ format_gwas(
 
 - flip_beta:
 
-  Logical. If `TRUE`, multiplies `beta` by `-1` – use when the source
+  Logical. If `TRUE`, multiplies `beta` by `-1` - use when the source
   file encodes the inverse direction of the intended exposure (e.g.
-  modelling NLRP3 activation rather than suppression). Default `FALSE`.
+  modelling NLRP3 inhibition rather than activation). Default `FALSE`.
 
 - n:
 
@@ -114,7 +114,8 @@ checking a built-in table of known aliases for each target column:
 | `pos` | `base_pair_location`, `PosB37`, `PosB38`, `BP`, `POS`, `position`, `GENPOS` |
 | `beta` | `Beta`, `Effect`, `BETA` |
 | `se` | `standard_error`, `StdErr`, `SE`, `sebeta` |
-| `eaf` | `effect_allele_frequency`, `Freq1`, `EAFrq`, `A1FREQ`, `af_alt`, `EAF` |
+| `or` | `odds_ratio`, `OR` |
+| `eaf` | `effect_allele_frequency`, `Freq1`, `EAFrq`, `A1FREQ`, `af_alt`, `EAF`, `FRQ` |
 | `pval` | `p_value`, `P-value`, `P`, `Pval`, `p.value` |
 | `n` | `N`, `TotalSampleSize`, `n_total` |
 | `effect_allele` | `Allele1`, `EA`, `A1`, `ALLELE1`, `effectAllele`, `ALT` |
@@ -126,6 +127,25 @@ called `"PVALUE"`, add `col_map = list(pval = "PVALUE")`. Inspect
 [`names()`](https://rdrr.io/r/base/names.html) of your loaded data to
 check. User-supplied aliases are checked before the built-in list, so
 they take precedence in the event of ambiguity.
+
+## Automatic odds-ratio to log-odds conversion
+
+Some GWAS files (particularly older EBI deposits) report effect sizes as
+odds ratios rather than log-odds. When `beta` is absent after column
+normalisation but an `or` column is present, the function automatically
+derives:
+
+- `beta = log(or)` (natural log; converts OR to the log-odds scale MR
+  requires)
+
+- `se = |beta| / qnorm(pval / 2)` (Z-score back-calculation from
+  p-value)
+
+The Z-score method requires `pval` to be present and is accurate when
+effect sizes are small (OR close to 1), which is typical for
+common-variant GWAS. An informative message is emitted whenever the
+conversion is applied. If your file has an OR column under a
+non-standard name, add it via `col_map = list(or = "MY_OR_COLUMN")`.
 
 ## rsID lookup from bim file
 

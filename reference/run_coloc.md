@@ -31,6 +31,8 @@ run_coloc(
   p12 = 1e-05,
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
+  susie_maxit = 10000L,
+  susie_repeat_until_convergence = FALSE,
   verbose = TRUE
 )
 ```
@@ -149,6 +151,20 @@ run_coloc(
   auto-detect. Read from `getOption("mrpipeline.plink_memory")` or the
   `MRPIPELINE_PLINK_MEMORY` environment variable via
   [`plink_option()`](https://github.com/BZuckerman97/mrpipeline/reference/plink_option.md).
+
+- susie_maxit:
+
+  Integer. Maximum iterations for
+  [`coloc::runsusie()`](https://rdrr.io/pkg/coloc/man/runsusie.html).
+  Default `10000L`. Increase if SuSiE warns about non-convergence;
+  decrease for faster exploratory runs.
+
+- susie_repeat_until_convergence:
+
+  Logical. Passed to
+  [`coloc::runsusie()`](https://rdrr.io/pkg/coloc/man/runsusie.html).
+  Default `FALSE` – prevents infinite loops when SuSiE has not converged
+  within `susie_maxit` iterations.
 
 - verbose:
 

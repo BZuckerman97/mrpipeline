@@ -109,7 +109,9 @@ run_mr(
   `"conmix"` (ContMix), `"steiger"` (Steiger filtering), `"pleiotropy"`
   (Egger intercept test; result stored in `$pleiotropy`, not
   `$results`). You may also pass any method name from
-  `TwoSampleMR::mr_method_list()$obj` directly.
+  `TwoSampleMR::mr_method_list()$obj` directly (e.g.
+  `"mr_simple_median"`, `"mr_raps"`). Note: `"ivw_fe"` does not support
+  `ld_correct = TRUE`.
 
 - ld_correct:
 
@@ -172,12 +174,16 @@ Exactly one of three modes is used, determined by the combination of
 Methods are dispatched based on the number of instruments after
 clumping:
 
-- 1 SNP: Wald ratio only
+- 1 SNP: Wald ratio only; all other methods skipped
 
-- 2 SNPs: IVW (+ ConMix/Steiger if requested);
-  Egger/weighted_median/PRESSO skipped
+- 2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
+  are attempted; Egger, weighted median, and PRESSO require \>= 3 SNPs
 
 - 3+ SNPs: all methods in `methods` are attempted
+
+Generic TwoSampleMR methods (raw `mr_*` names) are dispatched via
+[`TwoSampleMR::mr()`](https://mrcieu.github.io/TwoSampleMR/reference/mr.html)
+and errors are caught and reported as skipped.
 
 When `ld_correct = TRUE`, IVW and Egger use
 [`MendelianRandomization::mr_ivw()`](https://rdrr.io/pkg/MendelianRandomization/man/mr_ivw.html)

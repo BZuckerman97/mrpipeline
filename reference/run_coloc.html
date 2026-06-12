@@ -75,6 +75,8 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 <span>  p12 <span class="op">=</span> <span class="fl">1e-05</span>,</span>
 <span>  plink_threads <span class="op">=</span> <span class="fu"><a href="plink_option.html">plink_option</a></span><span class="op">(</span><span class="st">"threads"</span><span class="op">)</span>,</span>
 <span>  plink_memory <span class="op">=</span> <span class="fu"><a href="plink_option.html">plink_option</a></span><span class="op">(</span><span class="st">"memory"</span><span class="op">)</span>,</span>
+<span>  susie_maxit <span class="op">=</span> <span class="fl">10000L</span>,</span>
+<span>  susie_repeat_until_convergence <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -193,6 +195,18 @@ or the <code>MRPIPELINE_PLINK_THREADS</code> environment variable via
 lets PLINK auto-detect. Read from <code>getOption("mrpipeline.plink_memory")</code>
 or the <code>MRPIPELINE_PLINK_MEMORY</code> environment variable via
 <code><a href="plink_option.html">plink_option()</a></code>.</p></dd>
+
+
+<dt id="arg-susie-maxit">susie_maxit<a class="anchor" aria-label="anchor" href="#arg-susie-maxit"></a></dt>
+<dd><p>Integer. Maximum iterations for <code><a href="https://rdrr.io/pkg/coloc/man/runsusie.html" class="external-link">coloc::runsusie()</a></code>.
+Default <code>10000L</code>. Increase if SuSiE warns about non-convergence; decrease
+for faster exploratory runs.</p></dd>
+
+
+<dt id="arg-susie-repeat-until-convergence">susie_repeat_until_convergence<a class="anchor" aria-label="anchor" href="#arg-susie-repeat-until-convergence"></a></dt>
+<dd><p>Logical. Passed to
+<code><a href="https://rdrr.io/pkg/coloc/man/runsusie.html" class="external-link">coloc::runsusie()</a></code>. Default <code>FALSE</code> – prevents infinite loops when
+SuSiE has not converged within <code>susie_maxit</code> iterations.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

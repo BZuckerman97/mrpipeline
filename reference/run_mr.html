@@ -148,10 +148,11 @@ exclude the MHC region: <code>data.frame(chr = "6", start = 26e6, end = 34e6)</c
 <dd><p>Character vector of MR methods to run. Named shortcuts:
 <code>"ivw"</code> (IVW random effects), <code>"ivw_fe"</code> (IVW fixed effects),
 <code>"egger"</code> (MR Egger), <code>"weighted_median"</code> (weighted median),
-<code>"presso"</code> (MR-PRESSO), <code>"conmix"</code> (ContMix), <code>"steiger"</code>
-(Steiger filtering), <code>"pleiotropy"</code> (Egger intercept test; result
-stored in <code>$pleiotropy</code>, not <code>$results</code>). You may also pass any
-method name from <code>TwoSampleMR::mr_method_list()$obj</code> directly.</p></dd>
+<code>"presso"</code> (MR-PRESSO), <code>"conmix"</code> (ContMix), <code>"steiger"</code> (Steiger
+filtering), <code>"pleiotropy"</code> (Egger intercept test; result stored in
+<code>$pleiotropy</code>, not <code>$results</code>). You may also pass any method name from
+<code>TwoSampleMR::mr_method_list()$obj</code> directly (e.g. <code>"mr_simple_median"</code>,
+<code>"mr_raps"</code>). Note: <code>"ivw_fe"</code> does not support <code>ld_correct = TRUE</code>.</p></dd>
 
 
 <dt id="arg-ld-correct">ld_correct<a class="anchor" aria-label="anchor" href="#arg-ld-correct"></a></dt>
@@ -212,11 +213,13 @@ applies <code>pval_thresh</code>, then LD-clumps.</p></li>
     <h2 id="method-dispatch">Method dispatch<a class="anchor" aria-label="anchor" href="#method-dispatch"></a></h2>
 
 
-<p>Methods are dispatched based on the number of instruments after clumping:</p><ul><li><p>1 SNP: Wald ratio only</p></li>
-<li><p>2 SNPs: IVW (+ ConMix/Steiger if requested); Egger/weighted_median/PRESSO
-skipped</p></li>
+<p>Methods are dispatched based on the number of instruments after clumping:</p><ul><li><p>1 SNP: Wald ratio only; all other methods skipped</p></li>
+<li><p>2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
+are attempted; Egger, weighted median, and PRESSO require &gt;= 3 SNPs</p></li>
 <li><p>3+ SNPs: all methods in <code>methods</code> are attempted</p></li>
-</ul><p>When <code>ld_correct = TRUE</code>, IVW and Egger use
+</ul><p>Generic TwoSampleMR methods (raw <code>mr_*</code> names) are dispatched via
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr.html" class="external-link">TwoSampleMR::mr()</a></code> and errors are caught and reported as skipped.</p>
+<p>When <code>ld_correct = TRUE</code>, IVW and Egger use
 <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_ivw.html" class="external-link">MendelianRandomization::mr_ivw()</a></code> and <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_egger.html" class="external-link">MendelianRandomization::mr_egger()</a></code>
 with <code>correl = TRUE</code>.</p>
     </div>
