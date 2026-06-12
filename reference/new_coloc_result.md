@@ -6,6 +6,8 @@ Create a coloc_result object
 
 ``` r
 new_coloc_result(
+  exposure_id = NULL,
+  outcome_id = NULL,
   coloc_abf = NULL,
   coloc_susie = NULL,
   coloc_signals = NULL,
@@ -21,6 +23,14 @@ new_coloc_result(
 ```
 
 ## Arguments
+
+- exposure_id:
+
+  Character. Label for the exposure trait.
+
+- outcome_id:
+
+  Character. Label for the outcome trait.
 
 - coloc_abf:
 

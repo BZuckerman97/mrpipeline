@@ -54,7 +54,9 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">run_coloc</span><span class="op">(</span></span>
 <span>  <span class="va">exposure</span>,</span>
+<span>  <span class="va">exposure_id</span>,</span>
 <span>  <span class="va">outcome</span>,</span>
+<span>  <span class="va">outcome_id</span>,</span>
 <span>  <span class="va">gene_chr</span>,</span>
 <span>  <span class="va">gene_start</span>,</span>
 <span>  <span class="va">gene_end</span>,</span>
@@ -90,10 +92,20 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/format_data.html" class="external-link">TwoSampleMR::format_data()</a></code> or <code>format_pqtl_*()</code> functions).</p></dd>
 
 
+<dt id="arg-exposure-id">exposure_id<a class="anchor" aria-label="anchor" href="#arg-exposure-id"></a></dt>
+<dd><p>Character. Label for the exposure (e.g. protein name or
+trait). Used in printed output and stored in the returned object.</p></dd>
+
+
 <dt id="arg-outcome">outcome<a class="anchor" aria-label="anchor" href="#arg-outcome"></a></dt>
 <dd><p>Data frame of outcome summary statistics with standardised
 columns: <code>rsids</code>, <code>chr</code>, <code>pos</code>, <code>beta</code>, <code>se</code>, <code>eaf</code>, <code>pval</code>, <code>n</code>,
 <code>effect_allele</code>, <code>other_allele</code>.</p></dd>
+
+
+<dt id="arg-outcome-id">outcome_id<a class="anchor" aria-label="anchor" href="#arg-outcome-id"></a></dt>
+<dd><p>Character. Label for the outcome (e.g. disease name or
+trait). Used in printed output and stored in the returned object.</p></dd>
 
 
 <dt id="arg-gene-chr">gene_chr<a class="anchor" aria-label="anchor" href="#arg-gene-chr"></a></dt>

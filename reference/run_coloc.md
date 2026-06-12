@@ -10,7 +10,9 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 ``` r
 run_coloc(
   exposure,
+  exposure_id,
   outcome,
+  outcome_id,
   gene_chr,
   gene_start,
   gene_end,
@@ -45,11 +47,21 @@ run_coloc(
   [`TwoSampleMR::format_data()`](https://mrcieu.github.io/TwoSampleMR/reference/format_data.html)
   or `format_pqtl_*()` functions).
 
+- exposure_id:
+
+  Character. Label for the exposure (e.g. protein name or trait). Used
+  in printed output and stored in the returned object.
+
 - outcome:
 
   Data frame of outcome summary statistics with standardised columns:
   `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
   `effect_allele`, `other_allele`.
+
+- outcome_id:
+
+  Character. Label for the outcome (e.g. disease name or trait). Used in
+  printed output and stored in the returned object.
 
 - gene_chr:
 

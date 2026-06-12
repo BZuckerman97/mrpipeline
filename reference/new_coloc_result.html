@@ -44,6 +44,8 @@
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">new_coloc_result</span><span class="op">(</span></span>
+<span>  exposure_id <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  coloc_abf <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  coloc_susie <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  coloc_signals <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -62,7 +64,15 @@
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-coloc-abf">coloc_abf<a class="anchor" aria-label="anchor" href="#arg-coloc-abf"></a></dt>
+<dl><dt id="arg-exposure-id">exposure_id<a class="anchor" aria-label="anchor" href="#arg-exposure-id"></a></dt>
+<dd><p>Character. Label for the exposure trait.</p></dd>
+
+
+<dt id="arg-outcome-id">outcome_id<a class="anchor" aria-label="anchor" href="#arg-outcome-id"></a></dt>
+<dd><p>Character. Label for the outcome trait.</p></dd>
+
+
+<dt id="arg-coloc-abf">coloc_abf<a class="anchor" aria-label="anchor" href="#arg-coloc-abf"></a></dt>
 <dd><p>Output of <code><a href="https://rdrr.io/pkg/coloc/man/coloc.abf.html" class="external-link">coloc::coloc.abf()</a></code>, or <code>NULL</code>.</p></dd>
 
 
