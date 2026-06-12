@@ -204,7 +204,15 @@ format_gwas <- function(
       "EAF",
       "FRQ"
     ),
-    pval = c("pval", "p_value", "P-value", "P", "Pval", "p.value", "neg_log_10_p_value"),
+    pval = c(
+      "pval",
+      "p_value",
+      "P-value",
+      "P",
+      "Pval",
+      "p.value",
+      "neg_log_10_p_value"
+    ),
     n = c("n", "N", "TotalSampleSize", "n_total"),
     effect_allele = c(
       "effect_allele",
@@ -227,7 +235,9 @@ format_gwas <- function(
   )
 
   # Detect neg_log10 p-value before any renaming so we can back-transform later
-  auto_neg_log_pval <- "neg_log_10_p_value" %in% names(dat) && !"pval" %in% names(dat)
+  auto_neg_log_pval <- "neg_log_10_p_value" %in%
+    names(dat) &&
+    !"pval" %in% names(dat)
 
   # User-supplied aliases are prepended so they are found before built-in ones
   if (!is.null(col_map)) {
@@ -373,7 +383,7 @@ format_gwas <- function(
       dat <- dplyr::mutate(
         dat,
         beta = log(.data$or),
-        se   = abs(.data$beta) / stats::qnorm(.data$pval / 2, lower.tail = FALSE)
+        se = abs(.data$beta) / stats::qnorm(.data$pval / 2, lower.tail = FALSE)
       )
       cli::cli_inform(
         "{.val {phenotype_id}}: no beta/se columns found -- derived beta = log(OR) and se via Z-score method."

@@ -134,8 +134,14 @@ run_mr <- function(
   }
 
   shortcut_methods <- c(
-    "ivw", "ivw_fe", "egger", "weighted_median",
-    "presso", "conmix", "steiger", "pleiotropy"
+    "ivw",
+    "ivw_fe",
+    "egger",
+    "weighted_median",
+    "presso",
+    "conmix",
+    "steiger",
+    "pleiotropy"
   )
   tsm_available <- setdiff(TwoSampleMR::mr_method_list()$obj, "mr_wald_ratio")
   unknown_methods <- setdiff(methods, c(shortcut_methods, tsm_available))
@@ -499,11 +505,17 @@ run_mr <- function(
 
     # Skip all multi-SNP methods (shortcuts + any raw TwoSampleMR names)
     multi_shortcut_names <- c(
-      "ivw", "ivw_fe", "egger", "weighted_median", "presso", "conmix"
+      "ivw",
+      "ivw_fe",
+      "egger",
+      "weighted_median",
+      "presso",
+      "conmix"
     )
     generic_tsm_methods <- setdiff(methods, c(multi_shortcut_names, "steiger"))
     all_multi <- c(
-      intersect(methods, multi_shortcut_names), generic_tsm_methods
+      intersect(methods, multi_shortcut_names),
+      generic_tsm_methods
     )
     for (m in all_multi) {
       methods_skipped[m] <- "Only 1 instrument (Wald ratio used)"
@@ -709,7 +721,13 @@ run_mr <- function(
 
     # Generic TwoSampleMR methods (raw mr_* names not handled by shortcuts)
     shortcut_names <- c(
-      "ivw", "ivw_fe", "egger", "weighted_median", "presso", "conmix", "steiger"
+      "ivw",
+      "ivw_fe",
+      "egger",
+      "weighted_median",
+      "presso",
+      "conmix",
+      "steiger"
     )
     generic_tsm <- methods[!methods %in% shortcut_names]
     for (m in generic_tsm) {
@@ -777,7 +795,8 @@ run_mr <- function(
             "Pleiotropy test failed: {conditionMessage(e)}"
           )
           methods_skipped["pleiotropy"] <<- paste(
-            "Failed:", conditionMessage(e)
+            "Failed:",
+            conditionMessage(e)
           )
           NULL
         }

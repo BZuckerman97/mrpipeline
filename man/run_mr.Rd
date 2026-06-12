@@ -73,10 +73,11 @@ exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 \item{methods}{Character vector of MR methods to run. Named shortcuts:
 \code{"ivw"} (IVW random effects), \code{"ivw_fe"} (IVW fixed effects),
 \code{"egger"} (MR Egger), \code{"weighted_median"} (weighted median),
-\code{"presso"} (MR-PRESSO), \code{"conmix"} (ContMix), \code{"steiger"}
-(Steiger filtering), \code{"pleiotropy"} (Egger intercept test; result
-stored in \code{$pleiotropy}, not \code{$results}). You may also pass any
-method name from \code{TwoSampleMR::mr_method_list()$obj} directly.}
+\code{"presso"} (MR-PRESSO), \code{"conmix"} (ContMix), \code{"steiger"} (Steiger
+filtering), \code{"pleiotropy"} (Egger intercept test; result stored in
+\verb{$pleiotropy}, not \verb{$results}). You may also pass any method name from
+\code{TwoSampleMR::mr_method_list()$obj} directly (e.g. \code{"mr_simple_median"},
+\code{"mr_raps"}). Note: \code{"ivw_fe"} does not support \code{ld_correct = TRUE}.}
 
 \item{ld_correct}{Logical. Use LD-corrected IVW/Egger via the
 \code{MendelianRandomization} package. Requires \code{bfile}. Default \code{FALSE}.}
@@ -129,11 +130,14 @@ applies \code{pval_thresh}, then LD-clumps.
 
 Methods are dispatched based on the number of instruments after clumping:
 \itemize{
-\item 1 SNP: Wald ratio only
-\item 2 SNPs: IVW (+ ConMix/Steiger if requested); Egger/weighted_median/PRESSO
-skipped
+\item 1 SNP: Wald ratio only; all other methods skipped
+\item 2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
+are attempted; Egger, weighted median, and PRESSO require >= 3 SNPs
 \item 3+ SNPs: all methods in \code{methods} are attempted
 }
+
+Generic TwoSampleMR methods (raw \verb{mr_*} names) are dispatched via
+\code{TwoSampleMR::mr()} and errors are caught and reported as skipped.
 
 When \code{ld_correct = TRUE}, IVW and Egger use
 \code{MendelianRandomization::mr_ivw()} and \code{MendelianRandomization::mr_egger()}

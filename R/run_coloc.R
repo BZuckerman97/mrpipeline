@@ -62,6 +62,12 @@
 #'   lets PLINK auto-detect. Read from `getOption("mrpipeline.plink_memory")`
 #'   or the `MRPIPELINE_PLINK_MEMORY` environment variable via
 #'   [plink_option()].
+#' @param susie_maxit Integer. Maximum iterations for [coloc::runsusie()].
+#'   Default `10000L`. Increase if SuSiE warns about non-convergence; decrease
+#'   for faster exploratory runs.
+#' @param susie_repeat_until_convergence Logical. Passed to
+#'   [coloc::runsusie()]. Default `FALSE` -- prevents infinite loops when
+#'   SuSiE has not converged within `susie_maxit` iterations.
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
@@ -113,6 +119,8 @@ run_coloc <- function(
   p12 = 1e-5,
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
+  susie_maxit = 10000L,
+  susie_repeat_until_convergence = FALSE,
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -157,7 +165,9 @@ run_coloc <- function(
     methods = methods,
     p1 = p1,
     p2 = p2,
-    p12 = p12
+    p12 = p12,
+    susie_maxit = susie_maxit,
+    susie_repeat_until_convergence = susie_repeat_until_convergence
   )
 
   timing <- numeric(0)
@@ -410,10 +420,46 @@ run_coloc <- function(
     t0 <- proc.time()[["elapsed"]]
     susie_result <- tryCatch(
       {
-        s_exp <- coloc::runsusie(dataset_exp)
-        s_out <- coloc::runsusie(dataset_out)
-        cs_res <- coloc::coloc.susie(s_exp, s_out)
-        list(susie_exp = s_exp, susie_out = s_out, coloc_susie = cs_res)
+        s_exp <- coloc::runsusie(
+          dataset_exp,
+          maxit = susie_maxit,
+          repeat_until_convergence = susie_repeat_until_convergence
+        )
+        s_out <- coloc::runsusie(
+          dataset_out,
+          maxit = susie_maxit,
+          repeat_until_convergence = susie_repeat_until_convergence
+        )
+
+        ncs_exp <- if (is.null(s_exp$sets$cs)) 0L else length(s_exp$sets$cs)
+        ncs_out <- if (is.null(s_out$sets$cs)) 0L else length(s_out$sets$cs)
+
+        if (verbose) {
+          cli::cli_inform(
+            "SuSiE credible sets: exposure = {ncs_exp}, outcome = {ncs_out}"
+          )
+        }
+
+        cs_res <- if (ncs_exp == 0L || ncs_out == 0L) {
+          empty <- c(
+            if (ncs_exp == 0L) "exposure",
+            if (ncs_out == 0L) "outcome"
+          )
+          cli::cli_warn(
+            "coloc.susie skipped: no credible sets in {paste(empty, collapse = ' and ')}."
+          )
+          NULL
+        } else {
+          coloc::coloc.susie(s_exp, s_out)
+        }
+
+        list(
+          susie_exp = s_exp,
+          susie_out = s_out,
+          coloc_susie = cs_res,
+          ncs_exp = ncs_exp,
+          ncs_out = ncs_out
+        )
       },
       error = function(e) {
         cli::cli_warn("SuSiE/coloc.susie failed: {conditionMessage(e)}")
@@ -426,6 +472,8 @@ run_coloc <- function(
       susie_exp <- susie_result$susie_exp
       susie_out <- susie_result$susie_out
       coloc_susie_res <- susie_result$coloc_susie
+      params$susie_ncs_exp <- susie_result$ncs_exp
+      params$susie_ncs_out <- susie_result$ncs_out
     }
     timing[["coloc_susie"]] <- proc.time()[["elapsed"]] - t0
   }

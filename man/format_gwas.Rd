@@ -48,9 +48,9 @@ When supplied, \code{chr} and \code{pos} are parsed from this column.}
 \item{log10_pval}{Logical. If \code{TRUE}, the p-value column is in \code{-log10}
 scale and is back-transformed via \code{10^-x}. Default \code{FALSE}.}
 
-\item{flip_beta}{Logical. If \code{TRUE}, multiplies \code{beta} by \code{-1} -- use when
+\item{flip_beta}{Logical. If \code{TRUE}, multiplies \code{beta} by \code{-1} - use when
 the source file encodes the inverse direction of the intended exposure
-(e.g. modelling NLRP3 activation rather than suppression). Default \code{FALSE}.}
+(e.g. modelling NLRP3 inhibition rather than activation). Default \code{FALSE}.}
 
 \item{n}{Integer. Explicit sample size. Added as the \code{n} column only when no
 sample-size column is already present in the data.}
@@ -82,7 +82,8 @@ a built-in table of known aliases for each target column:\tabular{ll}{
    \code{pos} \tab \code{base_pair_location}, \code{PosB37}, \code{PosB38}, \code{BP}, \code{POS}, \code{position}, \code{GENPOS} \cr
    \code{beta} \tab \code{Beta}, \code{Effect}, \code{BETA} \cr
    \code{se} \tab \code{standard_error}, \code{StdErr}, \code{SE}, \code{sebeta} \cr
-   \code{eaf} \tab \code{effect_allele_frequency}, \code{Freq1}, \code{EAFrq}, \code{A1FREQ}, \code{af_alt}, \code{EAF} \cr
+   \code{or} \tab \code{odds_ratio}, \code{OR} \cr
+   \code{eaf} \tab \code{effect_allele_frequency}, \code{Freq1}, \code{EAFrq}, \code{A1FREQ}, \code{af_alt}, \code{EAF}, \code{FRQ} \cr
    \code{pval} \tab \code{p_value}, \code{P-value}, \code{P}, \code{Pval}, \code{p.value} \cr
    \code{n} \tab \code{N}, \code{TotalSampleSize}, \code{n_total} \cr
    \code{effect_allele} \tab \code{Allele1}, \code{EA}, \code{A1}, \code{ALLELE1}, \code{effectAllele}, \code{ALT} \cr
@@ -95,6 +96,23 @@ appear in the table above -- for example, if your p-value column is called
 \code{"PVALUE"}, add \code{col_map = list(pval = "PVALUE")}. Inspect \code{names()} of your
 loaded data to check. User-supplied aliases are checked before the built-in
 list, so they take precedence in the event of ambiguity.
+}
+
+\section{Automatic odds-ratio to log-odds conversion}{
+
+Some GWAS files (particularly older EBI deposits) report effect sizes as odds
+ratios rather than log-odds. When \code{beta} is absent after column normalisation
+but an \code{or} column is present, the function automatically derives:
+\itemize{
+\item \code{beta = log(or)} (natural log; converts OR to the log-odds scale MR requires)
+\item \verb{se = |beta| / qnorm(pval / 2)} (Z-score back-calculation from p-value)
+}
+
+The Z-score method requires \code{pval} to be present and is accurate when effect
+sizes are small (OR close to 1), which is typical for common-variant GWAS.
+An informative message is emitted whenever the conversion is applied.
+If your file has an OR column under a non-standard name, add it via
+\code{col_map = list(or = "MY_OR_COLUMN")}.
 }
 
 \section{rsID lookup from bim file}{

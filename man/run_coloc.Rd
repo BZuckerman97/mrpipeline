@@ -27,6 +27,8 @@ run_coloc(
   p12 = 1e-05,
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
+  susie_maxit = 10000L,
+  susie_repeat_until_convergence = FALSE,
   verbose = TRUE
 )
 }
@@ -98,6 +100,14 @@ or the \code{MRPIPELINE_PLINK_THREADS} environment variable via
 lets PLINK auto-detect. Read from \code{getOption("mrpipeline.plink_memory")}
 or the \code{MRPIPELINE_PLINK_MEMORY} environment variable via
 \code{\link[=plink_option]{plink_option()}}.}
+
+\item{susie_maxit}{Integer. Maximum iterations for \code{\link[coloc:runsusie]{coloc::runsusie()}}.
+Default \code{10000L}. Increase if SuSiE warns about non-convergence; decrease
+for faster exploratory runs.}
+
+\item{susie_repeat_until_convergence}{Logical. Passed to
+\code{\link[coloc:runsusie]{coloc::runsusie()}}. Default \code{FALSE} -- prevents infinite loops when
+SuSiE has not converged within \code{susie_maxit} iterations.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
