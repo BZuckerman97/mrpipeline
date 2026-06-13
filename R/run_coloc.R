@@ -72,6 +72,11 @@
 #' @param susie_repeat_until_convergence Logical. Passed to
 #'   [coloc::runsusie()]. Default `FALSE` -- prevents infinite loops when
 #'   SuSiE has not converged within `susie_maxit` iterations.
+#' @param exclude_regions Data frame with columns `chr`, `start`, `end` defining
+#'   genomic regions to exclude SNPs from before colocalization, or `NULL`.
+#'   SNPs in both the exposure and outcome that fall within any listed region
+#'   are dropped before harmonisation. For example, to exclude the MHC:
+#'   `data.frame(chr = "6", start = 26e6, end = 34e6)`.
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
@@ -127,6 +132,7 @@ run_coloc <- function(
   plink_memory = plink_option("memory"),
   susie_maxit = 10000L,
   susie_repeat_until_convergence = FALSE,
+  exclude_regions = NULL,
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -154,6 +160,10 @@ run_coloc <- function(
     )
   }
 
+  if (!is.null(exclude_regions)) {
+    validate_exclude_regions(exclude_regions)
+  }
+
   params <- list(
     exposure_id = exposure_id,
     outcome_id = outcome_id,
@@ -175,7 +185,8 @@ run_coloc <- function(
     p2 = p2,
     p12 = p12,
     susie_maxit = susie_maxit,
-    susie_repeat_until_convergence = susie_repeat_until_convergence
+    susie_repeat_until_convergence = susie_repeat_until_convergence,
+    exclude_regions = exclude_regions
   )
 
   timing <- numeric(0)
@@ -246,6 +257,64 @@ run_coloc <- function(
       timing = timing
     ))
   }
+
+  # --- Region exclusion -------------------------------------------------------
+
+  t0 <- proc.time()[["elapsed"]]
+
+  if (!is.null(exclude_regions)) {
+    in_excl_exp <- rep(FALSE, nrow(exposure_filt))
+    for (i in seq_len(nrow(exclude_regions))) {
+      in_excl_exp <- in_excl_exp |
+        (as.character(exposure_filt$chr.exposure) ==
+          as.character(exclude_regions$chr[i]) &
+          exposure_filt$pos.exposure >= exclude_regions$start[i] &
+          exposure_filt$pos.exposure <= exclude_regions$end[i])
+    }
+    if (any(in_excl_exp)) {
+      n_removed <- sum(in_excl_exp)
+      exposure_filt <- exposure_filt[!in_excl_exp, ]
+      if (verbose) {
+        cli::cli_inform(
+          "Removed {n_removed} exposure SNP{?s} in excluded region{?s}."
+        )
+      }
+      if (nrow(exposure_filt) == 0) {
+        cli::cli_warn(
+          "All exposure SNPs in region chr{chr_val}:{min_pos}-{max_pos} fall within excluded regions."
+        )
+        timing[["region_exclusion"]] <- proc.time()[["elapsed"]] - t0
+        return(new_coloc_result(
+          exposure_id = exposure_id,
+          outcome_id = outcome_id,
+          status = "no_snps_in_region",
+          status_reason = paste0(
+            "All exposure SNPs in chr",
+            chr_val, ":", min_pos, "-", max_pos,
+            " fall within excluded regions"
+          ),
+          params = params,
+          timing = timing
+        ))
+      }
+    }
+
+    in_excl_out <- rep(FALSE, nrow(outcome_in_window))
+    for (i in seq_len(nrow(exclude_regions))) {
+      in_excl_out <- in_excl_out |
+        (as.character(outcome_in_window$chr) ==
+          as.character(exclude_regions$chr[i]) &
+          outcome_in_window$pos >= exclude_regions$start[i] &
+          outcome_in_window$pos <= exclude_regions$end[i])
+    }
+    if (any(in_excl_out)) {
+      outcome_in_window <- outcome_in_window[!in_excl_out, ]
+    }
+  }
+
+  timing[["region_exclusion"]] <- proc.time()[["elapsed"]] - t0
+
+  # --- Format outcome ----------------------------------------------------------
 
   outcome_data <- TwoSampleMR::format_data(
     outcome_in_window,

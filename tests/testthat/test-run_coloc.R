@@ -164,6 +164,105 @@ test_that("run_coloc returns no_snps_in_region when outcome has no SNPs in windo
   expect_equal(result$status, "no_snps_in_region")
 })
 
+# --- exclude_regions validation ----------------------------------------------
+
+test_that("run_coloc errors when exclude_regions is not a data frame", {
+  expect_error(
+    run_coloc(
+      exposure = data.frame(),
+      outcome = data.frame(),
+      gene_chr = 1,
+      gene_start = 1000,
+      gene_end = 2000,
+      bfile = "/fake/path",
+      exclude_regions = list(chr = "6", start = 26e6, end = 34e6)
+    ),
+    "data frame"
+  )
+})
+
+test_that("run_coloc errors when exclude_regions is missing required columns", {
+  expect_error(
+    run_coloc(
+      exposure = data.frame(),
+      outcome = data.frame(),
+      gene_chr = 1,
+      gene_start = 1000,
+      gene_end = 2000,
+      bfile = "/fake/path",
+      exclude_regions = data.frame(chromosome = "6", begin = 26e6, finish = 34e6)
+    ),
+    "chr"
+  )
+})
+
+test_that("run_coloc errors when exclude_regions has start > end", {
+  expect_error(
+    run_coloc(
+      exposure = data.frame(),
+      outcome = data.frame(),
+      gene_chr = 1,
+      gene_start = 1000,
+      gene_end = 2000,
+      bfile = "/fake/path",
+      exclude_regions = data.frame(chr = "6", start = 34000000L, end = 26000000L)
+    ),
+    "start"
+  )
+})
+
+# --- exclude_regions filtering -----------------------------------------------
+
+test_that("run_coloc returns no_snps_in_region when all exposure SNPs fall in excluded region", {
+  exposure <- data.frame(
+    SNP = "rs1",
+    chr.exposure = "6",
+    pos.exposure = 30000000L,
+    beta.exposure = 0.1,
+    se.exposure = 0.05,
+    effect_allele.exposure = "A",
+    other_allele.exposure = "G",
+    pval.exposure = 1e-5,
+    eaf.exposure = 0.3,
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = "rs1",
+    chr = "6",
+    pos = 30000000L,
+    beta = 0.05,
+    se = 0.02,
+    eaf = 0.3,
+    pval = 0.01,
+    n = 5000,
+    effect_allele = "A",
+    other_allele = "G",
+    stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    result <- run_coloc(
+      exposure = exposure,
+      exposure_id = "TEST_EXP",
+      outcome = outcome,
+      outcome_id = "TEST_OUT",
+      gene_chr = "6",
+      gene_start = 29000000L,
+      gene_end = 31000000L,
+      bfile = "/fake/path",
+      methods = "abf",
+      exclude_regions = data.frame(chr = "6", start = 26000000L, end = 34000000L)
+    ),
+    "excluded"
+  )
+
+  expect_s3_class(result, "coloc_result")
+  expect_equal(result$status, "no_snps_in_region")
+})
+
 # --- coloc_result S3 class ---------------------------------------------------
 
 test_that("coloc_result print works with non-success status", {

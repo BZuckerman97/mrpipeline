@@ -31,6 +31,7 @@ run_coloc(
   plink_memory = plink_option("memory"),
   susie_maxit = 10000L,
   susie_repeat_until_convergence = FALSE,
+  exclude_regions = NULL,
   verbose = TRUE
 )
 }
@@ -116,6 +117,12 @@ for faster exploratory runs.}
 \item{susie_repeat_until_convergence}{Logical. Passed to
 \code{\link[coloc:runsusie]{coloc::runsusie()}}. Default \code{FALSE} -- prevents infinite loops when
 SuSiE has not converged within \code{susie_maxit} iterations.}
+
+\item{exclude_regions}{Data frame with columns \code{chr}, \code{start}, \code{end} defining
+genomic regions to exclude SNPs from before colocalization, or \code{NULL}.
+SNPs in both the exposure and outcome that fall within any listed region
+are dropped before harmonisation. For example, to exclude the MHC:
+\code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
