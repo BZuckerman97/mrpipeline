@@ -35,6 +35,7 @@ run_coloc(
   plink_memory = plink_option("memory"),
   susie_maxit = 10000L,
   susie_repeat_until_convergence = FALSE,
+  exclude_regions = NULL,
   verbose = TRUE
 )
 ```
@@ -177,6 +178,14 @@ run_coloc(
   [`coloc::runsusie()`](https://rdrr.io/pkg/coloc/man/runsusie.html).
   Default `FALSE` – prevents infinite loops when SuSiE has not converged
   within `susie_maxit` iterations.
+
+- exclude_regions:
+
+  Data frame with columns `chr`, `start`, `end` defining genomic regions
+  to exclude SNPs from before colocalization, or `NULL`. SNPs in both
+  the exposure and outcome that fall within any listed region are
+  dropped before harmonisation. For example, to exclude the MHC:
+  `data.frame(chr = "6", start = 26e6, end = 34e6)`.
 
 - verbose:
 

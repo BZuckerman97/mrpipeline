@@ -30,11 +30,13 @@ not found in Ensembl are dropped with a warning.
 
 ``` r
 get_gene_coords("CD40")
-#> Ensembl site unresponsive, trying asia mirror
 #> # A tibble: 1 × 4
 #>   hgnc_symbol chromosome    start      end
 #>   <chr>       <chr>         <int>    <int>
 #> 1 CD40        20         46118240 46130378
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
-#> Error in req_perform(request): HTTP 504 Gateway Timeout.
+#> Error in req_perform(request): Failed to perform HTTP request.
+#> Caused by error in `curl::curl_fetch_memory()`:
+#> ! Unsupported protocol [grch37.ensembl.org]:
+#> Received HTTP/0.9 when not allowed
 ```
