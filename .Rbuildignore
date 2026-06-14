@@ -1,3 +1,5 @@
+^_targets\.R$
+^config\.R$
 ^renv$
 ^renv\.lock$
 ^mrpipeline\.Rproj$

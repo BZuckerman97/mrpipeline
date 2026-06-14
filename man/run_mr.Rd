@@ -104,8 +104,10 @@ Default \code{TRUE}.}
 }
 \value{
 An \code{mr_result} object. Check \code{result$status} for \code{"success"} vs
-failure reasons. The \verb{$timing} field contains a named numeric vector of
-elapsed seconds for each major step.
+failure reasons. The \verb{$results} data frame includes \code{or}, \code{or_lci95}, and
+\code{or_uci95} columns (from \code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}) alongside
+the raw \code{b} and \code{se}. The \verb{$timing} field contains a named numeric vector
+of elapsed seconds for each major step.
 }
 \description{
 Runs MR with automatic instrument selection (cis-MR, genome-wide, or manual)
@@ -142,6 +144,12 @@ Generic TwoSampleMR methods (raw \verb{mr_*} names) are dispatched via
 When \code{ld_correct = TRUE}, IVW and Egger use
 \code{MendelianRandomization::mr_ivw()} and \code{MendelianRandomization::mr_egger()}
 with \code{correl = TRUE}.
+
+When \code{"egger"} is in \code{methods} and there are >= 3 instruments,
+\code{TwoSampleMR::mr_pleiotropy_test()} (the Egger intercept test) is always
+run automatically and its result stored in \verb{$pleiotropy}. You do not need
+to add \code{"pleiotropy"} to \code{methods} separately. The \code{"pleiotropy"} shortcut
+remains available for running the intercept test without Egger.
 }
 
 \examples{

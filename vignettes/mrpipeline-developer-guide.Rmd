@@ -23,8 +23,7 @@ knitr::opts_chunk$set(
 
 ### `mr_result`
 
-<!-- TODO: full structure documentation (results, instruments, f_stats, steiger, methods_skipped, ld_matrix, params) -->
-<!-- TODO: print.mr_result() and summary.mr_result() -->
+<!-- TODO: full structure documentation (instruments, f_stats, steiger, methods_skipped, ld_matrix, params) -->
 
 Every `run_mr()` call returns an `mr_result` object — even when no instruments
 survive filtering. The `status` field indicates success or failure:
@@ -36,8 +35,44 @@ survive filtering. The `status` field indicates success or failure:
 The `status_reason` field provides a human-readable explanation (e.g.
 `"No significant instruments in cis region for 'PCSK9'"`).
 
-`print.mr_result()` and `summary.mr_result()` display status information for
-non-success results.
+#### `$results` data frame
+
+The `$results` data frame has one row per MR method and the following columns:
+
+| Column | Description |
+|--------|-------------|
+| `exposure` | Exposure label (from `exposure_id`) |
+| `outcome` | Outcome label (from `outcome_id`) |
+| `method` | Method name |
+| `nsnp` | Number of instruments used |
+| `b` | Effect estimate (log-OR scale for case-control outcomes) |
+| `se` | Standard error of `b` |
+| `pval` | P-value |
+| `lo_ci` | Lower 95% CI on the log-OR scale (`b - 1.96 * se`) |
+| `up_ci` | Upper 95% CI on the log-OR scale (`b + 1.96 * se`) |
+| `or` | Odds ratio (`exp(b)`) |
+| `or_lci95` | Lower 95% CI for OR (`exp(lo_ci)`) |
+| `or_uci95` | Upper 95% CI for OR (`exp(up_ci)`) |
+
+The OR columns are always present (added by `TwoSampleMR::generate_odds_ratios()`
+in the results assembly step). For quantitative outcomes the OR columns are
+still computed but should be interpreted cautiously -- they reflect exponentiated
+effect sizes, not true odds ratios.
+
+#### Egger intercept / pleiotropy test
+
+`TwoSampleMR::mr_pleiotropy_test()` is run automatically whenever `"egger"` is
+in `methods` and there are >= 3 instruments. The result is stored in
+`$pleiotropy` as a data frame with columns `egger_intercept`, `se`, `pval`,
+`exposure`, and `outcome`. The `"pleiotropy"` shortcut in `methods` triggers the
+same test independently (i.e. without also running the Egger slope estimate).
+
+#### `print.mr_result()` and `summary.mr_result()`
+
+`print.mr_result()` shows a one-line summary using the first result row, including
+the OR and 95% CI (when available). `summary.mr_result()` shows all methods with
+OR columns, F-statistics, Steiger result, the Egger intercept (when computed),
+and skipped methods.
 
 ### `coloc_result`
 
@@ -79,6 +114,88 @@ Both methods return `NULL` invisibly for non-success results with an
 informative message.
 
 ## Exported Utility Functions
+
+### Single-cell RNA eQTL format functions
+
+Four functions format raw single-cell eQTL datasets into the TwoSampleMR
+exposure format expected by `run_mr()` and `run_coloc()`. They live in
+`R/format_single_cell_onek1k.R` and `R/format_sc_RNA_eqtl.R`. All functions:
+
+- Produce a TwoSampleMR exposure data frame with `chr.exposure`, `pos.exposure`,
+  and `eaf.exposure` (where available) so that `run_coloc()` can perform its
+  window filter and MAF computation without requiring extra arguments.
+- Use the phenotype label convention `GENE___cell_type` (triple underscore),
+  matching what `run_mr()` and downstream splitting code expect.
+- Accept a `cell_type` argument that, when `NULL`, is inferred from the filename.
+
+#### `format_single_cell_onek1k()`
+
+Handles the OneK1K combined eQTL table (`esnp_table.tsv.gz` or per-cell-type
+files). Key column mapping:
+
+| Raw column | Role | Notes |
+|---|---|---|
+| `A2` | effect allele | Assessed allele; `A2_FREQ_ONEK1K` is its frequency |
+| `A1` | other allele | |
+| `SPEARMANS_RHO` | beta | Used as a standardised effect size |
+| derived | se | `|rho| / qnorm(P_VALUE / 2, lower.tail = FALSE)` |
+| `CHR`, `POS` | chr, pos | Required by `run_coloc()` window filter |
+| `A2_FREQ_ONEK1K` | eaf | Required by `run_coloc()` MAF computation |
+
+When the file contains a `CELL_ID` column (multi-cell-type combined file),
+rows are filtered to the requested cell type. An optional `sample_size`
+argument stores `samplesize.exposure` for `run_coloc()`.
+
+#### `format_sceqtl_1m_scbloodnl()`
+
+Handles per-cell-type files from the 1M-scBloodNL cohort
+(`*_expression_eQTLsFDR-ProbeLevel.txt.gz`). Beta and SE are both derived
+because the raw files report Z-scores rather than effect sizes:
+
+- `N_total = sum(DatasetsNrSamples split on ";")`
+- `se = 1 / sqrt(N_total)`
+- `beta = OverallZScore * se`
+- `other_allele` derived by splitting `SNPType` on "/" and taking the allele
+  that differs from `AlleleAssessed`
+
+Rows where the other allele cannot be determined (allele not found in
+`SNPType`) are dropped with an informational message. Filtering to cis eQTLs
+(`CisTrans == "cis"`) is applied by default via the `cis_only` argument. Note
+that EAF is not available in these files, so `eaf.exposure` will be absent
+from the output, which means `run_coloc()` will need an explicit `exposure_n`
+argument and sample size cannot be inferred from the formatted data.
+
+#### `format_sceqtl_dice()`
+
+Handles per-cell-type VCF files from the DICE database. VCF meta-information
+lines (`##`) are skipped by the internal `read_vcf_data()` helper, which counts
+comment lines via a streaming connection before calling `data.table::fread()`.
+The INFO field is parsed with regex to extract `Gene`, `GeneSymbol`, `Pvalue`,
+and `Beta`. SE derivation: `|Beta| / sqrt(qchisq(Pvalue, df = 1))`.
+
+Key filtering decisions:
+- Only biallelic SNPs (single nucleotide, A/C/G/T bases) are retained.
+- Palindromic SNPs (A/T and C/G) are **dropped** because DICE provides no
+  allele frequency data to resolve strand ambiguity.
+- `ALT` is treated as the effect allele; `REF` as the other allele.
+
+No EAF or sample size is available in the DICE VCF format.
+
+#### `format_sceqtl_dynamic_cseqtl()`
+
+Handles per-cell-type pre-formatted files (`*_500kb_combined.MR.tsv.gz`).
+These files already contain standard columns (`SNP`, `beta`, `se`,
+`effect_allele`, `other_allele`, `pval`, `chr`, `pos`), so the function's
+only job is to append the cell type to the gene name and call
+`TwoSampleMR::format_data()`. No EAF or sample size is available.
+
+#### Internal helper: `read_vcf_data()`
+
+Lives in `R/format_sc_RNA_eqtl.R`, tagged `@keywords internal`. Opens a
+streaming connection to the file, counts `##` comment lines one at a time
+(memory-efficient), reads the `#CHROM` header line to extract column names,
+then calls `data.table::fread()` with `skip` and `col.names`. Works for both
+plain and gzip-compressed VCF files.
 
 ### `get_gene_coords()`
 

@@ -1,7 +1,8 @@
 #' Create an mr_result object
 #'
 #' @param results Data frame with columns: exposure, outcome, method, nsnp,
-#'   b, se, pval.
+#'   b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
+#'   [TwoSampleMR::generate_odds_ratios()]).
 #' @param instruments Data frame of harmonised (and clumped) instrument data.
 #' @param f_stats List with elements `per_snp` (numeric vector),
 #'   `mean` (numeric scalar), `min` (numeric scalar).
@@ -92,9 +93,23 @@ print.mr_result <- function(x, ...) {
   nsnp <- primary$nsnp
   mean_f <- x$f_stats$mean
 
+  or_str <- if ("or" %in% names(primary) && !is.na(primary$or)) {
+    paste0(
+      ", OR = ",
+      round(primary$or, 3),
+      " [",
+      round(primary$or_lci95, 3),
+      "-",
+      round(primary$or_uci95, 3),
+      "]"
+    )
+  } else {
+    ""
+  }
+
   cli::cli_inform(c(
     "{primary$exposure} -> {primary$outcome}",
-    "i" = "{primary$method}: b = {round(primary$b, 4)}, se = {round(primary$se, 4)}, p = {signif(primary$pval, 3)}",
+    "i" = "{primary$method}: b = {round(primary$b, 4)}, se = {round(primary$se, 4)}, p = {signif(primary$pval, 3)}{or_str}",
     "i" = "{nsnp} SNP{?s}, mean F = {round(mean_f, 1)}"
   ))
 
@@ -143,8 +158,21 @@ summary.mr_result <- function(object, ...) {
   cli::cli_h2("Method estimates")
   res <- object$results
   for (i in seq_len(nrow(res))) {
+    or_str <- if ("or" %in% names(res) && !is.na(res$or[i])) {
+      paste0(
+        ", OR = ",
+        round(res$or[i], 3),
+        " [",
+        round(res$or_lci95[i], 3),
+        "-",
+        round(res$or_uci95[i], 3),
+        "]"
+      )
+    } else {
+      ""
+    }
     cli::cli_bullets(c(
-      "*" = "{res$method[i]}: b = {round(res$b[i], 4)}, se = {round(res$se[i], 4)}, p = {signif(res$pval[i], 3)} ({res$nsnp[i]} SNPs)"
+      "*" = "{res$method[i]}: b = {round(res$b[i], 4)}, se = {round(res$se[i], 4)}, p = {signif(res$pval[i], 3)}{or_str} ({res$nsnp[i]} SNPs)"
     ))
   }
 

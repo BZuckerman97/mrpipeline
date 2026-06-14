@@ -290,7 +290,11 @@ run_coloc <- function(
           status = "no_snps_in_region",
           status_reason = paste0(
             "All exposure SNPs in chr",
-            chr_val, ":", min_pos, "-", max_pos,
+            chr_val,
+            ":",
+            min_pos,
+            "-",
+            max_pos,
             " fall within excluded regions"
           ),
           params = params,

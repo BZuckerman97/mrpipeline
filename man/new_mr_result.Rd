@@ -20,7 +20,8 @@ new_mr_result(
 }
 \arguments{
 \item{results}{Data frame with columns: exposure, outcome, method, nsnp,
-b, se, pval.}
+b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
+\code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}).}
 
 \item{instruments}{Data frame of harmonised (and clumped) instrument data.}
 

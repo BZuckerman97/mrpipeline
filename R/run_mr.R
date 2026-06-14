@@ -29,6 +29,12 @@
 #' `MendelianRandomization::mr_ivw()` and `MendelianRandomization::mr_egger()`
 #' with `correl = TRUE`.
 #'
+#' When `"egger"` is in `methods` and there are >= 3 instruments,
+#' `TwoSampleMR::mr_pleiotropy_test()` (the Egger intercept test) is always
+#' run automatically and its result stored in `$pleiotropy`. You do not need
+#' to add `"pleiotropy"` to `methods` separately. The `"pleiotropy"` shortcut
+#' remains available for running the intercept test without Egger.
+#'
 #' @param exposure Data frame of formatted exposure data (output of
 #'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
 #' @param exposure_id Character. Identifier for the exposure (e.g. protein
@@ -83,8 +89,10 @@
 #'   Default `TRUE`.
 #'
 #' @return An `mr_result` object. Check `result$status` for `"success"` vs
-#'   failure reasons. The `$timing` field contains a named numeric vector of
-#'   elapsed seconds for each major step.
+#'   failure reasons. The `$results` data frame includes `or`, `or_lci95`, and
+#'   `or_uci95` columns (from [TwoSampleMR::generate_odds_ratios()]) alongside
+#'   the raw `b` and `se`. The `$timing` field contains a named numeric vector
+#'   of elapsed seconds for each major step.
 #'
 #' @examples
 #' \dontrun{
@@ -779,9 +787,11 @@ run_mr <- function(
     timing[["mr_steiger"]] <- proc.time()[["elapsed"]] - t0
   }
 
-  # Pleiotropy test -- Egger intercept (requires >= 3 SNPs)
+  # Pleiotropy test -- Egger intercept (requires >= 3 SNPs).
+  # Runs automatically when "egger" is in methods; the "pleiotropy" shortcut
+  # also triggers it independently (e.g. without Egger).
   pleiotropy_result <- NULL
-  if ("pleiotropy" %in% methods) {
+  if ("pleiotropy" %in% methods || "egger" %in% methods) {
     t0 <- proc.time()[["elapsed"]]
     if (n_snps < 3) {
       methods_skipped["pleiotropy"] <- "Requires >= 3 instruments"
@@ -818,9 +828,11 @@ run_mr <- function(
       pval = numeric(),
       stringsAsFactors = FALSE
     )
+    results_df <- TwoSampleMR::generate_odds_ratios(results_df)
   } else {
     results_df <- do.call(rbind, results_list)
     rownames(results_df) <- NULL
+    results_df <- TwoSampleMR::generate_odds_ratios(results_df)
   }
 
   new_mr_result(

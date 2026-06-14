@@ -80,6 +80,9 @@ internal), you MUST regenerate the man/ files before committing. Failure to do
 this causes R CMD check to error on all CI platforms.
 
 **After every function signature change, remind the user to run:**
+```bash
+air format .           # must be run before devtools::document()
+```
 ```r
 devtools::document()   # must be run in an R session, not via Rscript
 ```
@@ -94,8 +97,8 @@ file manually: update the `\usage{}` block and add a `\item{}` in `\arguments{}`
 
 Before opening any pull request:
 
-1. `devtools::document()` -- regenerate man/ files (run in R, not terminal)
-2. `air format .` -- auto-format R files
+1. `air format .` -- auto-format R files (run before devtools::document())
+2. `devtools::document()` -- regenerate man/ files (run in R, not terminal)
 3. `lintr::lint_package()` -- fix any lint warnings
 4. `pkgdown::build_site()` -- confirm site builds without errors
 5. `devtools::check()` -- must produce 0 errors, 0 warnings

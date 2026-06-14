@@ -190,7 +190,11 @@ test_that("run_coloc errors when exclude_regions is missing required columns", {
       gene_start = 1000,
       gene_end = 2000,
       bfile = "/fake/path",
-      exclude_regions = data.frame(chromosome = "6", begin = 26e6, finish = 34e6)
+      exclude_regions = data.frame(
+        chromosome = "6",
+        begin = 26e6,
+        finish = 34e6
+      )
     ),
     "chr"
   )
@@ -205,7 +209,11 @@ test_that("run_coloc errors when exclude_regions has start > end", {
       gene_start = 1000,
       gene_end = 2000,
       bfile = "/fake/path",
-      exclude_regions = data.frame(chr = "6", start = 34000000L, end = 26000000L)
+      exclude_regions = data.frame(
+        chr = "6",
+        start = 34000000L,
+        end = 26000000L
+      )
     ),
     "start"
   )
@@ -254,7 +262,11 @@ test_that("run_coloc returns no_snps_in_region when all exposure SNPs fall in ex
       gene_end = 31000000L,
       bfile = "/fake/path",
       methods = "abf",
-      exclude_regions = data.frame(chr = "6", start = 26000000L, end = 34000000L)
+      exclude_regions = data.frame(
+        chr = "6",
+        start = 26000000L,
+        end = 34000000L
+      )
     ),
     "excluded"
   )
