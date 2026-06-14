@@ -95,6 +95,7 @@ test_that("run_coloc returns no_snps_in_region when exposure has no SNPs in wind
   expect_warning(
     result <- run_coloc(
       exposure = exposure,
+      exposure_id = "test_exp",
       outcome = data.frame(
         rsids = "rs1",
         chr = "1",
@@ -108,6 +109,7 @@ test_that("run_coloc returns no_snps_in_region when exposure has no SNPs in wind
         other_allele = "G",
         stringsAsFactors = FALSE
       ),
+      outcome_id = "test_out",
       gene_chr = 1,
       gene_start = 1000,
       gene_end = 2000,
@@ -139,6 +141,7 @@ test_that("run_coloc returns no_snps_in_region when outcome has no SNPs in windo
   expect_warning(
     result <- run_coloc(
       exposure = exposure,
+      exposure_id = "test_exp",
       outcome = data.frame(
         rsids = "rs1",
         chr = "2",
@@ -152,6 +155,7 @@ test_that("run_coloc returns no_snps_in_region when outcome has no SNPs in windo
         other_allele = "G",
         stringsAsFactors = FALSE
       ),
+      outcome_id = "test_out",
       gene_chr = 1,
       gene_start = 1000,
       gene_end = 2000,
@@ -482,7 +486,9 @@ test_that("run_coloc ABF-only returns correct coloc_result structure", {
   suppressMessages({
     result <- run_coloc(
       exposure = exposure,
+      exposure_id = "test_exp",
       outcome = outcome,
+      outcome_id = "test_out",
       gene_chr = test_chr,
       gene_start = min_pos,
       gene_end = max_pos,
@@ -560,7 +566,9 @@ test_that("run_coloc skips prop_test when susie not requested", {
   suppressMessages(suppressWarnings({
     result <- run_coloc(
       exposure = exposure,
+      exposure_id = "test_exp",
       outcome = outcome,
+      outcome_id = "test_out",
       gene_chr = test_chr,
       gene_start = min(test_positions),
       gene_end = max(test_positions),
