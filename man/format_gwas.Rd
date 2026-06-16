@@ -35,8 +35,12 @@ not already covered by the built-in alias table (see \emph{Column normalisation}
 section). User entries are checked before the built-in list.}
 
 \item{bim_path}{Character. Path to a PLINK bfile prefix (without \code{.bim})
-used to recover rsIDs when the data lacks them. Required whenever the
-rsids column is absent.}
+used to recover rsIDs when the data lacks them (joins by chr + pos), or
+to recover chr/pos when the data has rsIDs but no positional columns
+(joins by rsID) -- see \emph{rsID lookup from bim file} and \emph{chr/pos lookup
+from bim file (reverse direction)}. Required whenever the rsids column
+is absent; optional but recommended when rsids are present without
+chr/pos and a coloc analysis is planned.}
 
 \item{marker_col}{Character. Name of a compound marker ID column in
 \code{"CHR<sep>POS<sep>..."} format (e.g. \code{"MarkerName"} for SCALLOP files).
@@ -122,6 +126,21 @@ When \code{rsids} is absent (or all \code{NA}) after column normalisation, and
 file by chromosome and position to recover rsIDs. Rows without a bim match
 are dropped -- they are absent from the reference panel and cannot be used
 in LD-based analyses. A message reports how many SNPs were retained.
+}
+
+\section{chr/pos lookup from bim file (reverse direction)}{
+
+Some files report a real rsID but no positional columns at all (e.g. the
+Corbin & Timpson 2020 cytokine GWASes, whose \code{MarkerName} column already
+contains rsIDs). When \code{rsids} is present but \code{chr}/\code{pos} are absent, and
+\code{bim_path} is supplied, the function instead inner-joins to the bim file
+\strong{by rsID} to recover chromosome and position. This is the mirror image of
+the lookup above and is needed because \code{\link[=run_coloc]{run_coloc()}} requires \code{chr}/\code{pos}
+to window data around a gene region, even though \code{\link[=run_mr]{run_mr()}} does not need
+them. If \code{bim_path} is not supplied in this situation, \code{chr}/\code{pos} are
+simply left absent -- \code{format_gwas()} does not require them for \code{run_mr()},
+but a coloc analysis on that outcome will fail downstream until they are
+added (e.g. by re-running with \code{bim_path} set).
 }
 
 \section{Marker column parsing}{
