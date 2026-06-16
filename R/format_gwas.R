@@ -51,6 +51,19 @@
 #' are dropped -- they are absent from the reference panel and cannot be used
 #' in LD-based analyses. A message reports how many SNPs were retained.
 #'
+#' @section chr/pos lookup from bim file (reverse direction):
+#' Some files report a real rsID but no positional columns at all (e.g. the
+#' Corbin & Timpson 2020 cytokine GWASes, whose `MarkerName` column already
+#' contains rsIDs). When `rsids` is present but `chr`/`pos` are absent, and
+#' `bim_path` is supplied, the function instead inner-joins to the bim file
+#' **by rsID** to recover chromosome and position. This is the mirror image of
+#' the lookup above and is needed because [run_coloc()] requires `chr`/`pos`
+#' to window data around a gene region, even though [run_mr()] does not need
+#' them. If `bim_path` is not supplied in this situation, `chr`/`pos` are
+#' simply left absent -- `format_gwas()` does not require them for `run_mr()`,
+#' but a coloc analysis on that outcome will fail downstream until they are
+#' added (e.g. by re-running with `bim_path` set).
+#'
 #' @section Marker column parsing:
 #' Set `marker_col` to the name of a compound marker ID column whose values
 #' have the form `"CHR<sep>POS<sep>..."` (e.g. SCALLOP `"MarkerName"`).
@@ -71,8 +84,12 @@
 #'   not already covered by the built-in alias table (see *Column normalisation*
 #'   section). User entries are checked before the built-in list.
 #' @param bim_path Character. Path to a PLINK bfile prefix (without `.bim`)
-#'   used to recover rsIDs when the data lacks them. Required whenever the
-#'   rsids column is absent.
+#'   used to recover rsIDs when the data lacks them (joins by chr + pos), or
+#'   to recover chr/pos when the data has rsIDs but no positional columns
+#'   (joins by rsID) -- see *rsID lookup from bim file* and *chr/pos lookup
+#'   from bim file (reverse direction)*. Required whenever the rsids column
+#'   is absent; optional but recommended when rsids are present without
+#'   chr/pos and a coloc analysis is planned.
 #' @param marker_col Character. Name of a compound marker ID column in
 #'   `"CHR<sep>POS<sep>..."` format (e.g. `"MarkerName"` for SCALLOP files).
 #'   When supplied, `chr` and `pos` are parsed from this column.
@@ -328,6 +345,45 @@ format_gwas <- function(
     if (n_after == 0L) {
       cli::cli_abort(
         "No SNPs matched in bim file. Check chromosome format and genome build."
+      )
+    }
+  } else if (!all(c("chr", "pos") %in% names(dat)) && !is.null(bim_path)) {
+    # -- chr/pos lookup from bim file (via rsID) --------------------------------
+    # Triggered when rsids are already present but chr/pos are absent -- e.g.
+    # Corbin & Timpson 2020 cytokine files, whose MarkerName column is a real
+    # rsID but the file carries no positional columns at all. run_mr() does not
+    # need chr/pos (it works by rsID alone), but run_coloc() requires them to
+    # window the data around the target gene region, so this recovers them by
+    # joining on rsID instead of chromosome + position.
+    bim_file <- paste0(bim_path, ".bim")
+    if (!file.exists(bim_file)) {
+      cli::cli_abort("bim file not found: {.path {bim_file}}")
+    }
+
+    bim <- data.table::fread(
+      bim_file,
+      header = FALSE,
+      select = c(1L, 2L, 4L),
+      col.names = c("chr", "rsids", "pos")
+    ) |>
+      as.data.frame() |>
+      # One row per rsID -- guards against any duplicate rsIDs in the bim
+      dplyr::distinct(.data$rsids, .keep_all = TRUE) |>
+      dplyr::mutate(
+        chr = as.character(.data$chr),
+        pos = as.integer(.data$pos)
+      )
+
+    n_before <- nrow(dat)
+    dat <- dplyr::inner_join(dat, bim, by = "rsids")
+    n_after <- nrow(dat)
+
+    cli::cli_inform(
+      "{.val {phenotype_id}}: {n_after}/{n_before} SNPs matched chr/pos via rsID in {.path {bim_file}}."
+    )
+    if (n_after == 0L) {
+      cli::cli_abort(
+        "No SNPs matched in bim file by rsID. Check rsID format and genome build."
       )
     }
   }
