@@ -8,7 +8,8 @@ format_pqtl_decode(
   decode_proteomic_gwas_file_path,
   decode_included_variants_file_path,
   pqtl_assay,
-  x_y_chr_file = NULL
+  x_y_chr_file = NULL,
+  type = c("exposure", "outcome")
 )
 }
 \arguments{

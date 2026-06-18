@@ -24,8 +24,10 @@ format_pqtl_ukbppp <- function(
   ukbppp,
   ukbppp_rsid,
   pqtl_assay,
-  x_y_chr_file = NULL
+  x_y_chr_file = NULL,
+  type = c("exposure", "outcome")
 ) {
+  type <- match.arg(type)
   # read from filepath
   if (is.character(ukbppp)) {
     # Read in files using data.table::fread()
@@ -146,6 +148,15 @@ format_pqtl_ukbppp <- function(
   }
   # Convert data table to data frame for format_data()
   ukbppp <- as.data.frame(ukbppp)
+
+  # Outcome: return normalised data frame (same schema as format_gwas(type="outcome"))
+  # so that run_mr() can pre-filter by rsids and then call format_data() internally.
+  if (type == "outcome") {
+    ukbppp <- ukbppp |>
+      dplyr::rename(rsids = "rsid", se = "sebeta", eaf = "af_alt")
+    if (!"n" %in% names(ukbppp)) ukbppp$n <- NA_integer_
+    return(ukbppp)
+  }
 
   # Format data using TwoSampleMR::format_data()
   result <- TwoSampleMR::format_data(

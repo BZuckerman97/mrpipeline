@@ -31,8 +31,10 @@ format_pqtl_decode <- function(
   decode_proteomic_gwas_file_path,
   decode_included_variants_file_path,
   pqtl_assay,
-  x_y_chr_file = NULL
+  x_y_chr_file = NULL,
+  type = c("exposure", "outcome")
 ) {
+  type <- match.arg(type)
   # Read and combine deCODE proteomic GWAS data
   if (is.character(decode_proteomic_gwas_file_path)) {
     stopifnot(all(sapply(decode_proteomic_gwas_file_path, file.exists)))
@@ -117,6 +119,23 @@ format_pqtl_decode <- function(
 
   # Convert to a data frame
   decode_final_df <- as.data.frame(decode_processed)
+
+  # Outcome: return normalised data frame (same schema as format_gwas(type="outcome"))
+  # so that run_mr() can pre-filter by rsids and then call format_data() internally.
+  if (type == "outcome") {
+    decode_final_df <- decode_final_df |>
+      dplyr::rename(
+        rsids     = "rsid",
+        se        = "sebeta",
+        eaf       = "af_alt",
+        phenotype = "phenotype_col"
+      )
+    if ("N" %in% names(decode_final_df) && !"n" %in% names(decode_final_df)) {
+      decode_final_df <- dplyr::rename(decode_final_df, n = "N")
+    }
+    if (!"n" %in% names(decode_final_df)) decode_final_df$n <- NA_integer_
+    return(decode_final_df)
+  }
 
   # Apply format_data()
   result <- TwoSampleMR::format_data(

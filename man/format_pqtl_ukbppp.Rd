@@ -4,7 +4,13 @@
 \alias{format_pqtl_ukbppp}
 \title{Formats pQTL data from UKB-PPP for MR analysis.}
 \usage{
-format_pqtl_ukbppp(ukbppp, ukbppp_rsid, pqtl_assay, x_y_chr_file = NULL)
+format_pqtl_ukbppp(
+  ukbppp,
+  ukbppp_rsid,
+  pqtl_assay,
+  x_y_chr_file = NULL,
+  type = c("exposure", "outcome")
+)
 }
 \arguments{
 \item{ukbppp}{Dataframe, file path to the file containing the ukbppp GWAS data}

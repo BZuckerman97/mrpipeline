@@ -16,6 +16,20 @@
 #'   `colocPropTest::coloc.prop.test()`. Requires `"signals"` to have run
 #'   successfully and the `colocPropTest` package to be installed.
 #'
+#' @section MAF / EAF handling:
+#' [coloc::coloc.abf()] takes a single MAF per SNP, shared between the
+#' exposure and outcome datasets, and errors out for the *entire* dataset if
+#' even one SNP has a missing MAF. Some GWASes (e.g. the CRP exposure used in
+#' this pipeline) report no EAF column at all. To avoid losing every SNP over
+#' a single dataset's missing EAF, `run_coloc()` builds the MAF from
+#' `eaf.exposure`, falling back to `eaf.outcome` wherever the exposure value
+#' is missing (and vice versa). A [cli::cli_warn()] is emitted whenever either
+#' side has missing EAF, so the fallback is visible in the warnings captured
+#' by `targets` metadata (`targets::tar_meta(fields = warnings)`) even though
+#' it doesn't print live during a `tar_make()` run. Any SNP missing EAF on
+#' *both* sides is dropped (with a warning) before colocalization, since there
+#' is no value left to fall back to.
+#'
 #' @param exposure Data frame of formatted exposure data (output of
 #'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
 #' @param exposure_id Character. Label for the exposure (e.g. protein name or
@@ -72,6 +86,11 @@
 #' @param susie_repeat_until_convergence Logical. Passed to
 #'   [coloc::runsusie()]. Default `FALSE` -- prevents infinite loops when
 #'   SuSiE has not converged within `susie_maxit` iterations.
+#' @param ref_frq Character. Path to a PLINK `.frq` file (produced by
+#'   `plink --freq`) used to patch EAF for SNPs missing it in both the exposure
+#'   and outcome. Columns expected: `SNP`, `A1`, `A2`, `MAF`. The A1 allele is
+#'   matched against `effect_allele.outcome` (post-harmonisation) to orient the
+#'   frequency correctly. `NULL` (default) disables the lookup.
 #' @param exclude_regions Data frame with columns `chr`, `start`, `end` defining
 #'   genomic regions to exclude SNPs from before colocalization, or `NULL`.
 #'   SNPs in both the exposure and outcome that fall within any listed region
@@ -133,6 +152,7 @@ run_coloc <- function(
   susie_maxit = 10000L,
   susie_repeat_until_convergence = FALSE,
   exclude_regions = NULL,
+  ref_frq = NULL,
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -186,7 +206,8 @@ run_coloc <- function(
     p12 = p12,
     susie_maxit = susie_maxit,
     susie_repeat_until_convergence = susie_repeat_until_convergence,
-    exclude_regions = exclude_regions
+    exclude_regions = exclude_regions,
+    ref_frq = ref_frq
   )
 
   timing <- numeric(0)
@@ -320,10 +341,13 @@ run_coloc <- function(
 
   # --- Format outcome ----------------------------------------------------------
 
+  outcome_in_window$Phenotype <- outcome_id
+
   outcome_data <- TwoSampleMR::format_data(
     outcome_in_window,
     type = "outcome",
     header = TRUE,
+    phenotype_col = "Phenotype",
     snp_col = "rsids",
     effect_allele_col = "effect_allele",
     other_allele_col = "other_allele",
@@ -437,9 +461,91 @@ run_coloc <- function(
     ))
   }
 
-  # --- MAF ------------------------------------------------------------------
+  # --- MAF --------------------------------------------------------------------
+  # MAF is shared between dataset_exp and dataset_out -- coloc.abf needs a
+  # single per-SNP allele frequency, not one per dataset. Some exposure GWASes
+  # (e.g. the CRP exposure used in this pipeline) report no EAF at all, so the
+  # exposure's EAF is backed up by the outcome's wherever it is missing, and
+  # vice versa. coloc::coloc.abf() rejects the *entire* dataset if even one
+  # SNP has a missing MAF, so any SNP missing EAF on both sides is dropped
+  # here (with a warning) rather than left to fail the whole colocalization.
+  #
+  # When ref_frq is supplied (path to a PLINK .frq file), EAF is also patched
+  # from the reference for SNPs still missing after the exposure/outcome merge.
+  # The .frq A1 allele is matched against effect_allele.outcome (post-harmonisation)
+  # to orient the MAF correctly: EAF = MAF if A1 == effect allele, else 1 - MAF.
 
-  maf <- eaf_to_maf(harmonised$eaf.exposure)
+  if (!is.null(ref_frq) && file.exists(ref_frq)) {
+    frq <- data.table::fread(ref_frq, data.table = FALSE)
+    # Identify SNPs missing EAF in both datasets
+    needs_eaf <- is.na(harmonised$eaf.exposure) & is.na(harmonised$eaf.outcome)
+    if (any(needs_eaf)) {
+      snps_need <- harmonised$SNP[needs_eaf]
+      frq_sub   <- frq[frq$SNP %in% snps_need, c("SNP", "A1", "A2", "MAF")]
+      frq_sub   <- frq_sub[!duplicated(frq_sub$SNP), ]
+      idx       <- match(harmonised$SNP[needs_eaf], frq_sub$SNP)
+      found     <- !is.na(idx)
+      if (any(found)) {
+        rows_need   <- which(needs_eaf)
+        frq_matched <- frq_sub[idx[found], ]
+        ea_out      <- toupper(harmonised$effect_allele.outcome[rows_need[found]])
+        a1_ref      <- toupper(frq_matched$A1)
+        eaf_ref     <- ifelse(ea_out == a1_ref, frq_matched$MAF, 1 - frq_matched$MAF)
+        harmonised$eaf.outcome[rows_need[found]] <- eaf_ref
+        n_patched <- sum(found)
+        cli::cli_inform(
+          "Patched EAF from reference panel for {n_patched} SNP{?s} missing in both exposure and outcome."
+        )
+      }
+    }
+  }
+
+  eaf_combined <- dplyr::coalesce(harmonised$eaf.exposure, harmonised$eaf.outcome)
+
+  n_exp_missing <- sum(is.na(harmonised$eaf.exposure))
+  n_out_missing <- sum(is.na(harmonised$eaf.outcome))
+  n_both_missing <- sum(is.na(eaf_combined))
+
+  if (n_exp_missing > 0) {
+    cli::cli_warn(
+      "{n_exp_missing}/{nrow(harmonised)} SNP(s) missing exposure EAF for {.val {exposure_id}}; MAF for these will be taken from the outcome ({.val {outcome_id}}) instead."
+    )
+  }
+  if (n_out_missing > 0) {
+    cli::cli_warn(
+      "{n_out_missing}/{nrow(harmonised)} SNP(s) missing outcome EAF for {.val {outcome_id}}; MAF for these will be taken from the exposure ({.val {exposure_id}}) instead."
+    )
+  }
+  if (n_both_missing > 0) {
+    cli::cli_warn(
+      "{n_both_missing} SNP(s) missing EAF in both exposure and outcome; dropping before colocalization."
+    )
+    keep <- !is.na(eaf_combined)
+    harmonised <- harmonised[keep, ]
+    eaf_combined <- eaf_combined[keep]
+    ld_mat <- ld_mat[harmonised$SNP, harmonised$SNP, drop = FALSE]
+
+    if (nrow(harmonised) < 3) {
+      cli::cli_warn(
+        "Only {nrow(harmonised)} SNP(s) remain after dropping those missing EAF in both exposure and outcome (need >= 3)."
+      )
+      return(new_coloc_result(
+        exposure_id = exposure_id,
+        outcome_id = outcome_id,
+        n_snps = nrow(harmonised),
+        harmonised_data = harmonised,
+        status = "too_few_snps",
+        status_reason = paste0(
+          "Only ", nrow(harmonised),
+          " SNP(s) remain after dropping those missing EAF in both exposure and outcome (need >= 3)"
+        ),
+        params = params,
+        timing = timing
+      ))
+    }
+  }
+
+  maf <- eaf_to_maf(eaf_combined)
 
   # --- Build coloc datasets -------------------------------------------------
 

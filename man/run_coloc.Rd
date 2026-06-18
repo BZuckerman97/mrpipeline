@@ -32,6 +32,7 @@ run_coloc(
   susie_maxit = 10000L,
   susie_repeat_until_convergence = FALSE,
   exclude_regions = NULL,
+  ref_frq = NULL,
   verbose = TRUE
 )
 }
@@ -124,6 +125,12 @@ SNPs in both the exposure and outcome that fall within any listed region
 are dropped before harmonisation. For example, to exclude the MHC:
 \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 
+\item{ref_frq}{Character. Path to a PLINK \code{.frq} file (produced by
+\code{plink --freq}) used to patch EAF for SNPs missing it in both the exposure
+and outcome. Columns expected: \code{SNP}, \code{A1}, \code{A2}, \code{MAF}. The A1 allele is
+matched against \code{effect_allele.outcome} (post-harmonisation) to orient the
+frequency correctly. \code{NULL} (default) disables the lookup.}
+
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
 Default \code{TRUE}.}
@@ -152,6 +159,22 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 \code{colocPropTest::coloc.prop.test()}. Requires \code{"signals"} to have run
 successfully and the \code{colocPropTest} package to be installed.
 }
+}
+
+\section{MAF / EAF handling}{
+
+\code{\link[coloc:coloc.abf]{coloc::coloc.abf()}} takes a single MAF per SNP, shared between the
+exposure and outcome datasets, and errors out for the \emph{entire} dataset if
+even one SNP has a missing MAF. Some GWASes (e.g. the CRP exposure used in
+this pipeline) report no EAF column at all. To avoid losing every SNP over
+a single dataset's missing EAF, \code{run_coloc()} builds the MAF from
+\code{eaf.exposure}, falling back to \code{eaf.outcome} wherever the exposure value
+is missing (and vice versa). A \code{\link[cli:cli_warn]{cli::cli_warn()}} is emitted whenever either
+side has missing EAF, so the fallback is visible in the warnings captured
+by \code{targets} metadata (\code{targets::tar_meta(fields = warnings)}) even though
+it doesn't print live during a \code{tar_make()} run. Any SNP missing EAF on
+\emph{both} sides is dropped (with a warning) before colocalization, since there
+is no value left to fall back to.
 }
 
 \examples{
