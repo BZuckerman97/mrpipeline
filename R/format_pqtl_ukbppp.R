@@ -12,6 +12,10 @@
 #'   and Y chromosomes, or NULL. When a data frame is supplied, it is used
 #'   directly (skipping `fread()`). When a string path is supplied, the file is
 #'   read via `data.table::fread()`.
+#' @param pos_build Character, genome build to use for position matching against
+#'   the rsid file. Either `"b38"` (GRCh38, uses `POS38` column; default) or
+#'   `"b37"` (GRCh37, uses `POS19` column). Must match the build used in the
+#'   UKB-PPP GWAS `GENPOS` column.
 #'
 #' @return A list with two elements:
 #'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
@@ -25,9 +29,11 @@ format_pqtl_ukbppp <- function(
   ukbppp_rsid,
   pqtl_assay,
   x_y_chr_file = NULL,
+  pos_build = c("b38", "b37"),
   type = c("exposure", "outcome")
 ) {
   type <- match.arg(type)
+  pos_build <- match.arg(pos_build)
   # read from filepath
   if (is.character(ukbppp)) {
     # Read in files using data.table::fread()
@@ -74,11 +80,12 @@ format_pqtl_ukbppp <- function(
     dplyr::mutate(pval = 10^-.data$pval) # Convert LOG10P into P
 
   # UKB-PPP RSID
+  pos_col_rsid <- if (pos_build == "b38") "POS38" else "POS19"
   ukbppp_rsid <- ukbppp_rsid |>
     dplyr::rename(
       effect_allele_rsid_file = dplyr::all_of("ALT"),
       other_allele_rsid_file = dplyr::all_of("REF"),
-      pos_rsid_file = dplyr::all_of("POS38")
+      pos_rsid_file = dplyr::all_of(pos_col_rsid)
     ) |>
     dplyr::mutate(chr_rsid_file = sub(":.*", "", .data$ID))
 
@@ -154,7 +161,9 @@ format_pqtl_ukbppp <- function(
   if (type == "outcome") {
     ukbppp <- ukbppp |>
       dplyr::rename(rsids = "rsid", se = "sebeta", eaf = "af_alt")
-    if (!"n" %in% names(ukbppp)) ukbppp$n <- NA_integer_
+    if (!"n" %in% names(ukbppp)) {
+      ukbppp$n <- NA_integer_
+    }
     return(ukbppp)
   }
 
@@ -197,7 +206,7 @@ format_pqtl_ukbppp <- function(
 #'
 #' @examples
 #' \dontrun{
-#' # Assuming you have a linker file and the deCODE data directory
+#' # Assuming you have a linker file and the data directory
 #' synapse_id <- "syn12345678"
 #' olink_linker_file <- "path/to/your/olink_linker_file.csv"
 #' olink_dir <- "path/to/olink_dir"

@@ -9,6 +9,7 @@ format_pqtl_ukbppp(
   ukbppp_rsid,
   pqtl_assay,
   x_y_chr_file = NULL,
+  pos_build = c("b38", "b37"),
   type = c("exposure", "outcome")
 )
 }
@@ -23,6 +24,11 @@ format_pqtl_ukbppp(
 and Y chromosomes, or NULL. When a data frame is supplied, it is used
 directly (skipping \code{fread()}). When a string path is supplied, the file is
 read via \code{data.table::fread()}.}
+
+\item{pos_build}{Character, genome build to use for position matching against
+the rsid file. Either \code{"b38"} (GRCh38, uses \code{POS38} column; default) or
+\code{"b37"} (GRCh37, uses \code{POS19} column). Must match the build used in the
+UKB-PPP GWAS \code{GENPOS} column.}
 }
 \value{
 A list with two elements:

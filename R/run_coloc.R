@@ -481,16 +481,20 @@ run_coloc <- function(
     needs_eaf <- is.na(harmonised$eaf.exposure) & is.na(harmonised$eaf.outcome)
     if (any(needs_eaf)) {
       snps_need <- harmonised$SNP[needs_eaf]
-      frq_sub   <- frq[frq$SNP %in% snps_need, c("SNP", "A1", "A2", "MAF")]
-      frq_sub   <- frq_sub[!duplicated(frq_sub$SNP), ]
-      idx       <- match(harmonised$SNP[needs_eaf], frq_sub$SNP)
-      found     <- !is.na(idx)
+      frq_sub <- frq[frq$SNP %in% snps_need, c("SNP", "A1", "A2", "MAF")]
+      frq_sub <- frq_sub[!duplicated(frq_sub$SNP), ]
+      idx <- match(harmonised$SNP[needs_eaf], frq_sub$SNP)
+      found <- !is.na(idx)
       if (any(found)) {
-        rows_need   <- which(needs_eaf)
+        rows_need <- which(needs_eaf)
         frq_matched <- frq_sub[idx[found], ]
-        ea_out      <- toupper(harmonised$effect_allele.outcome[rows_need[found]])
-        a1_ref      <- toupper(frq_matched$A1)
-        eaf_ref     <- ifelse(ea_out == a1_ref, frq_matched$MAF, 1 - frq_matched$MAF)
+        ea_out <- toupper(harmonised$effect_allele.outcome[rows_need[found]])
+        a1_ref <- toupper(frq_matched$A1)
+        eaf_ref <- ifelse(
+          ea_out == a1_ref,
+          frq_matched$MAF,
+          1 - frq_matched$MAF
+        )
         harmonised$eaf.outcome[rows_need[found]] <- eaf_ref
         n_patched <- sum(found)
         cli::cli_inform(
@@ -500,7 +504,10 @@ run_coloc <- function(
     }
   }
 
-  eaf_combined <- dplyr::coalesce(harmonised$eaf.exposure, harmonised$eaf.outcome)
+  eaf_combined <- dplyr::coalesce(
+    harmonised$eaf.exposure,
+    harmonised$eaf.outcome
+  )
 
   n_exp_missing <- sum(is.na(harmonised$eaf.exposure))
   n_out_missing <- sum(is.na(harmonised$eaf.outcome))
@@ -536,7 +543,8 @@ run_coloc <- function(
         harmonised_data = harmonised,
         status = "too_few_snps",
         status_reason = paste0(
-          "Only ", nrow(harmonised),
+          "Only ",
+          nrow(harmonised),
           " SNP(s) remain after dropping those missing EAF in both exposure and outcome (need >= 3)"
         ),
         params = params,

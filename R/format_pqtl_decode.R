@@ -125,15 +125,17 @@ format_pqtl_decode <- function(
   if (type == "outcome") {
     decode_final_df <- decode_final_df |>
       dplyr::rename(
-        rsids     = "rsid",
-        se        = "sebeta",
-        eaf       = "af_alt",
+        rsids = "rsid",
+        se = "sebeta",
+        eaf = "af_alt",
         phenotype = "phenotype_col"
       )
     if ("N" %in% names(decode_final_df) && !"n" %in% names(decode_final_df)) {
       decode_final_df <- dplyr::rename(decode_final_df, n = "N")
     }
-    if (!"n" %in% names(decode_final_df)) decode_final_df$n <- NA_integer_
+    if (!"n" %in% names(decode_final_df)) {
+      decode_final_df$n <- NA_integer_
+    }
     return(decode_final_df)
   }
 
