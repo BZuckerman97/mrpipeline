@@ -109,10 +109,13 @@ test_that("plot.coloc_result regional returns NULL without data", {
 test_that("forest_plot on a single result returns a plot with default methods", {
   res <- new_mr_result(
     results = data.frame(
-      exposure = "CD40", outcome = "SjD",
+      exposure = "CD40",
+      outcome = "SjD",
       method = c(
-        "IVW (fixed effects)", "Inverse variance weighted",
-        "MR Egger", "Weighted median"
+        "IVW (fixed effects)",
+        "Inverse variance weighted",
+        "MR Egger",
+        "Weighted median"
       ),
       nsnp = 10,
       b = c(0.10, 0.12, 0.15, 0.11),
@@ -129,15 +132,25 @@ test_that("forest_plot on a single result returns a plot with default methods", 
 test_that("forest_plot sections a named list of results", {
   res1 <- new_mr_result(
     results = data.frame(
-      exposure = "CD40", outcome = "SjD", method = "Inverse variance weighted",
-      nsnp = 10, b = 0.1, se = 0.03, pval = 0.01
+      exposure = "CD40",
+      outcome = "SjD",
+      method = "Inverse variance weighted",
+      nsnp = 10,
+      b = 0.1,
+      se = 0.03,
+      pval = 0.01
     ),
     status = "success"
   )
   res2 <- new_mr_result(
     results = data.frame(
-      exposure = "CD40", outcome = "Control", method = "Inverse variance weighted",
-      nsnp = 10, b = 0.02, se = 0.05, pval = 0.6
+      exposure = "CD40",
+      outcome = "Control",
+      method = "Inverse variance weighted",
+      nsnp = 10,
+      b = 0.02,
+      se = 0.05,
+      pval = 0.6
     ),
     status = "success"
   )
@@ -149,8 +162,13 @@ test_that("forest_plot sections a named list of results", {
 test_that("forest_plot errors on an unnamed list of length > 1", {
   res <- new_mr_result(
     results = data.frame(
-      exposure = "CD40", outcome = "SjD", method = "Inverse variance weighted",
-      nsnp = 10, b = 0.1, se = 0.03, pval = 0.01
+      exposure = "CD40",
+      outcome = "SjD",
+      method = "Inverse variance weighted",
+      nsnp = 10,
+      b = 0.1,
+      se = 0.03,
+      pval = 0.01
     ),
     status = "success"
   )
@@ -159,7 +177,10 @@ test_that("forest_plot errors on an unnamed list of length > 1", {
 })
 
 test_that("forest_plot returns NULL when no result has successful rows", {
-  res <- new_mr_result(status = "no_instruments", status_reason = "No instruments found")
+  res <- new_mr_result(
+    status = "no_instruments",
+    status_reason = "No instruments found"
+  )
 
   expect_message(p <- forest_plot(res), "Cannot plot")
   expect_null(p)
@@ -168,15 +189,22 @@ test_that("forest_plot returns NULL when no result has successful rows", {
 test_that("forest_plot's relabel argument does not break method matching", {
   res <- new_mr_result(
     results = data.frame(
-      exposure = "CD40", outcome = "SjD",
+      exposure = "CD40",
+      outcome = "SjD",
       method = c("IVW (fixed effects)", "Inverse variance weighted"),
-      nsnp = 10, b = c(0.1, 0.12), se = c(0.03, 0.04), pval = 0.01
+      nsnp = 10,
+      b = c(0.1, 0.12),
+      se = c(0.03, 0.04),
+      pval = 0.01
     ),
     status = "success"
   )
 
   # Default relabel (IVW -> "IVW (random effects)") still matches both rows.
-  p <- forest_plot(res, methods = c("IVW (fixed effects)", "Inverse variance weighted"))
+  p <- forest_plot(
+    res,
+    methods = c("IVW (fixed effects)", "Inverse variance weighted")
+  )
   expect_s3_class(p, "ggplot")
 
   # Relabelling disabled should also still work (no-op).
@@ -187,18 +215,30 @@ test_that("forest_plot's relabel argument does not break method matching", {
 # --- outcome_forest_plot ---------------------------------------------------
 
 outcome_forest_plot_fixture <- data.frame(
-  exposure = c("RPS", "RPS", "RPS_functional", "RPS_functional", "RPS_functional"),
+  exposure = c(
+    "RPS",
+    "RPS",
+    "RPS_functional",
+    "RPS_functional",
+    "RPS_functional"
+  ),
   outcome = c("Melanoma", "Cataract", "Melanoma", "Cataract", "Cataract"),
   method = c(
-    "Inverse variance weighted", "Inverse variance weighted",
-    "Inverse variance weighted", "Inverse variance weighted", "IVW (fixed effects)"
+    "Inverse variance weighted",
+    "Inverse variance weighted",
+    "Inverse variance weighted",
+    "Inverse variance weighted",
+    "IVW (fixed effects)"
   ),
   or = c(1.4, 0.9, 1.3, 0.95, 0.95),
   or_lci95 = c(1.1, 0.8, 0.9, 0.85, 0.88),
   or_uci95 = c(1.8, 1.0, 1.9, 1.05, 1.02),
   subcategory = c(
-    "Positive control", "Negative control",
-    "Positive control", "Negative control", "Negative control"
+    "Positive control",
+    "Negative control",
+    "Positive control",
+    "Negative control",
+    "Negative control"
   )
 )
 
@@ -214,7 +254,9 @@ test_that("outcome_forest_plot errors when required columns are missing", {
 
 test_that("outcome_forest_plot with one method includes only matching rows", {
   p <- outcome_forest_plot(
-    outcome_forest_plot_fixture, xlab = "OR (95% CI)", method = "Inverse variance weighted"
+    outcome_forest_plot_fixture,
+    xlab = "OR (95% CI)",
+    method = "Inverse variance weighted"
   )
   expect_s3_class(p, "ggplot")
   # The extra "IVW (fixed effects)" row for Cataract (RPS_functional) is
@@ -224,7 +266,8 @@ test_that("outcome_forest_plot with one method includes only matching rows", {
 
 test_that("outcome_forest_plot with both methods keeps rows unique to one model", {
   p <- outcome_forest_plot(
-    outcome_forest_plot_fixture, xlab = "OR (95% CI)",
+    outcome_forest_plot_fixture,
+    xlab = "OR (95% CI)",
     method = c("Inverse variance weighted", "IVW (fixed effects)")
   )
   # All 5 rows survive -- Cataract (RPS_functional) now has two.
@@ -235,11 +278,17 @@ test_that("outcome_forest_plot with both methods keeps rows unique to one model"
 
 test_that("outcome_forest_plot maps colour_by/shape_by to the requested columns", {
   dat <- outcome_forest_plot_fixture
-  dat$instrument <- ifelse(dat$exposure == "RPS", "GWS instrument", "Functional instrument")
+  dat$instrument <- ifelse(
+    dat$exposure == "RPS",
+    "GWS instrument",
+    "Functional instrument"
+  )
 
   p <- outcome_forest_plot(
-    dat, xlab = "OR (95% CI)",
-    colour_by = "instrument", shape_by = "method"
+    dat,
+    xlab = "OR (95% CI)",
+    colour_by = "instrument",
+    shape_by = "method"
   )
   expect_identical(rlang::as_label(p$mapping$colour), "instrument")
   expect_identical(rlang::as_label(p$mapping$shape), "method")
@@ -247,8 +296,12 @@ test_that("outcome_forest_plot maps colour_by/shape_by to the requested columns"
 
 test_that("outcome_forest_plot's section_order controls subcategory levels", {
   p <- outcome_forest_plot(
-    outcome_forest_plot_fixture, xlab = "OR (95% CI)",
+    outcome_forest_plot_fixture,
+    xlab = "OR (95% CI)",
     section_order = c("Negative control", "Positive control")
   )
-  expect_equal(levels(p$data$subcategory), c("Negative control", "Positive control"))
+  expect_equal(
+    levels(p$data$subcategory),
+    c("Negative control", "Positive control")
+  )
 })

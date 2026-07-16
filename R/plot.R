@@ -232,8 +232,10 @@ plot_coloc_regional <- function(x) {
 forest_plot <- function(
   results,
   methods = c(
-    "IVW (fixed effects)", "Inverse variance weighted",
-    "MR Egger", "Weighted median"
+    "IVW (fixed effects)",
+    "Inverse variance weighted",
+    "MR Egger",
+    "Weighted median"
   ),
   relabel = c("Inverse variance weighted" = "IVW (random effects)"),
   exponentiate = TRUE,
@@ -293,7 +295,10 @@ forest_plot <- function(
   }
 
   TwoSampleMR::forest_plot_1_to_many(
-    mr_res = combined, b = "b", se = "se", TraitM = "method",
+    mr_res = combined,
+    b = "b",
+    se = "se",
+    TraitM = "method",
     by = if (sectioned) "subcategory" else NULL,
     ao_slc = FALSE,
     exponentiate = exponentiate,
@@ -396,7 +401,15 @@ outcome_forest_plot <- function(
 ) {
   rlang::check_installed("ggplot2", reason = "to plot MR results.")
 
-  required_cols <- c("exposure", "outcome", "method", "or", "or_lci95", "or_uci95", "subcategory")
+  required_cols <- c(
+    "exposure",
+    "outcome",
+    "method",
+    "or",
+    "or_lci95",
+    "or_uci95",
+    "subcategory"
+  )
   missing_cols <- setdiff(required_cols, names(mr_res))
   if (length(missing_cols) > 0) {
     cli::cli_abort("{.arg mr_res} is missing column{?s}: {missing_cols}.")
@@ -428,31 +441,52 @@ outcome_forest_plot <- function(
   # random-effects, one fixed-effects) dodge apart instead of overplotting,
   # regardless of whether `method` is also mapped to colour/shape.
   aes_list <- list(
-    x = rlang::expr(.data$or), y = rlang::expr(.data$outcome), group = rlang::expr(.data$method)
+    x = rlang::expr(.data$or),
+    y = rlang::expr(.data$outcome),
+    group = rlang::expr(.data$method)
   )
-  if (!is.null(colour_by)) aes_list$colour <- rlang::expr(.data[[!!colour_by]])
-  if (!is.null(shape_by)) aes_list$shape <- rlang::expr(.data[[!!shape_by]])
+  if (!is.null(colour_by)) {
+    aes_list$colour <- rlang::expr(.data[[!!colour_by]])
+  }
+  if (!is.null(shape_by)) {
+    aes_list$shape <- rlang::expr(.data[[!!shape_by]])
+  }
   mapping <- rlang::inject(ggplot2::aes(!!!aes_list))
 
   dodge <- ggplot2::position_dodge(width = dodge_width)
 
   p <- ggplot2::ggplot(dat, mapping) +
-    ggplot2::geom_vline(xintercept = 1, linetype = "dashed", colour = "grey45", linewidth = 0.4) +
+    ggplot2::geom_vline(
+      xintercept = 1,
+      linetype = "dashed",
+      colour = "grey45",
+      linewidth = 0.4
+    ) +
     ggplot2::geom_errorbarh(
       ggplot2::aes(xmin = .data$or_lci95, xmax = .data$or_uci95),
-      height = 0, linewidth = 0.7, position = dodge
+      height = 0,
+      linewidth = 0.7,
+      position = dodge
     ) +
     ggplot2::geom_point(size = 3, position = dodge) +
     ggplot2::scale_x_continuous(trans = "log2") +
     ggplot2::facet_grid(
-      rows = ggplot2::vars(subcategory), scales = "free_y", space = "free_y", switch = "y"
+      rows = ggplot2::vars(subcategory),
+      scales = "free_y",
+      space = "free_y",
+      switch = "y"
     ) +
     ggplot2::labs(x = xlab, y = NULL, colour = colour_by, shape = shape_by) +
     ggplot2::theme_minimal(base_size = 13) +
     ggplot2::theme(
       strip.placement = "outside",
       strip.background = ggplot2::element_rect(fill = "grey93", colour = NA),
-      strip.text.y.left = ggplot2::element_text(angle = 0, hjust = 0, face = "bold", size = 11),
+      strip.text.y.left = ggplot2::element_text(
+        angle = 0,
+        hjust = 0,
+        face = "bold",
+        size = 11
+      ),
       panel.grid.minor = ggplot2::element_blank(),
       panel.grid.major.y = ggplot2::element_blank(),
       panel.spacing.y = grid::unit(0.4, "lines"),
@@ -460,8 +494,12 @@ outcome_forest_plot <- function(
       legend.title = ggplot2::element_text(face = "bold")
     )
 
-  if (!is.null(colour_values)) p <- p + ggplot2::scale_colour_manual(values = colour_values)
-  if (!is.null(shape_values)) p <- p + ggplot2::scale_shape_manual(values = shape_values)
+  if (!is.null(colour_values)) {
+    p <- p + ggplot2::scale_colour_manual(values = colour_values)
+  }
+  if (!is.null(shape_values)) {
+    p <- p + ggplot2::scale_shape_manual(values = shape_values)
+  }
 
   p
 }
