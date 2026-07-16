@@ -219,8 +219,60 @@ summary(mr_res)
 
 ```{r mr-plot, eval = FALSE}
 plot(mr_res, type = "scatter") # scatter plot (default)
-plot(mr_res, type = "forest")  # forest plot
+plot(mr_res, type = "forest")  # per-SNP forest plot
 plot(mr_res, type = "funnel")  # funnel plot
+```
+
+`plot(mr_res, type = "forest")` shows one row per SNP. For a manuscript-style
+forest plot summarising *methods* (IVW, MR-Egger, weighted median, ...) or
+*outcomes* (a primary analysis alongside positive/negative controls), use
+`forest_plot()` and `outcome_forest_plot()` instead.
+
+### Forest plots across analyses
+
+`forest_plot()` shows one row per method, for a single `mr_result` or for
+several sectioned together. Fixed effects is listed above random effects by
+default, and `"Inverse variance weighted"` is relabelled to `"IVW (random
+effects)"` for display:
+
+```{r forest-plot-single, eval = FALSE}
+forest_plot(mr_res)
+```
+
+Pass a named list to section several results into one figure -- e.g. a
+primary analysis alongside positive and negative controls:
+
+```{r forest-plot-sectioned, eval = FALSE}
+forest_plot(list(
+  Primary = mr_res,
+  "Positive control" = positive_control_res,
+  "Negative control" = negative_control_res
+))
+```
+
+`outcome_forest_plot()` instead shows one row per *outcome*, for one or both
+IVW model variants, optionally coloured and/or shaped by a grouping column
+you attach yourself (e.g. which instrument was used). Build the combined
+data frame from one or more results' `$results`, then plot:
+
+```{r outcome-forest-plot, eval = FALSE}
+combined <- dplyr::bind_rows(
+  mr_res$results |> dplyr::mutate(subcategory = "Primary"),
+  positive_control_res$results |> dplyr::mutate(subcategory = "Positive control"),
+  negative_control_res$results |> dplyr::mutate(subcategory = "Negative control")
+) |>
+  dplyr::mutate(
+    instrument = dplyr::if_else(exposure == "CD40", "GWS instrument", "Functional instrument")
+  )
+
+outcome_forest_plot(
+  combined,
+  xlab = "OR (95% CI)",
+  method = c("Inverse variance weighted", "IVW (fixed effects)"), # both models
+  colour_by = "instrument",
+  shape_by = "method",
+  section_order = c("Primary", "Positive control", "Negative control")
+)
 ```
 
 ## Colocalization

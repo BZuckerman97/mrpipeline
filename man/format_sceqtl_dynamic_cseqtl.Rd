@@ -4,7 +4,12 @@
 \alias{format_sceqtl_dynamic_cseqtl}
 \title{Format single-cell RNA eQTL data from dynamic_cseqtl for MR analysis}
 \usage{
-format_sceqtl_dynamic_cseqtl(file, cell_type = NULL)
+format_sceqtl_dynamic_cseqtl(
+  file,
+  cell_type = NULL,
+  pval_thresh = 1e-05,
+  mhc_region = NULL
+)
 }
 \arguments{
 \item{file}{Character. Path to a dynamic_cseqtl MR file
@@ -13,6 +18,14 @@ format_sceqtl_dynamic_cseqtl(file, cell_type = NULL)
 \item{cell_type}{Character or \code{NULL}. Cell type label used in the phenotype
 string (\code{gene___cell_type}). If \code{NULL}, derived from the filename by
 stripping \verb{_500kb_combined.MR.tsv.gz}.}
+
+\item{pval_thresh}{Numeric or \code{NULL}. Retain only variants with
+\code{pval < pval_thresh}. Default \code{1e-5}. Set \code{NULL} to skip filtering.}
+
+\item{mhc_region}{Data frame with columns \code{chr}, \code{start}, \code{end} defining
+a genomic region to exclude (typically the MHC locus). Default \code{NULL}
+(no exclusion). Use \code{data.frame(chr = "6", start = 25e6, end = 34e6)}
+for the standard MHC window used in this project.}
 }
 \value{
 A data frame formatted as a TwoSampleMR exposure dataset, including

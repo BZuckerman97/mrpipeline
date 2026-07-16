@@ -85,6 +85,12 @@ read_vcf_data <- function(file) {
 #' @param sample_size Integer or `NULL`. Sample size for this cell type,
 #'   stored as `samplesize.exposure`. Required by [run_coloc()]; if `NULL`
 #'   (default), no sample size column is added.
+#' @param pval_thresh Numeric or `NULL`. Retain only variants with
+#'   `P_VALUE < pval_thresh`. Default `1e-5`. Set `NULL` to skip filtering.
+#' @param mhc_region Data frame with columns `chr`, `start`, `end` defining
+#'   a genomic region to exclude (typically the MHC locus). Default `NULL`
+#'   (no exclusion). Use `data.frame(chr = "6", start = 25e6, end = 34e6)`
+#'   for the standard MHC window used in this project.
 #'
 #' @return A data frame formatted as a TwoSampleMR exposure dataset, including
 #'   `chr.exposure`, `pos.exposure`, and `eaf.exposure` columns required by
@@ -109,7 +115,9 @@ read_vcf_data <- function(file) {
 format_single_cell_onek1k <- function(
   onek1k_mapping,
   onek1k_cell_type,
-  sample_size = NULL
+  sample_size = NULL,
+  pval_thresh = 1e-5,
+  mhc_region = NULL
 ) {
   if (!is.data.frame(onek1k_mapping)) {
     cli::cli_abort("{.arg onek1k_mapping} must be a data frame.")
@@ -160,6 +168,25 @@ format_single_cell_onek1k <- function(
       cli::cli_abort(
         "No rows for {.val {onek1k_cell_type}} after filtering {.field CELL_ID}."
       )
+    }
+  }
+
+  # p-value threshold and MHC exclusion (mirrors SSZ instrument extraction)
+  if (!is.null(pval_thresh)) {
+    eqtl_data <- eqtl_data[eqtl_data$P_VALUE < pval_thresh, , drop = FALSE]
+    if (nrow(eqtl_data) == 0L) {
+      cli::cli_abort(
+        "No variants remain after p-value filter (P_VALUE < {pval_thresh})."
+      )
+    }
+  }
+  if (!is.null(mhc_region)) {
+    in_mhc <- as.character(eqtl_data$CHR) == as.character(mhc_region$chr[1]) &
+      eqtl_data$POS >= mhc_region$start[1] &
+      eqtl_data$POS <= mhc_region$end[1]
+    eqtl_data <- eqtl_data[!in_mhc, , drop = FALSE]
+    if (nrow(eqtl_data) == 0L) {
+      cli::cli_abort("No variants remain after MHC exclusion.")
     }
   }
 
@@ -223,6 +250,12 @@ format_single_cell_onek1k <- function(
 #'   stripping `_expression_eQTLsFDR-ProbeLevel.txt.gz`.
 #' @param cis_only Logical. If `TRUE` (default), retain only rows where
 #'   `CisTrans == "cis"`.
+#' @param pval_thresh Numeric or `NULL`. Retain only variants with
+#'   `PValue < pval_thresh`. Default `1e-5`. Set `NULL` to skip filtering.
+#' @param mhc_region Data frame with columns `chr`, `start`, `end` defining
+#'   a genomic region to exclude (typically the MHC locus). Default `NULL`
+#'   (no exclusion). Use `data.frame(chr = "6", start = 25e6, end = 34e6)`
+#'   for the standard MHC window used in this project.
 #'
 #' @return A data frame formatted as a TwoSampleMR exposure dataset, including
 #'   `chr.exposure` and `pos.exposure` columns required by [run_coloc()].
@@ -242,7 +275,9 @@ format_single_cell_onek1k <- function(
 format_sceqtl_1m_scbloodnl <- function(
   file,
   cell_type = NULL,
-  cis_only = TRUE
+  cis_only = TRUE,
+  pval_thresh = 1e-5,
+  mhc_region = NULL
 ) {
   if (!file.exists(file)) {
     cli::cli_abort("File not found: {.path {file}}")
@@ -276,6 +311,25 @@ format_sceqtl_1m_scbloodnl <- function(
       cli::cli_abort(
         "No cis eQTLs remain after filtering on {.field CisTrans}."
       )
+    }
+  }
+
+  # p-value threshold and MHC exclusion (mirrors SSZ 1M-scBloodNL-extract_IV.R)
+  if (!is.null(pval_thresh)) {
+    dt <- dt[dt$PValue < pval_thresh, , drop = FALSE]
+    if (nrow(dt) == 0L) {
+      cli::cli_abort(
+        "No variants remain after p-value filter (PValue < {pval_thresh})."
+      )
+    }
+  }
+  if (!is.null(mhc_region)) {
+    in_mhc <- as.character(dt$SNPChr) == as.character(mhc_region$chr[1]) &
+      dt$SNPChrPos >= mhc_region$start[1] &
+      dt$SNPChrPos <= mhc_region$end[1]
+    dt <- dt[!in_mhc, , drop = FALSE]
+    if (nrow(dt) == 0L) {
+      cli::cli_abort("No variants remain after MHC exclusion.")
     }
   }
 
@@ -362,6 +416,12 @@ format_sceqtl_1m_scbloodnl <- function(
 #' @param cell_type Character or `NULL`. Cell type label used in the phenotype
 #'   string (`GENE___cell_type`). If `NULL`, derived from the filename by
 #'   stripping the `.vcf` (or `.vcf.gz`) extension.
+#' @param pval_thresh Numeric or `NULL`. Retain only variants with
+#'   `Pvalue < pval_thresh`. Default `1e-5`. Set `NULL` to skip filtering.
+#' @param mhc_region Data frame with columns `chr`, `start`, `end` defining
+#'   a genomic region to exclude (typically the MHC locus). Default `NULL`
+#'   (no exclusion). Use `data.frame(chr = "6", start = 25e6, end = 34e6)`
+#'   for the standard MHC window used in this project.
 #'
 #' @return A data frame formatted as a TwoSampleMR exposure dataset, including
 #'   `chr.exposure` and `pos.exposure` columns required by [run_coloc()].
@@ -376,7 +436,12 @@ format_sceqtl_1m_scbloodnl <- function(
 #' \dontrun{
 #' exposure <- format_sceqtl_dice(file = "t_cell_cd4_naive.vcf")
 #' }
-format_sceqtl_dice <- function(file, cell_type = NULL) {
+format_sceqtl_dice <- function(
+  file,
+  cell_type = NULL,
+  pval_thresh = 1e-5,
+  mhc_region = NULL
+) {
   if (!file.exists(file)) {
     cli::cli_abort("File not found: {.path {file}}")
   }
@@ -447,6 +512,25 @@ format_sceqtl_dice <- function(file, cell_type = NULL) {
     cli::cli_abort("No variants with valid SE remain.")
   }
 
+  # p-value threshold and MHC exclusion
+  if (!is.null(pval_thresh)) {
+    dt <- dt[!is.na(dt$Pvalue) & dt$Pvalue < pval_thresh, , drop = FALSE]
+    if (nrow(dt) == 0L) {
+      cli::cli_abort(
+        "No variants remain after p-value filter (Pvalue < {pval_thresh})."
+      )
+    }
+  }
+  if (!is.null(mhc_region)) {
+    in_mhc <- as.character(dt$CHROM) == as.character(mhc_region$chr[1]) &
+      dt$POS >= mhc_region$start[1] &
+      dt$POS <= mhc_region$end[1]
+    dt <- dt[!in_mhc, , drop = FALSE]
+    if (nrow(dt) == 0L) {
+      cli::cli_abort("No variants remain after MHC exclusion.")
+    }
+  }
+
   # Phenotype: prefer GeneSymbol, fall back to Gene
   dt <- dt |>
     dplyr::mutate(
@@ -490,6 +574,12 @@ format_sceqtl_dice <- function(file, cell_type = NULL) {
 #' @param cell_type Character or `NULL`. Cell type label used in the phenotype
 #'   string (`gene___cell_type`). If `NULL`, derived from the filename by
 #'   stripping `_500kb_combined.MR.tsv.gz`.
+#' @param pval_thresh Numeric or `NULL`. Retain only variants with
+#'   `pval < pval_thresh`. Default `1e-5`. Set `NULL` to skip filtering.
+#' @param mhc_region Data frame with columns `chr`, `start`, `end` defining
+#'   a genomic region to exclude (typically the MHC locus). Default `NULL`
+#'   (no exclusion). Use `data.frame(chr = "6", start = 25e6, end = 34e6)`
+#'   for the standard MHC window used in this project.
 #'
 #' @return A data frame formatted as a TwoSampleMR exposure dataset, including
 #'   `chr.exposure` and `pos.exposure` columns required by [run_coloc()].
@@ -506,7 +596,12 @@ format_sceqtl_dice <- function(file, cell_type = NULL) {
 #'   file = "CD4T_500kb_combined.MR.tsv.gz"
 #' )
 #' }
-format_sceqtl_dynamic_cseqtl <- function(file, cell_type = NULL) {
+format_sceqtl_dynamic_cseqtl <- function(
+  file,
+  cell_type = NULL,
+  pval_thresh = 1e-5,
+  mhc_region = NULL
+) {
   if (!file.exists(file)) {
     cli::cli_abort("File not found: {.path {file}}")
   }
@@ -533,6 +628,25 @@ format_sceqtl_dynamic_cseqtl <- function(file, cell_type = NULL) {
 
   if (nrow(dt) == 0L) {
     cli::cli_abort("File is empty: {.path {file}}")
+  }
+
+  # p-value threshold and MHC exclusion
+  if (!is.null(pval_thresh)) {
+    dt <- dt[!is.na(dt$pval) & dt$pval < pval_thresh, , drop = FALSE]
+    if (nrow(dt) == 0L) {
+      cli::cli_abort(
+        "No variants remain after p-value filter (pval < {pval_thresh})."
+      )
+    }
+  }
+  if (!is.null(mhc_region)) {
+    in_mhc <- as.character(dt$chr) == as.character(mhc_region$chr[1]) &
+      dt$pos >= mhc_region$start[1] &
+      dt$pos <= mhc_region$end[1]
+    dt <- dt[!in_mhc, , drop = FALSE]
+    if (nrow(dt) == 0L) {
+      cli::cli_abort("No variants remain after MHC exclusion.")
+    }
   }
 
   dt <- dt |>

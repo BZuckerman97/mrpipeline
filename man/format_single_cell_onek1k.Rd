@@ -4,7 +4,13 @@
 \alias{format_single_cell_onek1k}
 \title{Format single-cell RNA eQTL data from OneK1K for MR analysis}
 \usage{
-format_single_cell_onek1k(onek1k_mapping, onek1k_cell_type, sample_size = NULL)
+format_single_cell_onek1k(
+  onek1k_mapping,
+  onek1k_cell_type,
+  sample_size = NULL,
+  pval_thresh = 1e-05,
+  mhc_region = NULL
+)
 }
 \arguments{
 \item{onek1k_mapping}{A data frame with columns \code{cell_type} and
@@ -19,6 +25,14 @@ filtered to this value.}
 \item{sample_size}{Integer or \code{NULL}. Sample size for this cell type,
 stored as \code{samplesize.exposure}. Required by \code{\link[=run_coloc]{run_coloc()}}; if \code{NULL}
 (default), no sample size column is added.}
+
+\item{pval_thresh}{Numeric or \code{NULL}. Retain only variants with
+\code{P_VALUE < pval_thresh}. Default \code{1e-5}. Set \code{NULL} to skip filtering.}
+
+\item{mhc_region}{Data frame with columns \code{chr}, \code{start}, \code{end} defining
+a genomic region to exclude (typically the MHC locus). Default \code{NULL}
+(no exclusion). Use \code{data.frame(chr = "6", start = 25e6, end = 34e6)}
+for the standard MHC window used in this project.}
 }
 \value{
 A data frame formatted as a TwoSampleMR exposure dataset, including

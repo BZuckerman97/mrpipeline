@@ -17,6 +17,7 @@ Imports:
     data.table,
     dplyr,
     genetics.binaRies (>= 0.1.1),
+    grid,
     ieugwasr (>= 1.0.2),
     MendelianRandomization (>= 0.10.0),
     purrr,

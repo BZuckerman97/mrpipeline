@@ -4,7 +4,13 @@
 \alias{format_sceqtl_1m_scbloodnl}
 \title{Format single-cell RNA eQTL data from 1M-scBloodNL for MR analysis}
 \usage{
-format_sceqtl_1m_scbloodnl(file, cell_type = NULL, cis_only = TRUE)
+format_sceqtl_1m_scbloodnl(
+  file,
+  cell_type = NULL,
+  cis_only = TRUE,
+  pval_thresh = 1e-05,
+  mhc_region = NULL
+)
 }
 \arguments{
 \item{file}{Character. Path to a 1M-scBloodNL per-cell-type eQTL file
@@ -16,6 +22,14 @@ stripping \verb{_expression_eQTLsFDR-ProbeLevel.txt.gz}.}
 
 \item{cis_only}{Logical. If \code{TRUE} (default), retain only rows where
 \code{CisTrans == "cis"}.}
+
+\item{pval_thresh}{Numeric or \code{NULL}. Retain only variants with
+\code{PValue < pval_thresh}. Default \code{1e-5}. Set \code{NULL} to skip filtering.}
+
+\item{mhc_region}{Data frame with columns \code{chr}, \code{start}, \code{end} defining
+a genomic region to exclude (typically the MHC locus). Default \code{NULL}
+(no exclusion). Use \code{data.frame(chr = "6", start = 25e6, end = 34e6)}
+for the standard MHC window used in this project.}
 }
 \value{
 A data frame formatted as a TwoSampleMR exposure dataset, including

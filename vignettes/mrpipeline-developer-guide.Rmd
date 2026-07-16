@@ -113,6 +113,42 @@ Both S3 classes have `plot()` methods defined in `R/plot.R`:
 Both methods return `NULL` invisibly for non-success results with an
 informative message.
 
+### forest_plot() and outcome_forest_plot()
+
+`R/plot.R` also defines two plain exported functions (not S3 methods --
+`forest_plot()` takes a list of `mr_result` objects, and
+`outcome_forest_plot()` takes a flat data frame the caller builds, neither
+of which fits `plot(x, ...)` dispatch):
+
+- `forest_plot(results, methods, relabel, ...)` -- one row per *method*.
+  Filters and reorders each result's `$results` to `methods`, binds them
+  (list order becomes section order when `results` is a named list), then
+  calls `TwoSampleMR::forest_plot_1_to_many()` with `TraitM = "method"`.
+  Default `methods` puts `"IVW (fixed effects)"` above `"Inverse variance
+  weighted"`; the `relabel` argument (default: rename `"Inverse variance
+  weighted"` to `"IVW (random effects)"`) is applied to the combined data's
+  `method` column *after* filtering/ordering, so it never affects matching
+  against the raw labels `run_mr()` produced.
+- `outcome_forest_plot(mr_res, xlab, method, colour_by, shape_by, ...)` --
+  one row per *outcome*. Standalone `ggplot2` code rather than a
+  `forest_plot_1_to_many()` wrapper, because that function force-blanks its
+  `exposure` column internally and so cannot map colour or shape to a
+  grouping variable. `method` is a plain inclusion filter (not a
+  priority/fallback selector): pass one label for one model, or both to get
+  two rows for any outcome where both were computed. `colour_by`/`shape_by`
+  each map an arbitrary column in `mr_res` to that aesthetic, so e.g.
+  instrument type and model (fixed/random effects) can be shown at once
+  without colliding.
+
+Implementation note for anyone extending `outcome_forest_plot()`: the
+mapping always includes `group = .data$method`, even when `method` isn't
+mapped to colour or shape. This is what makes `ggplot2::position_dodge()`
+separate two rows that share the same `outcome` (e.g. a fixed-effects and a
+random-effects estimate for the same outcome) instead of fully overplotting
+them -- removing that `group` binding would silently break the dodge for
+callers who only map `colour_by`/`shape_by` to something other than
+`method`.
+
 ## Exported Utility Functions
 
 ### Single-cell RNA eQTL format functions
