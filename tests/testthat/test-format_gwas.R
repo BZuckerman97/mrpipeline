@@ -221,3 +221,67 @@ test_that("format_gwas type = exposure returns TwoSampleMR-formatted data frame"
   expect_true("beta.exposure" %in% names(result))
   expect_true(all(result$exposure == "TEST"))
 })
+
+# -- ref_frq EAF patching ------------------------------------------------------
+
+make_frq_file <- function() {
+  frq <- data.frame(
+    CHR = c(1L, 1L),
+    SNP = c("rsPalin1", "rsPalin2"),
+    A1  = c("T", "G"),
+    A2  = c("A", "C"),
+    MAF = c(0.174, 0.01193),
+    NCHROBS = c(1006L, 1006L)
+  )
+  path <- tempfile(fileext = ".frq")
+  utils::write.table(frq, path, row.names = FALSE, quote = FALSE)
+  path
+}
+
+make_gwas_2row <- function(...) {
+  make_gwas(
+    rsids = c("rsPalin1", "rsPalin2"), chr = c("1", "1"),
+    pos = c(1000L, 2000L), beta = c(0.02, -0.03), se = c(0.003, 0.004),
+    eaf = c(0.30, 0.42), pval = c(1e-8, 1e-9), n = c(10000L, 10000L),
+    effect_allele = c("A", "C"), other_allele = c("T", "G"),
+    ...
+  )
+}
+
+test_that("format_gwas ref_frq creates eaf column when absent and patches it", {
+  df <- make_gwas_2row()
+  df <- df[, setdiff(names(df), "eaf")]
+  expect_false("eaf" %in% names(df))
+
+  frq_path <- make_frq_file()
+  result <- format_gwas(df, phenotype_id = "TEST", ref_frq = frq_path)
+
+  # effect_allele "A" != frq A1 "T" -> eaf = 1 - MAF; "C" != frq A1 "G" -> eaf = 1 - MAF
+  expect_equal(result$eaf, c(1 - 0.174, 1 - 0.01193), tolerance = 1e-6)
+})
+
+test_that("format_gwas ref_frq only fills missing eaf, never overwrites existing values", {
+  df <- make_gwas_2row()
+  df$eaf <- c(0.5, NA)
+  frq_path <- make_frq_file()
+  result <- format_gwas(df, phenotype_id = "TEST", ref_frq = frq_path)
+
+  expect_equal(result$eaf[1], 0.5)                       # untouched
+  expect_equal(result$eaf[2], 1 - 0.01193, tolerance = 1e-6)  # patched
+})
+
+test_that("format_gwas ref_frq leaves eaf NA for SNPs not found in the frq file", {
+  df <- make_gwas_2row()
+  df$rsids <- c("rsPalin1", "rsUnknown")
+  df <- df[, setdiff(names(df), "eaf")]
+  frq_path <- make_frq_file()
+  result <- format_gwas(df, phenotype_id = "TEST", ref_frq = frq_path)
+
+  expect_equal(result$eaf[1], 1 - 0.174, tolerance = 1e-6)
+  expect_true(is.na(result$eaf[2]))
+})
+
+test_that("format_gwas errors when ref_frq file does not exist", {
+  df <- make_gwas()
+  expect_error(format_gwas(df, phenotype_id = "TEST", ref_frq = "no/such/file.frq"), "not found")
+})

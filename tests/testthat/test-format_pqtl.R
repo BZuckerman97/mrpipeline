@@ -152,3 +152,40 @@ test_that("format_pqtl_ukbppp drops SNPs absent from rsid file", {
   result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6")
   expect_equal(nrow(result), 3L)
 })
+
+make_ukbppp_linker_row <- function(chr = "7") {
+  data.frame(
+    Code = "syn51468683",
+    Assay = "IL6",
+    chr = chr,
+    UKBPPP_ProteinID = "IL6:P05231:OID20101:v1",
+    Panel = "Cardiometabolic",
+    Docname = "IL6_P05231_OID20101_v1_Cardiometabolic.tar",
+    stringsAsFactors = FALSE
+  )
+}
+
+test_that("ukbppp_pqtl_file_name uses the protein's own chromosome by default", {
+  linker <- make_ukbppp_linker_row(chr = "7")
+  paths <- ukbppp_pqtl_file_name(
+    synapse_id = "syn51468683",
+    olink_linker_file = linker,
+    olink_dir = "olink",
+    olink_rsid_dir = "olink_rsid"
+  )
+  expect_match(paths$ukbppp, "discovery_chr7_")
+  expect_match(paths$ukbppp_rsid, "_chr7_patched_v2")
+})
+
+test_that("ukbppp_pqtl_file_name overrides the chromosome when region_chr is supplied", {
+  linker <- make_ukbppp_linker_row(chr = "7")
+  paths <- ukbppp_pqtl_file_name(
+    synapse_id = "syn51468683",
+    olink_linker_file = linker,
+    olink_dir = "olink",
+    olink_rsid_dir = "olink_rsid",
+    region_chr = "1"
+  )
+  expect_match(paths$ukbppp, "discovery_chr1_")
+  expect_match(paths$ukbppp_rsid, "_chr1_patched_v2")
+})

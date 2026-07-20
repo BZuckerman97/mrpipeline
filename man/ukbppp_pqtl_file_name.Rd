@@ -4,7 +4,13 @@
 \alias{ukbppp_pqtl_file_name}
 \title{UKBPPP_PQTL_FILE_NAME}
 \usage{
-ukbppp_pqtl_file_name(synapse_id, olink_linker_file, olink_dir, olink_rsid_dir)
+ukbppp_pqtl_file_name(
+  synapse_id,
+  olink_linker_file,
+  olink_dir,
+  olink_rsid_dir,
+  region_chr = NULL
+)
 }
 \arguments{
 \item{synapse_id}{String, synapse id to access from olink linker file}
@@ -18,6 +24,14 @@ protein complexes), as long as the underlying file paths are consistent.}
 \item{olink_dir}{String, directory of the olink files}
 
 \item{olink_rsid_dir}{String, directory of the olink rsid files}
+
+\item{region_chr}{String or NULL. If supplied, overrides the protein's own
+gene chromosome (from the linker file) when building both file paths.
+Use this when reading the protein as an \emph{outcome} at a locus other than
+its own gene (e.g. reversed-role drug-target MR, where a fixed exposure
+region is being looked up across many outcome proteins). Default \code{NULL}
+preserves the original behaviour exactly (uses the protein's own gene
+chromosome).}
 }
 \value{
 a list of the 2 filepaths, one for the ukbppp_pqtl data and the other is

@@ -14,7 +14,8 @@ format_gwas(
   marker_sep = ":",
   log10_pval = FALSE,
   flip_beta = FALSE,
-  n = NULL
+  n = NULL,
+  ref_frq = NULL
 )
 }
 \arguments{
@@ -58,6 +59,15 @@ the source file encodes the inverse direction of the intended exposure
 
 \item{n}{Integer. Explicit sample size. Added as the \code{n} column only when no
 sample-size column is already present in the data.}
+
+\item{ref_frq}{Character. Path to a PLINK \code{.frq} file (produced by
+\code{plink --freq}, columns \verb{CHR SNP A1 A2 MAF NCHROBS}). When supplied,
+patches \code{eaf} for any row where it is missing (creating the \code{eaf} column
+first if the data has none at all) by matching \code{rsids} against \code{SNP} and
+aligning \code{MAF}/\code{1-MAF} to \code{effect_allele}. Existing non-missing \code{eaf}
+values are never overwritten. Useful for pre-clumped instrument files
+that carry no allele-frequency column, where palindromic SNPs would
+otherwise be unresolvable (and typically dropped) during harmonisation.}
 }
 \value{
 \itemize{

@@ -102,7 +102,16 @@
 #'   (e.g. modelling NLRP3 inhibition rather than activation). Default `FALSE`.
 #' @param n Integer. Explicit sample size. Added as the `n` column only when no
 #'   sample-size column is already present in the data.
+#' @param ref_frq Character. Path to a PLINK `.frq` file (produced by
+#'   `plink --freq`, columns `CHR SNP A1 A2 MAF NCHROBS`). When supplied,
+#'   patches `eaf` for any row where it is missing (creating the `eaf` column
+#'   first if the data has none at all) by matching `rsids` against `SNP` and
+#'   aligning `MAF`/`1-MAF` to `effect_allele`. Existing non-missing `eaf`
+#'   values are never overwritten. Useful for pre-clumped instrument files
+#'   that carry no allele-frequency column, where palindromic SNPs would
+#'   otherwise be unresolvable (and typically dropped) during harmonisation.
 #'
+
 #' @return
 #' - `type = "outcome"`: a data frame with columns `rsids`, `chr`, `pos`,
 #'   `beta`, `se`, `eaf`, `pval`, `n`, `effect_allele`, `other_allele`,
@@ -155,7 +164,8 @@ format_gwas <- function(
   marker_sep = ":",
   log10_pval = FALSE,
   flip_beta = FALSE,
-  n = NULL
+  n = NULL,
+  ref_frq = NULL
 ) {
   type <- match.arg(type)
   path_label <- if (is.character(path)) path else "<data frame>"
@@ -406,6 +416,45 @@ format_gwas <- function(
   }
   for (col in intersect(c("pos", "n"), names(dat))) {
     dat[[col]] <- suppressWarnings(as.integer(dat[[col]]))
+  }
+
+  # -- Patch missing EAF from a PLINK .frq reference file -----------------------
+  # Same lookup run_coloc() already does inline for its own harmonised data
+  # (see ref_frq there) -- offered here too because some sources have no EAF
+  # at all (e.g. a pre-clumped instrument file that only carries beta/se/pval),
+  # which otherwise leaves palindromic SNPs unresolvable during harmonisation.
+  # .frq columns: CHR, SNP, A1, A2, MAF, NCHROBS. A1 is the frq file's coded
+  # allele: EAF = MAF when effect_allele == A1, else EAF = 1 - MAF. Only fills
+  # rows where eaf is missing; never overwrites an EAF already in the data.
+  if (!is.null(ref_frq)) {
+    if (!file.exists(ref_frq)) {
+      cli::cli_abort("{.arg ref_frq} file not found: {.path {ref_frq}}")
+    }
+    if (!"eaf" %in% names(dat)) {
+      dat$eaf <- NA_real_
+    }
+    if (all(c("rsids", "effect_allele") %in% names(dat))) {
+      needs_eaf <- is.na(dat$eaf)
+      if (any(needs_eaf)) {
+        frq <- data.table::fread(ref_frq, data.table = FALSE)
+        frq <- frq[!duplicated(frq$SNP), c("SNP", "A1", "MAF")]
+        idx <- match(dat$rsids[needs_eaf], frq$SNP)
+        found <- !is.na(idx)
+        if (any(found)) {
+          rows_need <- which(needs_eaf)[found]
+          frq_matched <- frq[idx[found], ]
+          eaf_ref <- ifelse(
+            toupper(frq_matched$A1) == toupper(dat$effect_allele[rows_need]),
+            frq_matched$MAF,
+            1 - frq_matched$MAF
+          )
+          dat$eaf[rows_need] <- eaf_ref
+        }
+        cli::cli_inform(
+          "{.val {phenotype_id}}: patched EAF for {sum(found)} of {sum(needs_eaf)} SNP{?s} missing it, from {.path {ref_frq}}."
+        )
+      }
+    }
   }
 
   # -- Transformations ----------------------------------------------------------

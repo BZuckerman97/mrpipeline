@@ -199,6 +199,13 @@ format_pqtl_ukbppp <- function(
 #' protein complexes), as long as the underlying file paths are consistent.
 #' @param olink_dir String, directory of the olink files
 #' @param olink_rsid_dir String, directory of the olink rsid files
+#' @param region_chr String or NULL. If supplied, overrides the protein's own
+#'   gene chromosome (from the linker file) when building both file paths.
+#'   Use this when reading the protein as an *outcome* at a locus other than
+#'   its own gene (e.g. reversed-role drug-target MR, where a fixed exposure
+#'   region is being looked up across many outcome proteins). Default `NULL`
+#'   preserves the original behaviour exactly (uses the protein's own gene
+#'   chromosome).
 #'
 #' @returns a list of the 2 filepaths, one for the ukbppp_pqtl data and the other is
 #' the corresponding rsID metadata file, as well as the name of the assay
@@ -221,7 +228,8 @@ ukbppp_pqtl_file_name <- function(
   synapse_id,
   olink_linker_file,
   olink_dir,
-  olink_rsid_dir
+  olink_rsid_dir,
+  region_chr = NULL
 ) {
   if (rlang::is_string(olink_linker_file)) {
     stopifnot(file.exists(olink_linker_file))
@@ -270,6 +278,8 @@ ukbppp_pqtl_file_name <- function(
   }
   metadata <- as.list(metadata)
 
+  chr_to_use <- if (!is.null(region_chr)) region_chr else metadata$chr
+
   # result
   list(
     ukbppp = file.path(
@@ -278,7 +288,7 @@ ukbppp_pqtl_file_name <- function(
         gsub(".tar", "", metadata$Docname),
         "/",
         "discovery_chr",
-        metadata$chr,
+        chr_to_use,
         "_",
         metadata$UKBPPP_ProteinID,
         ":",
@@ -290,7 +300,7 @@ ukbppp_pqtl_file_name <- function(
       olink_rsid_dir,
       paste0(
         "olink_rsid_map_mac5_info03_b0_7_chr",
-        metadata$chr,
+        chr_to_use,
         "_patched_v2.tsv.gz"
       )
     ),
