@@ -67,9 +67,14 @@
 #'   `"egger"` (MR Egger), `"weighted_median"` (weighted median),
 #'   `"presso"` (MR-PRESSO), `"conmix"` (ContMix), `"steiger"` (Steiger
 #'   filtering), `"pleiotropy"` (Egger intercept test; result stored in
-#'   `$pleiotropy`, not `$results`). You may also pass any method name from
-#'   `TwoSampleMR::mr_method_list()$obj` directly (e.g. `"mr_simple_median"`,
-#'   `"mr_raps"`). Note: `"ivw_fe"` does not support `ld_correct = TRUE`.
+#'   `$pleiotropy`, not `$results`), `"heterogeneity"` (Cochran's Q test via
+#'   [TwoSampleMR::mr_heterogeneity()]; result stored in `$heterogeneity`,
+#'   not `$results`; requires >= 2 instruments), `"loo"` (leave-one-out
+#'   analysis via [TwoSampleMR::mr_leaveoneout()]; result stored in `$loo`,
+#'   not `$results`; requires >= 3 instruments). You may also pass any
+#'   method name from `TwoSampleMR::mr_method_list()$obj` directly (e.g.
+#'   `"mr_simple_median"`, `"mr_raps"`). Note: `"ivw_fe"` does not support
+#'   `ld_correct = TRUE`.
 #' @param ld_correct Logical. Use LD-corrected IVW/Egger via the
 #'   `MendelianRandomization` package. Requires `bfile`. Default `FALSE`.
 #' @param exposure_n Numeric. Exposure sample size. If `NULL`, inferred from
@@ -149,7 +154,9 @@ run_mr <- function(
     "presso",
     "conmix",
     "steiger",
-    "pleiotropy"
+    "pleiotropy",
+    "heterogeneity",
+    "loo"
   )
   tsm_available <- setdiff(TwoSampleMR::mr_method_list()$obj, "mr_wald_ratio")
   unknown_methods <- setdiff(methods, c(shortcut_methods, tsm_available))
@@ -411,6 +418,22 @@ run_mr <- function(
   # speeds up harmonisation without affecting results.
   if ("rsids" %in% names(outcome) && nrow(exposure_iv) > 0) {
     outcome <- outcome[outcome$rsids %in% exposure_iv$SNP, , drop = FALSE]
+  }
+
+  if (nrow(outcome) == 0) {
+    cli::cli_warn(
+      "No overlapping SNPs between instruments and outcome for {.val {exposure_id}} -> {.val {outcome_id}}."
+    )
+    timing[["harmonisation"]] <- proc.time()[["elapsed"]] - t0
+    return(new_mr_result(
+      status = "no_harmonised_variants",
+      status_reason = paste0(
+        "No overlapping SNPs between instruments and outcome for '",
+        exposure_id, "' -> '", outcome_id, "'"
+      ),
+      params = params,
+      timing = timing
+    ))
   }
 
   outcome_data <- TwoSampleMR::format_data(
@@ -735,7 +758,10 @@ run_mr <- function(
       "weighted_median",
       "presso",
       "conmix",
-      "steiger"
+      "steiger",
+      "pleiotropy",
+      "heterogeneity",
+      "loo"
     )
     generic_tsm <- methods[!methods %in% shortcut_names]
     for (m in generic_tsm) {
@@ -815,6 +841,59 @@ run_mr <- function(
     timing[["mr_pleiotropy"]] <- proc.time()[["elapsed"]] - t0
   }
 
+  # Heterogeneity test -- Cochran's Q (requires >= 2 SNPs).
+  heterogeneity_result <- NULL
+  if ("heterogeneity" %in% methods) {
+    t0 <- proc.time()[["elapsed"]]
+    if (n_snps < 2) {
+      methods_skipped["heterogeneity"] <- "Requires >= 2 instruments"
+    } else {
+      heterogeneity_result <- tryCatch(
+        {
+          TwoSampleMR::mr_heterogeneity(harmonised)
+        },
+        error = function(e) {
+          cli::cli_warn(
+            "Heterogeneity test failed: {conditionMessage(e)}"
+          )
+          methods_skipped["heterogeneity"] <<- paste(
+            "Failed:",
+            conditionMessage(e)
+          )
+          NULL
+        }
+      )
+    }
+    timing[["mr_heterogeneity"]] <- proc.time()[["elapsed"]] - t0
+  }
+
+  # Leave-one-out analysis (requires >= 3 SNPs -- with 2, dropping one just
+  # reproduces the remaining SNP's Wald ratio, which isn't informative).
+  loo_result <- NULL
+  if ("loo" %in% methods) {
+    t0 <- proc.time()[["elapsed"]]
+    if (n_snps < 3) {
+      methods_skipped["loo"] <- "Requires >= 3 instruments"
+    } else {
+      loo_result <- tryCatch(
+        {
+          TwoSampleMR::mr_leaveoneout(harmonised)
+        },
+        error = function(e) {
+          cli::cli_warn(
+            "Leave-one-out analysis failed: {conditionMessage(e)}"
+          )
+          methods_skipped["loo"] <<- paste(
+            "Failed:",
+            conditionMessage(e)
+          )
+          NULL
+        }
+      )
+    }
+    timing[["mr_loo"]] <- proc.time()[["elapsed"]] - t0
+  }
+
   # --- Assemble results -----------------------------------------------------
 
   if (length(results_list) == 0) {
@@ -841,6 +920,8 @@ run_mr <- function(
     f_stats = f_stats,
     steiger = steiger_result,
     pleiotropy = pleiotropy_result,
+    heterogeneity = heterogeneity_result,
+    loo = loo_result,
     methods_skipped = methods_skipped,
     ld_matrix = ld_mat,
     params = params,

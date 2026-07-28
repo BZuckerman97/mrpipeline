@@ -67,12 +67,30 @@ in `methods` and there are >= 3 instruments. The result is stored in
 `exposure`, and `outcome`. The `"pleiotropy"` shortcut in `methods` triggers the
 same test independently (i.e. without also running the Egger slope estimate).
 
+#### Heterogeneity test (Cochran's Q)
+
+`TwoSampleMR::mr_heterogeneity()` runs when `"heterogeneity"` is in `methods`
+and there are >= 2 instruments; otherwise `methods_skipped["heterogeneity"]`
+records the reason. The result is stored in `$heterogeneity` as a data frame
+with one row per method (typically MR Egger and IVW), columns `Q`, `Q_df`,
+`Q_pval`, `exposure`, `outcome`.
+
+#### Leave-one-out analysis
+
+`TwoSampleMR::mr_leaveoneout()` runs when `"loo"` is in `methods` and there
+are >= 3 instruments (below that, dropping one SNP just reproduces the
+remaining SNP's Wald ratio, which isn't informative); otherwise
+`methods_skipped["loo"]` records the reason. The result is stored in `$loo`
+as a data frame with one row per SNP plus a pooled `"All"` row, columns `SNP`,
+`b`, `se`, `p`, `exposure`, `outcome`.
+
 #### `print.mr_result()` and `summary.mr_result()`
 
 `print.mr_result()` shows a one-line summary using the first result row, including
 the OR and 95% CI (when available). `summary.mr_result()` shows all methods with
 OR columns, F-statistics, Steiger result, the Egger intercept (when computed),
-and skipped methods.
+the heterogeneity (Cochran's Q) table (when computed), a leave-one-out row count
+(when computed), and skipped methods.
 
 ### `coloc_result`
 

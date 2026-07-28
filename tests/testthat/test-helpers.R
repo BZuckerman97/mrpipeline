@@ -115,18 +115,45 @@ test_that("harmonise_and_filter returns filtered deduplicated data", {
 })
 
 # --- align_to_ld_matrix ------------------------------------------------------
+# ld_matrix() is the list returned by compute_ld_matrix(): list(ld, alleles).
+# alleles$ld_a1 is the allele the LD matrix's sign is anchored to.
+
+make_ld_list <- function(snps, ld_a1, ld_a2, ld = NULL) {
+  n <- length(snps)
+  if (is.null(ld)) {
+    ld <- diag(n)
+  }
+  rownames(ld) <- colnames(ld) <- snps
+  list(
+    ld = ld,
+    alleles = data.frame(
+      SNP = snps,
+      ld_a1 = ld_a1,
+      ld_a2 = ld_a2,
+      stringsAsFactors = FALSE
+    )
+  )
+}
 
 test_that("align_to_ld_matrix subsets and reorders correctly", {
   data <- data.frame(
     SNP = c("rs1", "rs2", "rs3", "rs4"),
-    beta = c(0.1, 0.2, 0.3, 0.4),
+    beta.exposure = c(0.1, 0.2, 0.3, 0.4),
+    beta.outcome = c(0.05, 0.1, 0.15, 0.2),
+    effect_allele.exposure = c("A", "A", "A", "A"),
+    other_allele.exposure = c("G", "G", "G", "G"),
+    eaf.exposure = c(0.3, 0.3, 0.3, 0.3),
+    eaf.outcome = c(0.3, 0.3, 0.3, 0.3),
     stringsAsFactors = FALSE
   )
 
-  ld <- matrix(1, nrow = 3, ncol = 3)
-  rownames(ld) <- colnames(ld) <- c("rs2", "rs3", "rs1")
+  ld_matrix <- make_ld_list(
+    snps = c("rs2", "rs3", "rs1"),
+    ld_a1 = c("A", "A", "A"),
+    ld_a2 = c("G", "G", "G")
+  )
 
-  result <- align_to_ld_matrix(data, ld)
+  result <- suppressMessages(align_to_ld_matrix(data, ld_matrix))
 
   # intersect preserves order from data: rs1, rs2, rs3
   expect_equal(result$data$SNP, c("rs1", "rs2", "rs3"))
@@ -134,14 +161,121 @@ test_that("align_to_ld_matrix subsets and reorders correctly", {
   expect_equal(rownames(result$ld_matrix), c("rs1", "rs2", "rs3"))
   # Both are in the same order
   expect_equal(result$data$SNP, rownames(result$ld_matrix))
+  # All alleles matched the LD panel -- no flips
+  expect_equal(result$ld_sign, c(1, 1, 1))
 })
 
 test_that("align_to_ld_matrix errors when no shared SNPs", {
-  data <- data.frame(SNP = c("rs1", "rs2"), stringsAsFactors = FALSE)
-  ld <- matrix(1, nrow = 1, ncol = 1)
-  rownames(ld) <- colnames(ld) <- "rs99"
+  data <- data.frame(
+    SNP = c("rs1", "rs2"),
+    effect_allele.exposure = c("A", "A"),
+    other_allele.exposure = c("G", "G"),
+    stringsAsFactors = FALSE
+  )
+  ld_matrix <- make_ld_list(snps = "rs99", ld_a1 = "A", ld_a2 = "G")
 
-  expect_error(align_to_ld_matrix(data, ld), "No SNPs in common")
+  expect_error(align_to_ld_matrix(data, ld_matrix), "No SNPs in common")
+})
+
+test_that("align_to_ld_matrix flips ld_sign when LD panel allele order is swapped", {
+  data <- data.frame(
+    SNP = c("rs1", "rs2"),
+    beta.exposure = c(0.1, 0.2),
+    beta.outcome = c(0.05, 0.1),
+    effect_allele.exposure = c("A", "C"),
+    other_allele.exposure = c("G", "T"),
+    eaf.exposure = c(0.3, 0.2),
+    eaf.outcome = c(0.3, 0.2),
+    stringsAsFactors = FALSE
+  )
+
+  # rs1: LD panel's A1/A2 match the harmonised effect/other allele -> "match"
+  # rs2: LD panel's A1/A2 are swapped relative to harmonised -> "flip"
+  ld_matrix <- make_ld_list(
+    snps = c("rs1", "rs2"),
+    ld_a1 = c("A", "T"),
+    ld_a2 = c("G", "C")
+  )
+
+  result <- suppressMessages(align_to_ld_matrix(data, ld_matrix))
+
+  expect_equal(result$data$SNP, c("rs1", "rs2"))
+  expect_equal(result$ld_sign, c(1, -1))
+  # beta.exposure/beta.outcome themselves are untouched -- ld_sign is applied
+  # separately when building coloc/SuSiE dataset objects, not by mutating data
+  expect_equal(result$data$beta.exposure, c(0.1, 0.2))
+})
+
+test_that("align_to_ld_matrix drops SNPs unresolvable against the LD panel", {
+  data <- data.frame(
+    SNP = c("rs1", "rs2"),
+    beta.exposure = c(0.1, 0.2),
+    beta.outcome = c(0.05, 0.1),
+    effect_allele.exposure = c("A", "C"),
+    other_allele.exposure = c("G", "T"),
+    eaf.exposure = c(0.3, 0.2),
+    eaf.outcome = c(0.3, 0.2),
+    stringsAsFactors = FALSE
+  )
+
+  # rs2's LD panel alleles (A/G) share no letters with the harmonised C/T --
+  # an unresolvable allele mismatch (e.g. a mislabelled/multi-allelic site).
+  ld_matrix <- make_ld_list(
+    snps = c("rs1", "rs2"),
+    ld_a1 = c("A", "A"),
+    ld_a2 = c("G", "G")
+  )
+
+  result <- suppressMessages(align_to_ld_matrix(data, ld_matrix))
+
+  expect_equal(result$data$SNP, "rs1")
+  expect_equal(nrow(result$ld_matrix), 1)
+  expect_equal(length(result$ld_sign), 1)
+})
+
+test_that("align_to_ld_matrix drops ambiguous palindromic SNPs", {
+  data <- data.frame(
+    SNP = c("rs1", "rs2"),
+    beta.exposure = c(0.1, 0.2),
+    beta.outcome = c(0.05, 0.1),
+    effect_allele.exposure = c("A", "A"),
+    other_allele.exposure = c("G", "T"),
+    # rs2 is a palindromic A/T SNP with EAF in the ambiguous 0.42-0.58 zone
+    eaf.exposure = c(0.3, 0.5),
+    eaf.outcome = c(0.3, 0.5),
+    stringsAsFactors = FALSE
+  )
+
+  ld_matrix <- make_ld_list(
+    snps = c("rs1", "rs2"),
+    ld_a1 = c("A", "A"),
+    ld_a2 = c("G", "T")
+  )
+
+  result <- suppressMessages(align_to_ld_matrix(data, ld_matrix))
+
+  expect_equal(result$data$SNP, "rs1")
+})
+
+test_that("align_to_ld_matrix keeps non-ambiguous palindromic SNPs", {
+  data <- data.frame(
+    SNP = "rs1",
+    beta.exposure = 0.1,
+    beta.outcome = 0.05,
+    effect_allele.exposure = "A",
+    other_allele.exposure = "T",
+    # Far from 0.5 -- not ambiguous, should be resolved by allele matching
+    eaf.exposure = 0.1,
+    eaf.outcome = 0.1,
+    stringsAsFactors = FALSE
+  )
+
+  ld_matrix <- make_ld_list(snps = "rs1", ld_a1 = "A", ld_a2 = "T")
+
+  result <- suppressMessages(align_to_ld_matrix(data, ld_matrix))
+
+  expect_equal(result$data$SNP, "rs1")
+  expect_equal(result$ld_sign, 1)
 })
 
 # --- compute_ld_matrix --------------------------------------------------------
@@ -168,10 +302,15 @@ test_that("compute_ld_matrix works with local reference panel", {
 
   result <- compute_ld_matrix(test_snps, bfile)
 
-  expect_true(is.matrix(result))
-  expect_equal(nrow(result), length(test_snps))
+  expect_true(is.list(result))
+  expect_true(is.matrix(result$ld))
+  expect_equal(nrow(result$ld), length(test_snps))
   # Row/col names should be clean rsIDs (no allele suffixes)
-  expect_false(any(grepl("_", rownames(result))))
+  expect_false(any(grepl("_", rownames(result$ld))))
+  # alleles carries the parsed-out A1/A2 for every SNP in ld
+  expect_true(is.data.frame(result$alleles))
+  expect_setequal(result$alleles$SNP, rownames(result$ld))
+  expect_true(all(c("ld_a1", "ld_a2") %in% names(result$alleles)))
 })
 
 # --- clump_instruments --------------------------------------------------------

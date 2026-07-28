@@ -97,6 +97,7 @@ a built-in table of known aliases for each target column:\tabular{ll}{
    \code{beta} \tab \code{Beta}, \code{Effect}, \code{BETA} \cr
    \code{se} \tab \code{standard_error}, \code{StdErr}, \code{SE}, \code{sebeta} \cr
    \code{or} \tab \code{odds_ratio}, \code{OR} \cr
+   \code{zscore} \tab \code{zscore}, \code{Zscore}, \code{Z-score}, \code{Z_score} \cr
    \code{eaf} \tab \code{effect_allele_frequency}, \code{Freq1}, \code{EAFrq}, \code{A1FREQ}, \code{af_alt}, \code{EAF}, \code{FRQ} \cr
    \code{pval} \tab \code{p_value}, \code{P-value}, \code{P}, \code{Pval}, \code{p.value} \cr
    \code{n} \tab \code{N}, \code{TotalSampleSize}, \code{n_total} \cr
@@ -115,8 +116,11 @@ list, so they take precedence in the event of ambiguity.
 \section{Automatic odds-ratio to log-odds conversion}{
 
 Some GWAS files (particularly older EBI deposits) report effect sizes as odds
-ratios rather than log-odds. When \code{beta} is absent after column normalisation
-but an \code{or} column is present, the function automatically derives:
+ratios rather than log-odds. When \code{beta} is absent -- or present but entirely
+\code{NA} (some GWAS Catalog templates carry an empty \code{beta} column alongside a
+populated \code{odds_ratio} column, e.g. Ji 2016 PSC) -- after column
+normalisation, and an \code{or} column is present, the function automatically
+derives:
 \itemize{
 \item \code{beta = log(or)} (natural log; converts OR to the log-odds scale MR requires)
 \item \verb{se = |beta| / qnorm(pval / 2)} (Z-score back-calculation from p-value)
@@ -127,6 +131,44 @@ sizes are small (OR close to 1), which is typical for common-variant GWAS.
 An informative message is emitted whenever the conversion is applied.
 If your file has an OR column under a non-standard name, add it via
 \code{col_map = list(or = "MY_OR_COLUMN")}.
+}
+
+\section{Automatic Z-score to beta/se conversion}{
+
+Some GWAS files (typically METAL output) report only a Z-score rather than
+beta/se -- e.g. Hysi 2020 refractive error, He strabismus, Cuellar-Partida
+2021 handedness. When \code{beta} is absent after column normalisation but a
+\code{zscore} column is present, the function derives it automatically:
+\itemize{
+\item If \code{se} is already present: \code{beta = zscore * se}.
+\item Otherwise, \code{se} is first derived from allele frequency and sample size
+via the standard GWAS Z-score formula, then \code{beta = zscore * se}:
+\code{se = 1 / sqrt(2 * eaf * (1 - eaf) * (n + zscore^2))}. This path requires
+both \code{eaf} and \code{n} columns.
+}
+
+An informative message is emitted whenever the conversion is applied. If
+your file has a Z-score column under a non-standard name, add it via
+\code{col_map = list(zscore = "MY_Z_COLUMN")}; likewise use \code{col_map} for a
+non-standard sample-size column (e.g. METAL's \code{Weight}), via
+\code{col_map = list(n = "Weight")}.
+}
+
+\section{Automatic se derivation from beta + p-value}{
+
+Some GWAS files report a real \code{beta} and \code{pval} but no \code{se}, \code{or}, or
+\code{zscore} column at all -- e.g. the deCODE haematinics files (Iron_TSAT,
+Iron_Ferritin). When this happens (and the OR/Z-score derivations above
+don't apply, since neither an \code{or} nor a \code{zscore} column is present), the
+function derives \code{se} directly via the same Z-score back-calculation used
+in the OR conversion above:
+\itemize{
+\item \verb{se = |beta| / qnorm(pval / 2)}
+}
+
+An informative message is emitted whenever this derivation is applied. If
+your file has \code{se} under a non-standard name, add it via
+\code{col_map = list(se = "MY_SE_COLUMN")} instead of relying on this fallback.
 }
 
 \section{rsID lookup from bim file}{

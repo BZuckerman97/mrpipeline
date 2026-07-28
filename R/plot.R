@@ -4,13 +4,16 @@
 #' TwoSampleMR plotting functions. Requires the `ggplot2` package.
 #'
 #' @param x An `mr_result` object.
-#' @param type Character. Plot type: `"scatter"` (default), `"forest"`, or
-#'   `"funnel"`.
+#' @param type Character. Plot type: `"scatter"` (default), `"forest"`,
+#'   `"funnel"`, or `"loo"` (leave-one-out, via
+#'   [TwoSampleMR::mr_leaveoneout_plot()] on `x$loo`; requires `"loo"` to
+#'   have been in `methods` when `run_mr()` was called).
 #' @param ... Ignored.
 #'
-#' @return A ggplot object (or list of ggplot objects for `"scatter"`).
-#'   Returns `NULL` invisibly if the result status is not `"success"` or if
-#'   no results are available.
+#' @return A ggplot object (or list of ggplot objects for `"scatter"` and
+#'   `"loo"`). Returns `NULL` invisibly if the result status is not
+#'   `"success"`, if no results are available, or (for `type = "loo"`) if
+#'   `x$loo` was not computed.
 #'
 #' @examples
 #' \dontrun{
@@ -18,21 +21,31 @@
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
-#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline"),
+#'   methods = c("ivw", "egger", "weighted_median", "loo")
 #' )
 #' plot(result, type = "scatter")
 #' plot(result, type = "forest")
 #' plot(result, type = "funnel")
+#' plot(result, type = "loo")
 #' }
 #'
 #' @export
-plot.mr_result <- function(x, type = c("scatter", "forest", "funnel"), ...) {
+plot.mr_result <- function(x, type = c("scatter", "forest", "funnel", "loo"), ...) {
   rlang::check_installed("ggplot2", reason = "to plot MR results.")
   type <- match.arg(type)
 
   if (x$status != "success" || nrow(x$results) == 0) {
     cli::cli_inform("Cannot plot: no successful MR results available.")
     return(invisible(NULL))
+  }
+
+  if (type == "loo") {
+    if (is.null(x$loo) || nrow(x$loo) == 0) {
+      cli::cli_inform("Cannot plot: leave-one-out results not available (add \"loo\" to methods).")
+      return(invisible(NULL))
+    }
+    return(TwoSampleMR::mr_leaveoneout_plot(x$loo))
   }
 
   harmonised <- x$instruments

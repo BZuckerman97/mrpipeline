@@ -154,7 +154,15 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 \item \code{"susie"} -- SuSiE fine-mapping + colocalization via
 \code{\link[coloc:runsusie]{coloc::runsusie()}} and \code{\link[coloc:coloc.susie]{coloc::coloc.susie()}}
 \item \code{"signals"} -- Multi-signal colocalization via
-\code{\link[coloc:coloc.signals]{coloc::coloc.signals()}}. Requires \code{"susie"} to have run successfully.
+\code{\link[coloc:coloc.signals]{coloc::coloc.signals()}}, called with \code{method = "cond"} (LD-based
+conditioning) on the same \code{dataset_exp}/\code{dataset_out} objects used by
+\code{"abf"}. \code{\link[coloc:coloc.signals]{coloc::coloc.signals()}} performs its own internal signal
+detection (\code{finemap.signals()}) and does not consume \code{"susie"}'s
+\code{runsusie()} output -- despite the name, it's an independent multi-signal
+method, not a wrapper around SuSiE's credible sets. It is still gated on
+\code{"susie"} having been requested and having run successfully (skipped
+otherwise), for consistency with this function's \code{methods} design rather
+than because it needs SuSiE's output.
 \item \code{"prop_test"} -- Proportionality test via
 \code{colocPropTest::coloc.prop.test()}. Requires \code{"signals"} to have run
 successfully and the \code{colocPropTest} package to be installed.
@@ -175,6 +183,34 @@ by \code{targets} metadata (\code{targets::tar_meta(fields = warnings)}) even th
 it doesn't print live during a \code{tar_make()} run. Any SNP missing EAF on
 \emph{both} sides is dropped (with a warning) before colocalization, since there
 is no value left to fall back to.
+}
+
+\section{LD matrix orientation}{
+
+\code{\link[=compute_ld_matrix]{compute_ld_matrix()}} (via \code{\link[ieugwasr:ld_matrix]{ieugwasr::ld_matrix()}}, \verb{--r square --keep-allele-order}) returns a \strong{signed} correlation matrix whose sign
+is anchored to the reference panel's own, arbitrary A1 allele for each
+SNP -- not to \code{effect_allele.exposure}/\code{effect_allele.outcome}. Roughly
+half of SNPs, at random, will have the panel's A1 differ from the
+harmonised effect allele. \code{\link[coloc:coloc.abf]{coloc::coloc.abf()}} is unaffected by this: it
+never uses \code{LD}, and each SNP's Bayes factor depends only on \code{beta^2},
+so a per-SNP sign flip changes nothing. \code{\link[coloc:runsusie]{coloc::runsusie()}} (and the
+\code{susieR::susie_rss()} it wraps), however, fits a joint model across all
+SNPs from \code{LD} and \code{beta}/\code{varbeta} together -- if even a subset of SNPs
+have a sign inconsistent with \code{LD}'s convention, the fit becomes
+internally incoherent, which is exactly what \code{susie_rss()}'s
+\code{check_prior} safety check (comparing the fitted prior variance against
+\code{100 * max(abs(z))^2}) is designed to catch, surfacing as the error
+\code{"the estimated prior variance is unreasonably large"}. If you ever see
+that error and \code{"abf"} succeeded on the same data, an LD-orientation bug
+-- not LD-reference-panel quality -- is the first thing to suspect.
+\code{\link[=align_to_ld_matrix]{align_to_ld_matrix()}} corrects for this automatically: it classifies
+each SNP as matching, needing a sign flip, or unresolvable against the
+reference panel (also dropping palindromic SNPs with an EAF in the
+ambiguous 0.42-0.58 zone, which can't be resolved by allele identity
+alone), and returns a \code{ld_sign} vector multiplied into
+\code{dataset_exp$beta}/\code{dataset_out$beta} immediately before they're passed
+to \code{coloc::runsusie()} -- see that function's documentation for the full
+algorithm.
 }
 
 \examples{

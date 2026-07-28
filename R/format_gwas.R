@@ -18,6 +18,7 @@
 #' | `beta`    | `Beta`, `Effect`, `BETA` |
 #' | `se`      | `standard_error`, `StdErr`, `SE`, `sebeta` |
 #' | `or`      | `odds_ratio`, `OR` |
+#' | `zscore`  | `zscore`, `Zscore`, `Z-score`, `Z_score` |
 #' | `eaf`     | `effect_allele_frequency`, `Freq1`, `EAFrq`, `A1FREQ`, `af_alt`, `EAF`, `FRQ` |
 #' | `pval`    | `p_value`, `P-value`, `P`, `Pval`, `p.value` |
 #' | `n`       | `N`, `TotalSampleSize`, `n_total` |
@@ -32,8 +33,11 @@
 #'
 #' @section Automatic odds-ratio to log-odds conversion:
 #' Some GWAS files (particularly older EBI deposits) report effect sizes as odds
-#' ratios rather than log-odds. When `beta` is absent after column normalisation
-#' but an `or` column is present, the function automatically derives:
+#' ratios rather than log-odds. When `beta` is absent -- or present but entirely
+#' `NA` (some GWAS Catalog templates carry an empty `beta` column alongside a
+#' populated `odds_ratio` column, e.g. Ji 2016 PSC) -- after column
+#' normalisation, and an `or` column is present, the function automatically
+#' derives:
 #'
 #' - `beta = log(or)` (natural log; converts OR to the log-odds scale MR requires)
 #' - `se = |beta| / qnorm(pval / 2)` (Z-score back-calculation from p-value)
@@ -43,6 +47,38 @@
 #' An informative message is emitted whenever the conversion is applied.
 #' If your file has an OR column under a non-standard name, add it via
 #' `col_map = list(or = "MY_OR_COLUMN")`.
+#'
+#' @section Automatic Z-score to beta/se conversion:
+#' Some GWAS files (typically METAL output) report only a Z-score rather than
+#' beta/se -- e.g. Hysi 2020 refractive error, He strabismus, Cuellar-Partida
+#' 2021 handedness. When `beta` is absent after column normalisation but a
+#' `zscore` column is present, the function derives it automatically:
+#'
+#' - If `se` is already present: `beta = zscore * se`.
+#' - Otherwise, `se` is first derived from allele frequency and sample size
+#'   via the standard GWAS Z-score formula, then `beta = zscore * se`:
+#'   `se = 1 / sqrt(2 * eaf * (1 - eaf) * (n + zscore^2))`. This path requires
+#'   both `eaf` and `n` columns.
+#'
+#' An informative message is emitted whenever the conversion is applied. If
+#' your file has a Z-score column under a non-standard name, add it via
+#' `col_map = list(zscore = "MY_Z_COLUMN")`; likewise use `col_map` for a
+#' non-standard sample-size column (e.g. METAL's `Weight`), via
+#' `col_map = list(n = "Weight")`.
+#'
+#' @section Automatic se derivation from beta + p-value:
+#' Some GWAS files report a real `beta` and `pval` but no `se`, `or`, or
+#' `zscore` column at all -- e.g. the deCODE haematinics files (Iron_TSAT,
+#' Iron_Ferritin). When this happens (and the OR/Z-score derivations above
+#' don't apply, since neither an `or` nor a `zscore` column is present), the
+#' function derives `se` directly via the same Z-score back-calculation used
+#' in the OR conversion above:
+#'
+#' - `se = |beta| / qnorm(pval / 2)`
+#'
+#' An informative message is emitted whenever this derivation is applied. If
+#' your file has `se` under a non-standard name, add it via
+#' `col_map = list(se = "MY_SE_COLUMN")` instead of relying on this fallback.
 #'
 #' @section rsID lookup from bim file:
 #' When `rsids` is absent (or all `NA`) after column normalisation, and
@@ -221,6 +257,7 @@ format_gwas <- function(
     beta = c("beta", "Beta", "Effect", "BETA"),
     se = c("se", "standard_error", "StdErr", "SE", "sebeta"),
     or = c("or", "odds_ratio", "OR"),
+    zscore = c("zscore", "Zscore", "Z-score", "Z_score"),
     eaf = c(
       "eaf",
       "effect_allele_frequency",
@@ -291,6 +328,30 @@ format_gwas <- function(
     dat,
     dplyr::across(dplyr::any_of(c("effect_allele", "other_allele")), toupper)
   )
+
+  # -- Clean compound "rsID:allele:allele" values in rsids column ---------------
+  # Some consortium files (e.g. GIANT_UKBB_2018 BMI/WHR/WHRadjBMI) name a
+  # compound "rsID:allele:allele" column "SNP", which the built-in alias
+  # table above auto-maps to `rsids`. Left as-is, these compound strings
+  # never match a clean instrument rsID during harmonisation -- discovered
+  # when GIANT_UKBB_2018 branches fell through to "no overlapping SNPs"
+  # despite the raw file having full coverage in the queried region. Strip
+  # the trailing ":allele:allele" suffix wherever present so rsids is always
+  # a bare rsID; rows that already carry a bare rsID (a minority even within
+  # GIANT's own file, e.g. some indel sites) pass through unchanged. A
+  # simple strip is used rather than routing through the bim lookup below,
+  # since that would needlessly discard any SNP absent from the 1000G
+  # reference panel even though its native rsID is perfectly usable.
+  if ("rsids" %in% names(dat)) {
+    compound <- grepl("^rs[0-9]+:", dat[["rsids"]])
+    if (any(compound, na.rm = TRUE)) {
+      n_compound <- sum(compound, na.rm = TRUE)
+      dat[["rsids"]][compound] <- sub("^(rs[0-9]+):.*$", "\\1", dat[["rsids"]][compound])
+      cli::cli_inform(
+        "{.val {phenotype_id}}: cleaned {n_compound} compound \"rsID:allele:allele\" value{?s} in the rsids column to bare rsIDs."
+      )
+    }
+  }
 
   # -- rsID lookup from bim file ------------------------------------------------
   has_rsids <- "rsids" %in% names(dat) && !all(is.na(dat[["rsids"]]))
@@ -411,7 +472,7 @@ format_gwas <- function(
   # column that contains "NA" strings alongside numeric values). Coercing here
   # means TwoSampleMR::format_data() always receives the expected types and does
   # not emit "column is not numeric. Coercing..." warnings.
-  for (col in intersect(c("beta", "se", "or", "eaf", "pval"), names(dat))) {
+  for (col in intersect(c("beta", "se", "or", "zscore", "eaf", "pval"), names(dat))) {
     dat[[col]] <- suppressWarnings(as.numeric(dat[[col]]))
   }
   for (col in intersect(c("pos", "n"), names(dat))) {
@@ -473,8 +534,14 @@ format_gwas <- function(
   # -- Derive beta + se from odds ratio when beta is absent ---------------------
   # Triggered when an or column exists but beta does not -- e.g. Rashkin 2020
   # cancer GWASes (NHL, melanoma) which publish odds_ratio + p_value only.
+  # Also triggered when a beta column exists but is entirely NA -- e.g. Ji 2016
+  # PSC GWAS, whose template carries an empty beta column alongside a populated
+  # odds_ratio column. Without this, the all-NA column would satisfy
+  # `"beta" %in% names(dat)` and silently skip derivation, leaving every row's
+  # effect estimate as NA rather than erroring.
   # Formula: beta = log(OR);  se = |beta| / qnorm(pval / 2)  (Z-score method).
-  if ("or" %in% names(dat) && !"beta" %in% names(dat)) {
+  beta_absent <- !"beta" %in% names(dat) || all(is.na(dat[["beta"]]))
+  if ("or" %in% names(dat) && beta_absent) {
     if (!"pval" %in% names(dat)) {
       cli::cli_abort(
         c(
@@ -499,6 +566,59 @@ format_gwas <- function(
         "{.val {phenotype_id}}: derived beta = log(OR); using existing se column."
       )
     }
+  }
+
+  # -- Derive beta + se from Z-score when beta is absent ------------------------
+  # Triggered when a zscore column exists but beta does not -- e.g. Cuellar-
+  # Partida 2021 handedness (zscore + se already given) or Hysi 2020 refractive
+  # error / He strabismus METAL output (zscore + eaf + n, no se at all).
+  if ("zscore" %in% names(dat) && !"beta" %in% names(dat)) {
+    if ("se" %in% names(dat)) {
+      dat <- dplyr::mutate(dat, beta = .data$zscore * .data$se)
+      cli::cli_inform(
+        "{.val {phenotype_id}}: no beta column found -- derived beta = zscore * se."
+      )
+    } else if (all(c("eaf", "n") %in% names(dat))) {
+      dat <- dplyr::mutate(
+        dat,
+        se = 1 / sqrt(2 * .data$eaf * (1 - .data$eaf) * (.data$n + .data$zscore^2)),
+        beta = .data$zscore * .data$se
+      )
+      cli::cli_inform(
+        "{.val {phenotype_id}}: no beta/se columns found -- derived se from eaf + n, and beta = zscore * se."
+      )
+    } else {
+      cli::cli_abort(
+        c(
+          "{.val {phenotype_id}}: cannot derive {.val beta} from zscore.",
+          "i" = "Need either an {.val se} column, or both {.val eaf} and {.val n} columns.",
+          "i" = "Supply the missing column name(s) via {.arg col_map}."
+        )
+      )
+    }
+  }
+
+  # -- Derive se from beta + pval when se is absent -----------------------------
+  # Triggered when beta and pval are both present but se, or, and zscore are
+  # not -- e.g. the deCODE haematinics files (Iron_TSAT, Iron_Ferritin), which
+  # publish Beta + P with no SE/OR/Z-score column at all. Same back-calculation
+  # formula as the OR-derivation block above.
+  if ("beta" %in% names(dat) && !all(is.na(dat[["beta"]])) && !"se" %in% names(dat)) {
+    if (!"pval" %in% names(dat)) {
+      cli::cli_abort(
+        c(
+          "{.val {phenotype_id}}: cannot derive {.val se} -- no se/or/zscore column, and no pval to back-calculate from.",
+          "i" = "Supply an se column via {.arg col_map}, or a p-value column so se can be derived: se = |beta| / qnorm(pval / 2)."
+        )
+      )
+    }
+    dat <- dplyr::mutate(
+      dat,
+      se = abs(.data$beta) / stats::qnorm(.data$pval / 2, lower.tail = FALSE)
+    )
+    cli::cli_inform(
+      "{.val {phenotype_id}}: no se column found -- derived se from beta + pval via Z-score method."
+    )
   }
 
   if (!is.null(n) && !"n" %in% names(dat)) {

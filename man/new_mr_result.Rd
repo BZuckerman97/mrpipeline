@@ -10,6 +10,8 @@ new_mr_result(
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
   pleiotropy = NULL,
+  heterogeneity = NULL,
+  loo = NULL,
   methods_skipped = character(),
   ld_matrix = NULL,
   params = list(),
@@ -31,6 +33,11 @@ b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
 \item{steiger}{Output of \code{\link[TwoSampleMR:steiger_filtering]{TwoSampleMR::steiger_filtering()}}, or \code{NULL}.}
 
 \item{pleiotropy}{Output of \code{\link[TwoSampleMR:mr_pleiotropy_test]{TwoSampleMR::mr_pleiotropy_test()}}, or \code{NULL}.}
+
+\item{heterogeneity}{Output of \code{\link[TwoSampleMR:mr_heterogeneity]{TwoSampleMR::mr_heterogeneity()}} (Cochran's
+Q per method), or \code{NULL}.}
+
+\item{loo}{Output of \code{\link[TwoSampleMR:mr_leaveoneout]{TwoSampleMR::mr_leaveoneout()}}, or \code{NULL}.}
 
 \item{methods_skipped}{Named character vector: names are method names,
 values are reasons for skipping.}

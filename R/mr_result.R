@@ -8,6 +8,9 @@
 #'   `mean` (numeric scalar), `min` (numeric scalar).
 #' @param steiger Output of [TwoSampleMR::steiger_filtering()], or `NULL`.
 #' @param pleiotropy Output of [TwoSampleMR::mr_pleiotropy_test()], or `NULL`.
+#' @param heterogeneity Output of [TwoSampleMR::mr_heterogeneity()] (Cochran's
+#'   Q per method), or `NULL`.
+#' @param loo Output of [TwoSampleMR::mr_leaveoneout()], or `NULL`.
 #' @param methods_skipped Named character vector: names are method names,
 #'   values are reasons for skipping.
 #' @param ld_matrix LD correlation matrix if `ld_correct = TRUE`, or `NULL`.
@@ -28,6 +31,8 @@ new_mr_result <- function(
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
   pleiotropy = NULL,
+  heterogeneity = NULL,
+  loo = NULL,
   methods_skipped = character(),
   ld_matrix = NULL,
   params = list(),
@@ -42,6 +47,8 @@ new_mr_result <- function(
       f_stats = f_stats,
       steiger = steiger,
       pleiotropy = pleiotropy,
+      heterogeneity = heterogeneity,
+      loo = loo,
       methods_skipped = methods_skipped,
       ld_matrix = ld_matrix,
       params = params,
@@ -201,6 +208,25 @@ summary.mr_result <- function(object, ...) {
       "*" = "Intercept: {round(pt$egger_intercept, 4)}",
       "*" = "SE: {round(pt$se, 4)}",
       "*" = "p-value: {signif(pt$pval, 3)}"
+    ))
+  }
+
+  # Heterogeneity test (Cochran's Q)
+  if (!is.null(object$heterogeneity)) {
+    ht <- object$heterogeneity
+    cli::cli_h2("Heterogeneity test (Cochran's Q)")
+    for (i in seq_len(nrow(ht))) {
+      cli::cli_bullets(c(
+        "*" = "{ht$method[i]}: Q = {round(ht$Q[i], 3)}, df = {ht$Q_df[i]}, p = {signif(ht$Q_pval[i], 3)}"
+      ))
+    }
+  }
+
+  # Leave-one-out analysis
+  if (!is.null(object$loo)) {
+    cli::cli_h2("Leave-one-out analysis")
+    cli::cli_bullets(c(
+      "*" = "{nrow(object$loo)} row{?s} (per-SNP estimates plus the pooled 'All' row); see {.code $loo} for the full table."
     ))
   }
 

@@ -159,11 +159,60 @@ test_that("format_gwas derives se via Z-score when OR present and se absent", {
   expect_true(all(result$se > 0))
 })
 
+test_that("format_gwas derives beta from OR when beta column exists but is entirely NA", {
+  df <- make_gwas()
+  df$or <- exp(df$beta)
+  df$beta <- NA_real_
+  result <- format_gwas(df, phenotype_id = "TEST")
+  expect_equal(result$beta, log(df$or), tolerance = 1e-10)
+})
+
 test_that("format_gwas errors when OR present but pval absent for SE derivation", {
   df <- make_gwas()
   df$or <- exp(df$beta)
   df <- df[, setdiff(names(df), c("beta", "pval"))]
   expect_error(format_gwas(df, phenotype_id = "TEST"), "cannot derive")
+})
+
+# -- Z-score -> beta/se derivation --------------------------------------------
+
+test_that("format_gwas derives beta = zscore * se when se is already present", {
+  df <- make_gwas()
+  df$zscore <- df$beta / df$se
+  df <- df[, setdiff(names(df), "beta")]
+  result <- format_gwas(df, phenotype_id = "TEST")
+  expect_true("beta" %in% names(result))
+  expect_equal(result$beta, df$zscore * df$se, tolerance = 1e-10)
+})
+
+test_that("format_gwas derives se and beta from zscore + eaf + n when se is absent", {
+  df <- make_gwas()
+  df$zscore <- df$beta / df$se
+  df <- df[, setdiff(names(df), c("beta", "se"))]
+  result <- format_gwas(df, phenotype_id = "TEST")
+  expect_true(all(c("se", "beta") %in% names(result)))
+  expected_se <- 1 / sqrt(2 * df$eaf * (1 - df$eaf) * (df$n + df$zscore^2))
+  expect_equal(result$se, expected_se, tolerance = 1e-10)
+  expect_equal(result$beta, df$zscore * expected_se, tolerance = 1e-10)
+})
+
+test_that("format_gwas errors when zscore present but neither se nor eaf+n available", {
+  df <- make_gwas()
+  df$zscore <- df$beta / df$se
+  df <- df[, setdiff(names(df), c("beta", "se", "eaf"))]
+  expect_error(format_gwas(df, phenotype_id = "TEST"), "cannot derive")
+})
+
+test_that("format_gwas resolves a non-standard zscore column via col_map", {
+  df <- make_gwas()
+  df$Zstat <- df$beta / df$se
+  df <- df[, setdiff(names(df), "beta")]
+  result <- format_gwas(
+    df,
+    phenotype_id = "TEST",
+    col_map = list(zscore = "Zstat")
+  )
+  expect_equal(result$beta, df$Zstat * df$se, tolerance = 1e-10)
 })
 
 # -- marker_col parsing -------------------------------------------------------

@@ -75,9 +75,14 @@ exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 \code{"egger"} (MR Egger), \code{"weighted_median"} (weighted median),
 \code{"presso"} (MR-PRESSO), \code{"conmix"} (ContMix), \code{"steiger"} (Steiger
 filtering), \code{"pleiotropy"} (Egger intercept test; result stored in
-\verb{$pleiotropy}, not \verb{$results}). You may also pass any method name from
-\code{TwoSampleMR::mr_method_list()$obj} directly (e.g. \code{"mr_simple_median"},
-\code{"mr_raps"}). Note: \code{"ivw_fe"} does not support \code{ld_correct = TRUE}.}
+\verb{$pleiotropy}, not \verb{$results}), \code{"heterogeneity"} (Cochran's Q test via
+\code{\link[TwoSampleMR:mr_heterogeneity]{TwoSampleMR::mr_heterogeneity()}}; result stored in \verb{$heterogeneity},
+not \verb{$results}; requires >= 2 instruments), \code{"loo"} (leave-one-out
+analysis via \code{\link[TwoSampleMR:mr_leaveoneout]{TwoSampleMR::mr_leaveoneout()}}; result stored in \verb{$loo},
+not \verb{$results}; requires >= 3 instruments). You may also pass any
+method name from \code{TwoSampleMR::mr_method_list()$obj} directly (e.g.
+\code{"mr_simple_median"}, \code{"mr_raps"}). Note: \code{"ivw_fe"} does not support
+\code{ld_correct = TRUE}.}
 
 \item{ld_correct}{Logical. Use LD-corrected IVW/Egger via the
 \code{MendelianRandomization} package. Requires \code{bfile}. Default \code{FALSE}.}

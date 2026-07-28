@@ -11,7 +11,15 @@
 #' - `"susie"` -- SuSiE fine-mapping + colocalization via
 #'   [coloc::runsusie()] and [coloc::coloc.susie()]
 #' - `"signals"` -- Multi-signal colocalization via
-#'   [coloc::coloc.signals()]. Requires `"susie"` to have run successfully.
+#'   [coloc::coloc.signals()], called with `method = "cond"` (LD-based
+#'   conditioning) on the same `dataset_exp`/`dataset_out` objects used by
+#'   `"abf"`. [coloc::coloc.signals()] performs its own internal signal
+#'   detection (`finemap.signals()`) and does not consume `"susie"`'s
+#'   `runsusie()` output -- despite the name, it's an independent multi-signal
+#'   method, not a wrapper around SuSiE's credible sets. It is still gated on
+#'   `"susie"` having been requested and having run successfully (skipped
+#'   otherwise), for consistency with this function's `methods` design rather
+#'   than because it needs SuSiE's output.
 #' - `"prop_test"` -- Proportionality test via
 #'   `colocPropTest::coloc.prop.test()`. Requires `"signals"` to have run
 #'   successfully and the `colocPropTest` package to be installed.
@@ -29,6 +37,33 @@
 #' it doesn't print live during a `tar_make()` run. Any SNP missing EAF on
 #' *both* sides is dropped (with a warning) before colocalization, since there
 #' is no value left to fall back to.
+#'
+#' @section LD matrix orientation:
+#' [compute_ld_matrix()] (via [ieugwasr::ld_matrix()], `--r square
+#' --keep-allele-order`) returns a **signed** correlation matrix whose sign
+#' is anchored to the reference panel's own, arbitrary A1 allele for each
+#' SNP -- not to `effect_allele.exposure`/`effect_allele.outcome`. Roughly
+#' half of SNPs, at random, will have the panel's A1 differ from the
+#' harmonised effect allele. [coloc::coloc.abf()] is unaffected by this: it
+#' never uses `LD`, and each SNP's Bayes factor depends only on `beta^2`,
+#' so a per-SNP sign flip changes nothing. [coloc::runsusie()] (and the
+#' `susieR::susie_rss()` it wraps), however, fits a joint model across all
+#' SNPs from `LD` and `beta`/`varbeta` together -- if even a subset of SNPs
+#' have a sign inconsistent with `LD`'s convention, the fit becomes
+#' internally incoherent, which is exactly what `susie_rss()`'s
+#' `check_prior` safety check (comparing the fitted prior variance against
+#' `100 * max(abs(z))^2`) is designed to catch, surfacing as the error
+#' `"the estimated prior variance is unreasonably large"`. If you ever see
+#' that error and `"abf"` succeeded on the same data, an LD-orientation bug
+#' -- not LD-reference-panel quality -- is the first thing to suspect.
+#' [align_to_ld_matrix()] corrects for this automatically: it classifies
+#' each SNP as matching, needing a sign flip, or unresolvable against the
+#' reference panel (also dropping palindromic SNPs with an EAF in the
+#' ambiguous 0.42-0.58 zone, which can't be resolved by allele identity
+#' alone), and returns a `ld_sign` vector multiplied into
+#' `dataset_exp$beta`/`dataset_out$beta` immediately before they're passed
+#' to `coloc::runsusie()` -- see that function's documentation for the full
+#' algorithm.
 #'
 #' @param exposure Data frame of formatted exposure data (output of
 #'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
@@ -435,9 +470,10 @@ run_coloc <- function(
     plink_threads = plink_threads,
     plink_memory = plink_memory
   )
-  aligned <- align_to_ld_matrix(harmonised, ld_mat)
+  aligned <- align_to_ld_matrix(harmonised, ld_mat, verbose = verbose)
   harmonised <- aligned$data
   ld_mat <- aligned$ld_matrix
+  ld_sign <- aligned$ld_sign
 
   timing[["ld_matrix"]] <- proc.time()[["elapsed"]] - t0
 
@@ -530,6 +566,7 @@ run_coloc <- function(
     keep <- !is.na(eaf_combined)
     harmonised <- harmonised[keep, ]
     eaf_combined <- eaf_combined[keep]
+    ld_sign <- ld_sign[keep]
     ld_mat <- ld_mat[harmonised$SNP, harmonised$SNP, drop = FALSE]
 
     if (nrow(harmonised) < 3) {
@@ -556,9 +593,15 @@ run_coloc <- function(
   maf <- eaf_to_maf(eaf_combined)
 
   # --- Build coloc datasets -------------------------------------------------
+  # `ld_sign` (from align_to_ld_matrix()) re-orients beta.exposure/beta.outcome
+  # to the LD matrix's own sign convention -- required for runsusie()/coloc.susie()
+  # to fit a coherent joint model against `ld_mat`. Applying it here (rather than
+  # mutating `harmonised` itself) leaves the persisted harmonised_data untouched
+  # for reporting/instrument export. coloc.abf() is unaffected either way, since
+  # it never uses LD and each SNP's Bayes factor depends only on beta^2.
 
   dataset_exp <- list(
-    beta = harmonised$beta.exposure,
+    beta = harmonised$beta.exposure * ld_sign,
     varbeta = harmonised$se.exposure^2,
     N = exp_n,
     type = exposure_type,
@@ -573,7 +616,7 @@ run_coloc <- function(
   }
 
   dataset_out <- list(
-    beta = harmonised$beta.outcome,
+    beta = harmonised$beta.outcome * ld_sign,
     varbeta = harmonised$se.outcome^2,
     N = out_n,
     type = outcome_type,
@@ -697,8 +740,9 @@ run_coloc <- function(
     } else {
       coloc_signals_res <- tryCatch(
         coloc::coloc.signals(
-          susie_exp,
-          susie_out,
+          dataset_exp,
+          dataset_out,
+          method = "cond",
           p1 = p1,
           p2 = p2,
           p12 = p12

@@ -582,3 +582,153 @@ test_that("run_coloc skips prop_test when susie not requested", {
   expect_s3_class(result, "coloc_result")
   expect_true("prop_test" %in% names(result$methods_skipped))
 })
+
+test_that("run_coloc runs susie + signals end-to-end despite LD-panel allele mismatches", {
+  # Regression test for the LD-matrix orientation bug: compute_ld_matrix()'s
+  # LD matrix is signed relative to the reference panel's own, arbitrary A1
+  # allele, which need not match effect_allele.exposure/outcome. Before
+  # align_to_ld_matrix() corrected for this, roughly half of SNPs (at
+  # random) would carry a sign inconsistent with the LD matrix, which made
+  # susieR::susie_rss() throw "the estimated prior variance is unreasonably
+  # large" -- while coloc.abf() (which never uses LD) remained unaffected.
+  # This test deliberately reports half the SNPs on the opposite allele to
+  # the reference panel's bim coding to reproduce that mismatch, and builds
+  # a real LD-correlated signal (rather than pure noise) so SuSiE has an
+  # actual credible set to find.
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  skip_if_not_installed("susieR")
+
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+
+  bim <- utils::read.table(
+    paste0(bfile, ".bim"),
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  test_snps <- head(bim$V2, 20)
+  test_chr <- as.character(bim$V1[1])
+  test_positions <- bim$V4[seq_along(test_snps)]
+  min_pos <- min(test_positions)
+  max_pos <- max(test_positions)
+  n_snp <- length(test_snps)
+
+  ld_list <- compute_ld_matrix(test_snps, bfile)
+  R <- ld_list$ld[test_snps, test_snps]
+
+  set.seed(1)
+  causal_idx <- 10
+  true_z <- R[, causal_idx] * 6
+  z_exp <- true_z + rnorm(n_snp, sd = 1)
+  z_out <- true_z + rnorm(n_snp, sd = 1)
+
+  se_exp <- runif(n_snp, 0.01, 0.05)
+  se_out <- runif(n_snp, 0.01, 0.05)
+  beta_exp <- z_exp * se_exp
+  beta_out <- z_out * se_out
+
+  # Report every other SNP on the opposite allele to the bim file's A1/A2 --
+  # exposure and outcome agree with each other (so TwoSampleMR::harmonise_data()
+  # sees no ambiguity), but half now disagree with the LD panel's own coding.
+  flip <- seq_len(n_snp) %% 2 == 0
+  ea <- bim$V5[seq_len(n_snp)]
+  oa <- bim$V6[seq_len(n_snp)]
+  ea_reported <- ifelse(flip, oa, ea)
+  oa_reported <- ifelse(flip, ea, oa)
+  beta_exp_reported <- ifelse(flip, -beta_exp, beta_exp)
+  beta_out_reported <- ifelse(flip, -beta_out, beta_out)
+
+  exposure <- data.frame(
+    SNP = test_snps,
+    chr.exposure = test_chr,
+    pos.exposure = test_positions,
+    beta.exposure = beta_exp_reported,
+    se.exposure = se_exp,
+    effect_allele.exposure = ea_reported,
+    other_allele.exposure = oa_reported,
+    pval.exposure = 2 * stats::pnorm(-abs(z_exp)),
+    eaf.exposure = runif(n_snp, 0.1, 0.9),
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    mr_keep.exposure = TRUE,
+    pval_origin.exposure = "reported",
+    samplesize.exposure = 10000,
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = test_snps,
+    chr = test_chr,
+    pos = test_positions,
+    beta = beta_out_reported,
+    se = se_out,
+    eaf = runif(n_snp, 0.1, 0.9),
+    pval = 2 * stats::pnorm(-abs(z_out)),
+    n = 20000,
+    effect_allele = ea_reported,
+    other_allele = oa_reported,
+    phenotype = "test_out",
+    stringsAsFactors = FALSE
+  )
+
+  suppressMessages(suppressWarnings({
+    result <- run_coloc(
+      exposure = exposure,
+      exposure_id = "test_exp",
+      outcome = outcome,
+      outcome_id = "test_out",
+      gene_chr = test_chr,
+      gene_start = min_pos,
+      gene_end = max_pos,
+      coloc_window = 10000L,
+      outcome_n = 20000,
+      bfile = bfile,
+      methods = c("abf", "susie", "signals"),
+      susie_maxit = 500L
+    )
+  }))
+
+  expect_s3_class(result, "coloc_result")
+  expect_equal(result$status, "success")
+
+  # ABF is unaffected by orientation either way (never uses LD; each SNP's
+  # Bayes factor depends only on beta^2) and should always succeed.
+  expect_true(!is.null(result$coloc_abf))
+  expect_true("PP.H4.abf" %in% names(result$coloc_abf$summary))
+
+  # SuSiE must not fail -- this is exactly the historical bug.
+  expect_false("susie" %in% names(result$methods_skipped))
+  expect_true(!is.null(result$params$susie_ncs_exp))
+  expect_true(!is.null(result$params$susie_ncs_out))
+
+  # With a genuine LD-correlated signal injected around causal_idx, SuSiE
+  # should find at least one credible set per trait, and coloc.susie()
+  # should produce a non-trivial summary.
+  expect_gt(result$params$susie_ncs_exp, 0L)
+  expect_gt(result$params$susie_ncs_out, 0L)
+  expect_true(!is.null(result$coloc_susie))
+  expect_true(is.data.frame(result$coloc_susie$summary))
+  expect_gt(nrow(result$coloc_susie$summary), 0L)
+
+  # signals: with both traits finding a credible set above, coloc.signals()
+  # should run to completion and produce a real summary -- this is a
+  # regression check for a second, previously-unreachable bug: run_coloc()
+  # used to pass susie_exp/susie_out (runsusie() fit objects) to
+  # coloc::coloc.signals(), which actually requires the original
+  # dataset_exp/dataset_out lists (it does its own internal signal
+  # detection and never consumes SuSiE's output) -- this went undetected
+  # for as long as SuSiE itself always failed first, since "signals" was
+  # always skipped one step earlier with "SuSiE failed".
+  expect_false("signals" %in% names(result$methods_skipped))
+  expect_true(!is.null(result$coloc_signals))
+  expect_true(is.data.frame(result$coloc_signals$summary))
+  expect_gt(nrow(result$coloc_signals$summary), 0L)
+})

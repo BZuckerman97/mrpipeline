@@ -431,3 +431,171 @@ test_that("run_mr skips egger/weighted_median/presso with 2 instruments", {
   expect_true("weighted_median" %in% names(result$methods_skipped))
   expect_true("presso" %in% names(result$methods_skipped))
 })
+
+# --- Heterogeneity and leave-one-out ---------------------------------------
+
+test_that("run_mr computes heterogeneity with 2 instruments but skips loo", {
+  skip_if_not_installed("TwoSampleMR")
+
+  exposure <- data.frame(
+    SNP = c("rs1", "rs2"),
+    beta.exposure = c(0.5, 0.3),
+    se.exposure = c(0.1, 0.1),
+    effect_allele.exposure = c("A", "G"),
+    other_allele.exposure = c("G", "T"),
+    pval.exposure = c(1e-10, 1e-8),
+    eaf.exposure = c(0.3, 0.4),
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    mr_keep.exposure = TRUE,
+    pval_origin.exposure = "reported",
+    chr.exposure = c("1", "1"),
+    pos.exposure = c(1000, 2000),
+    samplesize.exposure = 10000,
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = c("rs1", "rs2"),
+    beta = c(0.1, 0.05),
+    se = c(0.05, 0.03),
+    pval = c(0.01, 0.1),
+    eaf = c(0.3, 0.4),
+    effect_allele = c("A", "G"),
+    other_allele = c("G", "T"),
+    chr = c("1", "1"),
+    pos = c(1000, 2000),
+    n = 5000,
+    phenotype = "test_out",
+    stringsAsFactors = FALSE
+  )
+
+  suppressMessages({
+    result <- run_mr(
+      exposure = exposure,
+      exposure_id = "test_exp",
+      outcome = outcome,
+      outcome_id = "test_out",
+      instruments = c("rs1", "rs2"),
+      methods = c("ivw", "heterogeneity", "loo")
+    )
+  })
+
+  expect_s3_class(result, "mr_result")
+  expect_false(is.null(result$heterogeneity))
+  expect_true(all(c("Q", "Q_df", "Q_pval") %in% names(result$heterogeneity)))
+
+  expect_null(result$loo)
+  expect_true("loo" %in% names(result$methods_skipped))
+  expect_match(result$methods_skipped[["loo"]], "Requires >= 3")
+})
+
+test_that("run_mr computes leave-one-out with 3 instruments", {
+  skip_if_not_installed("TwoSampleMR")
+
+  exposure <- data.frame(
+    SNP = c("rs1", "rs2", "rs3"),
+    beta.exposure = c(0.5, 0.3, 0.4),
+    se.exposure = c(0.1, 0.1, 0.1),
+    effect_allele.exposure = c("A", "G", "C"),
+    other_allele.exposure = c("G", "T", "A"),
+    pval.exposure = c(1e-10, 1e-8, 1e-9),
+    eaf.exposure = c(0.3, 0.4, 0.5),
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    mr_keep.exposure = TRUE,
+    pval_origin.exposure = "reported",
+    chr.exposure = c("1", "1", "1"),
+    pos.exposure = c(1000, 2000, 3000),
+    samplesize.exposure = 10000,
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = c("rs1", "rs2", "rs3"),
+    beta = c(0.1, 0.05, 0.08),
+    se = c(0.05, 0.03, 0.04),
+    pval = c(0.01, 0.1, 0.05),
+    eaf = c(0.3, 0.4, 0.5),
+    effect_allele = c("A", "G", "C"),
+    other_allele = c("G", "T", "A"),
+    chr = c("1", "1", "1"),
+    pos = c(1000, 2000, 3000),
+    n = 5000,
+    phenotype = "test_out",
+    stringsAsFactors = FALSE
+  )
+
+  suppressMessages({
+    result <- run_mr(
+      exposure = exposure,
+      exposure_id = "test_exp",
+      outcome = outcome,
+      outcome_id = "test_out",
+      instruments = c("rs1", "rs2", "rs3"),
+      methods = c("ivw", "heterogeneity", "loo")
+    )
+  })
+
+  expect_s3_class(result, "mr_result")
+  expect_false(is.null(result$loo))
+  # Per-SNP rows plus the pooled "All" row
+  expect_equal(nrow(result$loo), 4)
+  expect_true("All" %in% result$loo$SNP)
+
+  expect_false(is.null(result$heterogeneity))
+})
+
+test_that("run_mr skips heterogeneity and loo with 1 instrument", {
+  skip_if_not_installed("TwoSampleMR")
+
+  exposure <- data.frame(
+    SNP = "rs1",
+    beta.exposure = 0.5,
+    se.exposure = 0.1,
+    effect_allele.exposure = "A",
+    other_allele.exposure = "G",
+    pval.exposure = 1e-10,
+    eaf.exposure = 0.3,
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    mr_keep.exposure = TRUE,
+    pval_origin.exposure = "reported",
+    chr.exposure = "1",
+    pos.exposure = 1000,
+    samplesize.exposure = 10000,
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = "rs1",
+    beta = 0.1,
+    se = 0.05,
+    pval = 0.01,
+    eaf = 0.3,
+    effect_allele = "A",
+    other_allele = "G",
+    chr = "1",
+    pos = 1000,
+    n = 5000,
+    phenotype = "test_out",
+    stringsAsFactors = FALSE
+  )
+
+  suppressMessages({
+    result <- run_mr(
+      exposure = exposure,
+      exposure_id = "test_exp",
+      outcome = outcome,
+      outcome_id = "test_out",
+      instruments = "rs1",
+      methods = c("ivw", "heterogeneity", "loo")
+    )
+  })
+
+  expect_s3_class(result, "mr_result")
+  expect_null(result$heterogeneity)
+  expect_null(result$loo)
+  expect_true("heterogeneity" %in% names(result$methods_skipped))
+  expect_true("loo" %in% names(result$methods_skipped))
+})

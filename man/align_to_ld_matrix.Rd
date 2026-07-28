@@ -2,24 +2,67 @@
 % Please edit documentation in R/helpers.R
 \name{align_to_ld_matrix}
 \alias{align_to_ld_matrix}
-\title{Align harmonised data to an LD matrix}
+\title{Align harmonised data to an LD matrix, correcting allele orientation}
 \usage{
-align_to_ld_matrix(harmonised_data, ld_matrix)
+align_to_ld_matrix(harmonised_data, ld_matrix, verbose = TRUE)
 }
 \arguments{
-\item{harmonised_data}{Data frame with a \code{SNP} column.}
+\item{harmonised_data}{Data frame with \code{SNP}, \code{effect_allele.exposure},
+\code{other_allele.exposure}, and (if present) \code{eaf.exposure}/
+\code{eaf.outcome} columns -- i.e. the output of \code{\link[=harmonise_and_filter]{harmonise_and_filter()}}.}
 
-\item{ld_matrix}{Square matrix with rsID row/column names.}
+\item{ld_matrix}{A named list as returned by \code{\link[=compute_ld_matrix]{compute_ld_matrix()}}:
+\code{ld} and \code{alleles}.}
+
+\item{verbose}{Logical. If \code{TRUE}, emit a \code{\link[cli:cli_inform]{cli::cli_inform()}} summarising
+how many SNPs matched/flipped/dropped. Default \code{TRUE}.}
 }
 \value{
 A named list with elements:
 \itemize{
-\item \code{data}: subset and reordered data frame
-\item \code{ld_matrix}: subset and reordered matrix
+\item \code{data}: subset and reordered data frame (unmatched SNPs dropped;
+beta/allele columns untouched)
+\item \code{ld_matrix}: subset and reordered matrix (never re-signed itself)
+\item \code{ld_sign}: numeric vector (\code{+1}/\code{-1}), same length and order as
+\code{data}'s rows, to multiply into beta vectors when building coloc/
+SuSiE dataset objects
 }
 }
 \description{
-Subsets both the harmonised data frame and LD matrix to their
-shared SNPs, and reorders both to match.
+Subsets the harmonised data frame and LD matrix to their shared SNPs,
+reorders both to match, and determines -- per SNP -- whether
+\code{beta.exposure}/\code{beta.outcome} must be sign-flipped before being used
+alongside \code{ld_matrix$ld} in \code{\link[coloc:runsusie]{coloc::runsusie()}}/\code{susieR::susie_rss()}.
+}
+\details{
+\code{\link[=compute_ld_matrix]{compute_ld_matrix()}}'s \code{ld} matrix is signed relative to the reference
+panel's own, arbitrary A1 allele (\code{ld_matrix$alleles$ld_a1}), which need
+not match \code{harmonised_data$effect_allele.exposure}. \code{coloc.abf()} is
+unaffected by this (it never uses \code{LD}, and each SNP's Bayes factor
+depends only on \code{beta^2}, so a per-SNP sign flip changes nothing), but
+\code{runsusie()} fits a joint model across all SNPs from \code{LD} and
+\code{beta}/\code{varbeta} together -- an inconsistent sign for even a subset of
+SNPs produces an internally incoherent fit, which is what
+\code{susie_rss()}'s \code{check_prior} safety check (the "estimated prior
+variance is unreasonably large" error) exists to catch.
+
+Rather than mutating \code{harmonised_data$beta.exposure}/\code{beta.outcome}
+directly (those columns, and the accompanying allele-label columns, are
+also used for reporting/instrument export elsewhere and should keep
+reflecting the true exposure-outcome harmonisation), this returns a
+\code{ld_sign} vector of \code{+1}/\code{-1} to be multiplied into the beta vectors
+\emph{only} when constructing the \code{dataset_exp}/\code{dataset_out} lists passed to
+\code{coloc::runsusie()} (see \code{run_coloc()}).
+
+SNPs whose alleles don't match the reference panel's A1/A2 at all (e.g.
+indels, multi-allelic mismatches) are dropped from both the returned
+data and LD matrix. Palindromic SNPs (A/T, C/G) with an EAF in the
+ambiguous zone (0.42-0.58, in either exposure or outcome) are also
+dropped, since allele-identity matching alone cannot distinguish "same
+strand" from "opposite strand, coincidentally same two letters" for
+these -- this mirrors the equivalent safety filter in the reference
+single-cell coloc pipeline (\code{harmonise_for_coloc()} in
+\code{single_cell_MR_IMID/SSZ_scMR_scripts/Scripts/scMR_onek1k_1M_coloc.R})
+that motivated this fix.
 }
 \keyword{internal}

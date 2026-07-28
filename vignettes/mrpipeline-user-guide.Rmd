@@ -115,7 +115,26 @@ auto-detect (`NULL`). The same parameters are available in `run_coloc()`.
 
 ### Sensitivity analyses
 
-<!-- TODO: Egger, weighted median, PRESSO, ConMix, Steiger examples -->
+<!-- TODO: Egger, weighted median, PRESSO, ConMix, Steiger, heterogeneity, leave-one-out examples -->
+
+Add `"heterogeneity"` and/or `"loo"` to `methods` to get Cochran's Q
+(`TwoSampleMR::mr_heterogeneity()`) and leave-one-out
+(`TwoSampleMR::mr_leaveoneout()`) alongside the effect estimates:
+
+```r
+result <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile,
+  methods = c("ivw", "egger", "weighted_median", "heterogeneity", "loo")
+)
+
+result$heterogeneity  # Q, Q_df, Q_pval per method (needs >= 2 instruments)
+result$loo            # per-SNP + pooled "All" estimates (needs >= 3 instruments)
+```
 
 ### LD-corrected IVW
 

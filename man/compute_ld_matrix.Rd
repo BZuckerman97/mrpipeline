@@ -25,10 +25,28 @@ compute_ld_matrix(
 \item{plink_memory}{Memory (MB) for PLINK. \code{NULL} = auto-detect.}
 }
 \value{
-A square correlation matrix with rsID-only row/column names.
+A named list:
+\itemize{
+\item \code{ld}: square signed correlation matrix with rsID-only row/column
+names
+\item \code{alleles}: data frame with columns \code{SNP}, \code{ld_a1}, \code{ld_a2} giving the
+reference panel's allele coding for each SNP in \code{ld} -- the allele
+that \code{ld}'s sign is anchored to (\code{ld_a1}) and its counterpart
+}
 }
 \description{
-Calls \code{\link[ieugwasr:ld_matrix]{ieugwasr::ld_matrix()}} and strips allele suffixes
-(e.g. \code{rs123_A_G} -> \code{rs123}) from row and column names.
+Calls \code{\link[ieugwasr:ld_matrix]{ieugwasr::ld_matrix()}}, which (for a local \code{bfile}) runs
+\verb{plink --r square --keep-allele-order} and names rows/columns
+\code{rsid_A1_A2}, where A1/A2 are the reference panel's own \code{.bim} allele
+coding. This is a \strong{signed} correlation matrix (\code{--r}, not \code{--r2}) and
+the sign of every entry is anchored to that specific, arbitrary A1
+allele -- which need not match the effect allele used anywhere else in
+the pipeline. That allele identity is only recoverable from the
+\code{rsid_A1_A2} name suffix, so it is parsed out here and returned
+alongside the matrix (rather than discarded) so \code{\link[=align_to_ld_matrix]{align_to_ld_matrix()}}
+can re-orient betas/z-scores to this matrix's sign convention before
+they are used together in \code{\link[coloc:runsusie]{coloc::runsusie()}}/\code{susieR::susie_rss()}.
+See \code{run_coloc()}'s "LD matrix orientation" section for the full
+rationale.
 }
 \keyword{internal}

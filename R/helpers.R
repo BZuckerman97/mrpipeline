@@ -54,8 +54,19 @@ harmonise_and_filter <- function(exposure, outcome) {
 
 #' Compute LD correlation matrix from a local reference panel
 #'
-#' Calls [ieugwasr::ld_matrix()] and strips allele suffixes
-#' (e.g. `rs123_A_G` -> `rs123`) from row and column names.
+#' Calls [ieugwasr::ld_matrix()], which (for a local `bfile`) runs
+#' `plink --r square --keep-allele-order` and names rows/columns
+#' `rsid_A1_A2`, where A1/A2 are the reference panel's own `.bim` allele
+#' coding. This is a **signed** correlation matrix (`--r`, not `--r2`) and
+#' the sign of every entry is anchored to that specific, arbitrary A1
+#' allele -- which need not match the effect allele used anywhere else in
+#' the pipeline. That allele identity is only recoverable from the
+#' `rsid_A1_A2` name suffix, so it is parsed out here and returned
+#' alongside the matrix (rather than discarded) so [align_to_ld_matrix()]
+#' can re-orient betas/z-scores to this matrix's sign convention before
+#' they are used together in [coloc::runsusie()]/`susieR::susie_rss()`.
+#' See `run_coloc()`'s "LD matrix orientation" section for the full
+#' rationale.
 #'
 #' @param snps Character vector of rsIDs.
 #' @param bfile Path to PLINK bfile prefix (without .bed/.bim/.fam).
@@ -64,7 +75,12 @@ harmonise_and_filter <- function(exposure, outcome) {
 #' @param plink_threads Number of threads for PLINK. `NULL` = auto-detect.
 #' @param plink_memory Memory (MB) for PLINK. `NULL` = auto-detect.
 #'
-#' @return A square correlation matrix with rsID-only row/column names.
+#' @return A named list:
+#'   - `ld`: square signed correlation matrix with rsID-only row/column
+#'     names
+#'   - `alleles`: data frame with columns `SNP`, `ld_a1`, `ld_a2` giving the
+#'     reference panel's allele coding for each SNP in `ld` -- the allele
+#'     that `ld`'s sign is anchored to (`ld_a1`) and its counterpart
 #'
 #' @keywords internal
 compute_ld_matrix <- function(
@@ -86,11 +102,21 @@ compute_ld_matrix <- function(
     memory = plink_memory
   )
 
-  # Strip allele suffixes: rs123_A_G -> rs123
-  rownames(ld) <- stringr::str_remove(rownames(ld), "_.*")
-  colnames(ld) <- stringr::str_remove(colnames(ld), "_.*")
+  full_names <- rownames(ld)
+  rsid <- stringr::str_remove(full_names, "_.*")
+  parts <- stringr::str_match(full_names, "^[^_]+_([^_]+)_([^_]+)$")
 
-  ld
+  alleles <- data.frame(
+    SNP = rsid,
+    ld_a1 = parts[, 2],
+    ld_a2 = parts[, 3],
+    stringsAsFactors = FALSE
+  )
+
+  rownames(ld) <- rsid
+  colnames(ld) <- rsid
+
+  list(ld = ld, alleles = alleles)
 }
 
 #' Clump instruments using LD reference
@@ -178,30 +204,114 @@ clump_instruments <- function(
   do.call(ieugwasr::ld_clump, clump_args)
 }
 
-#' Align harmonised data to an LD matrix
+#' Align harmonised data to an LD matrix, correcting allele orientation
 #'
-#' Subsets both the harmonised data frame and LD matrix to their
-#' shared SNPs, and reorders both to match.
+#' Subsets the harmonised data frame and LD matrix to their shared SNPs,
+#' reorders both to match, and determines -- per SNP -- whether
+#' `beta.exposure`/`beta.outcome` must be sign-flipped before being used
+#' alongside `ld_matrix$ld` in [coloc::runsusie()]/`susieR::susie_rss()`.
 #'
-#' @param harmonised_data Data frame with a `SNP` column.
-#' @param ld_matrix Square matrix with rsID row/column names.
+#' [compute_ld_matrix()]'s `ld` matrix is signed relative to the reference
+#' panel's own, arbitrary A1 allele (`ld_matrix$alleles$ld_a1`), which need
+#' not match `harmonised_data$effect_allele.exposure`. `coloc.abf()` is
+#' unaffected by this (it never uses `LD`, and each SNP's Bayes factor
+#' depends only on `beta^2`, so a per-SNP sign flip changes nothing), but
+#' `runsusie()` fits a joint model across all SNPs from `LD` and
+#' `beta`/`varbeta` together -- an inconsistent sign for even a subset of
+#' SNPs produces an internally incoherent fit, which is what
+#' `susie_rss()`'s `check_prior` safety check (the "estimated prior
+#' variance is unreasonably large" error) exists to catch.
+#'
+#' Rather than mutating `harmonised_data$beta.exposure`/`beta.outcome`
+#' directly (those columns, and the accompanying allele-label columns, are
+#' also used for reporting/instrument export elsewhere and should keep
+#' reflecting the true exposure-outcome harmonisation), this returns a
+#' `ld_sign` vector of `+1`/`-1` to be multiplied into the beta vectors
+#' *only* when constructing the `dataset_exp`/`dataset_out` lists passed to
+#' `coloc::runsusie()` (see `run_coloc()`).
+#'
+#' SNPs whose alleles don't match the reference panel's A1/A2 at all (e.g.
+#' indels, multi-allelic mismatches) are dropped from both the returned
+#' data and LD matrix. Palindromic SNPs (A/T, C/G) with an EAF in the
+#' ambiguous zone (0.42-0.58, in either exposure or outcome) are also
+#' dropped, since allele-identity matching alone cannot distinguish "same
+#' strand" from "opposite strand, coincidentally same two letters" for
+#' these -- this mirrors the equivalent safety filter in the reference
+#' single-cell coloc pipeline (`harmonise_for_coloc()` in
+#' `single_cell_MR_IMID/SSZ_scMR_scripts/Scripts/scMR_onek1k_1M_coloc.R`)
+#' that motivated this fix.
+#'
+#' @param harmonised_data Data frame with `SNP`, `effect_allele.exposure`,
+#'   `other_allele.exposure`, and (if present) `eaf.exposure`/
+#'   `eaf.outcome` columns -- i.e. the output of [harmonise_and_filter()].
+#' @param ld_matrix A named list as returned by [compute_ld_matrix()]:
+#'   `ld` and `alleles`.
+#' @param verbose Logical. If `TRUE`, emit a [cli::cli_inform()] summarising
+#'   how many SNPs matched/flipped/dropped. Default `TRUE`.
 #'
 #' @return A named list with elements:
-#'   - `data`: subset and reordered data frame
-#'   - `ld_matrix`: subset and reordered matrix
+#'   - `data`: subset and reordered data frame (unmatched SNPs dropped;
+#'     beta/allele columns untouched)
+#'   - `ld_matrix`: subset and reordered matrix (never re-signed itself)
+#'   - `ld_sign`: numeric vector (`+1`/`-1`), same length and order as
+#'     `data`'s rows, to multiply into beta vectors when building coloc/
+#'     SuSiE dataset objects
 #'
 #' @keywords internal
-align_to_ld_matrix <- function(harmonised_data, ld_matrix) {
-  shared <- intersect(harmonised_data$SNP, rownames(ld_matrix))
+align_to_ld_matrix <- function(harmonised_data, ld_matrix, verbose = TRUE) {
+  ld <- ld_matrix$ld
+  alleles <- ld_matrix$alleles
+
+  shared <- intersect(harmonised_data$SNP, rownames(ld))
 
   if (length(shared) == 0) {
     cli::cli_abort("No SNPs in common between harmonised data and LD matrix.")
   }
 
   data_out <- harmonised_data[match(shared, harmonised_data$SNP), ]
-  ld_out <- ld_matrix[shared, shared]
+  ld_out <- ld[shared, shared, drop = FALSE]
+  al <- alleles[match(shared, alleles$SNP), ]
 
-  list(data = data_out, ld_matrix = ld_out)
+  ea <- toupper(data_out$effect_allele.exposure)
+  oa <- toupper(data_out$other_allele.exposure)
+  ld_a1 <- toupper(al$ld_a1)
+  ld_a2 <- toupper(al$ld_a2)
+
+  orientation <- dplyr::case_when(
+    ea == ld_a1 & oa == ld_a2 ~ "match",
+    ea == ld_a2 & oa == ld_a1 ~ "flip",
+    TRUE ~ "drop"
+  )
+
+  palindromic <- (ea == "A" & oa == "T") |
+    (ea == "T" & oa == "A") |
+    (ea == "C" & oa == "G") |
+    (ea == "G" & oa == "C")
+
+  eaf_exp <- data_out$eaf.exposure
+  eaf_out <- data_out$eaf.outcome
+  ambiguous_eaf <- (!is.na(eaf_exp) & eaf_exp >= 0.42 & eaf_exp <= 0.58) |
+    (!is.na(eaf_out) & eaf_out >= 0.42 & eaf_out <= 0.58)
+
+  orientation[palindromic & ambiguous_eaf] <- "drop"
+
+  n_match <- sum(orientation == "match")
+  n_flip <- sum(orientation == "flip")
+  n_drop <- sum(orientation == "drop")
+
+  if (verbose) {
+    cli::cli_inform(
+      "LD alignment: {n_match} matched, {n_flip} flipped, {n_drop} dropped (allele mismatch or ambiguous palindromic SNP vs. reference panel)."
+    )
+  }
+
+  keep <- orientation != "drop"
+  ld_sign <- ifelse(orientation[keep] == "flip", -1, 1)
+
+  data_out <- data_out[keep, ]
+  ld_out <- ld_out[keep, keep, drop = FALSE]
+
+  list(data = data_out, ld_matrix = ld_out, ld_sign = ld_sign)
 }
 
 #' Convert effect allele frequency to minor allele frequency
