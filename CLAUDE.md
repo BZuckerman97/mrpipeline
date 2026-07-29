@@ -7,7 +7,7 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 
 **Core exported functions:**
 
-- `run_mr()` -- Cis-MR, genome-wide MR, or manual-instrument MR with sensitivity methods
+- `run_mr()` -- Cis-MR, genome-wide MR, or manual-instrument MR with sensitivity methods. `flip_beta = TRUE` negates `beta.exposure` on the harmonised data, once, immediately after harmonisation and before any method/sensitivity computation, so downstream projects redefine exposure direction (e.g. drug-inhibition framing) here rather than in `format_gwas()`, which has no such argument. This is a phenotype transformation, not an allele reorientation -- `effect_allele.exposure`/`other_allele.exposure`/`eaf.exposure` stay untouched. `exposure_label` sets a human-readable `exposure_analysis_name` (auto-generated as `"-1 x <exposure_id>"` if omitted); `$results`/`$instruments`/`$loo` also carry `exposure_transformed`, and `$instruments` carries `beta.exposure_original`, so flip status is traceable in any exported flat file without consulting `$params`
 - `run_coloc()` -- Colocalization (coloc.abf, SuSiE, coloc.signals, colocPropTest)
 - `format_pqtl_decode()` -- Format deCODE proteomics GWAS to TwoSampleMR exposure format
 - `format_pqtl_ukbppp()` -- Format UKB-PPP pQTL data to TwoSampleMR exposure format

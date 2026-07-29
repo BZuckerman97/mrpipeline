@@ -130,15 +130,6 @@ test_that("format_gwas auto-detects and back-transforms neg_log_10_p_value colum
   expect_equal(result$pval, expected, tolerance = 1e-12)
 })
 
-# -- flip_beta ----------------------------------------------------------------
-
-test_that("format_gwas negates beta when flip_beta = TRUE", {
-  df <- make_gwas()
-  orig <- df$beta
-  result <- format_gwas(df, phenotype_id = "TEST", flip_beta = TRUE)
-  expect_equal(result$beta, -orig)
-})
-
 # -- OR -> beta/se derivation -------------------------------------------------
 
 test_that("format_gwas derives beta = log(OR) when beta column is absent", {
@@ -277,8 +268,8 @@ make_frq_file <- function() {
   frq <- data.frame(
     CHR = c(1L, 1L),
     SNP = c("rsPalin1", "rsPalin2"),
-    A1  = c("T", "G"),
-    A2  = c("A", "C"),
+    A1 = c("T", "G"),
+    A2 = c("A", "C"),
     MAF = c(0.174, 0.01193),
     NCHROBS = c(1006L, 1006L)
   )
@@ -289,10 +280,16 @@ make_frq_file <- function() {
 
 make_gwas_2row <- function(...) {
   make_gwas(
-    rsids = c("rsPalin1", "rsPalin2"), chr = c("1", "1"),
-    pos = c(1000L, 2000L), beta = c(0.02, -0.03), se = c(0.003, 0.004),
-    eaf = c(0.30, 0.42), pval = c(1e-8, 1e-9), n = c(10000L, 10000L),
-    effect_allele = c("A", "C"), other_allele = c("T", "G"),
+    rsids = c("rsPalin1", "rsPalin2"),
+    chr = c("1", "1"),
+    pos = c(1000L, 2000L),
+    beta = c(0.02, -0.03),
+    se = c(0.003, 0.004),
+    eaf = c(0.30, 0.42),
+    pval = c(1e-8, 1e-9),
+    n = c(10000L, 10000L),
+    effect_allele = c("A", "C"),
+    other_allele = c("T", "G"),
     ...
   )
 }
@@ -315,8 +312,8 @@ test_that("format_gwas ref_frq only fills missing eaf, never overwrites existing
   frq_path <- make_frq_file()
   result <- format_gwas(df, phenotype_id = "TEST", ref_frq = frq_path)
 
-  expect_equal(result$eaf[1], 0.5)                       # untouched
-  expect_equal(result$eaf[2], 1 - 0.01193, tolerance = 1e-6)  # patched
+  expect_equal(result$eaf[1], 0.5) # untouched
+  expect_equal(result$eaf[2], 1 - 0.01193, tolerance = 1e-6) # patched
 })
 
 test_that("format_gwas ref_frq leaves eaf NA for SNPs not found in the frq file", {
@@ -332,5 +329,8 @@ test_that("format_gwas ref_frq leaves eaf NA for SNPs not found in the frq file"
 
 test_that("format_gwas errors when ref_frq file does not exist", {
   df <- make_gwas()
-  expect_error(format_gwas(df, phenotype_id = "TEST", ref_frq = "no/such/file.frq"), "not found")
+  expect_error(
+    format_gwas(df, phenotype_id = "TEST", ref_frq = "no/such/file.frq"),
+    "not found"
+  )
 })

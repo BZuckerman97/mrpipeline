@@ -13,7 +13,6 @@ format_gwas(
   marker_col = NULL,
   marker_sep = ":",
   log10_pval = FALSE,
-  flip_beta = FALSE,
   n = NULL,
   ref_frq = NULL
 )
@@ -52,10 +51,6 @@ When supplied, \code{chr} and \code{pos} are parsed from this column.}
 
 \item{log10_pval}{Logical. If \code{TRUE}, the p-value column is in \code{-log10}
 scale and is back-transformed via \code{10^-x}. Default \code{FALSE}.}
-
-\item{flip_beta}{Logical. If \code{TRUE}, multiplies \code{beta} by \code{-1} - use when
-the source file encodes the inverse direction of the intended exposure
-(e.g. modelling NLRP3 inhibition rather than activation). Default \code{FALSE}.}
 
 \item{n}{Integer. Explicit sample size. Added as the \code{n} column only when no
 sample-size column is already present in the data.}
@@ -227,12 +222,11 @@ ebi_il18 <- format_gwas(
   col_map      = list(pval = "PVALUE")
 )
 
-# Exposure GWAS -- flip beta to model NLRP3 activation not suppression
+# Exposure GWAS, ready for run_mr()
 exposure <- format_gwas(
   path         = "NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv",
   phenotype_id = "NLRP3",
-  type         = "exposure",
-  flip_beta    = TRUE
+  type         = "exposure"
 )
 }
 

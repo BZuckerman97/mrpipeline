@@ -84,6 +84,22 @@ remaining SNP's Wald ratio, which isn't informative); otherwise
 as a data frame with one row per SNP plus a pooled `"All"` row, columns `SNP`,
 `b`, `se`, `p`, `exposure`, `outcome`.
 
+#### Flipping exposure direction (`flip_beta`)
+
+When `flip_beta = TRUE`, `harmonised$beta.exposure` is negated once,
+immediately after harmonisation and before F-statistics, LD correction, or
+any method/steiger/pleiotropy/heterogeneity/loo computation runs. Because
+every downstream step reads from the same `harmonised` object, the flip
+propagates consistently into `$results`, `$instruments`, and `$loo` -- there
+is no separate flip step for each output. `$params$flip_beta` records
+whether it was applied. This replaced an earlier design where the flip lived
+in `format_gwas()` (negating `beta` before harmonisation); the two are
+mathematically equivalent since instrument clumping (p-value/LD driven) and
+`align_to_ld_matrix()`'s per-SNP `ld_sign` (allele-matching driven) don't
+depend on `beta`'s sign, but co-locating the flip with the specific
+`run_mr()` call that needs it (rather than a shared exposure-build step
+several targets might reuse) makes it far harder to silently omit.
+
 #### `print.mr_result()` and `summary.mr_result()`
 
 `print.mr_result()` shows a one-line summary using the first result row, including

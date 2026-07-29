@@ -599,3 +599,229 @@ test_that("run_mr skips heterogeneity and loo with 1 instrument", {
   expect_true("heterogeneity" %in% names(result$methods_skipped))
   expect_true("loo" %in% names(result$methods_skipped))
 })
+
+# --- flip_beta ---------------------------------------------------------------
+
+test_that("run_mr flip_beta negates results, instruments, and loo consistently", {
+  skip_if_not_installed("TwoSampleMR")
+
+  exposure <- data.frame(
+    SNP = c("rs1", "rs2", "rs3"),
+    beta.exposure = c(0.5, 0.3, 0.4),
+    se.exposure = c(0.1, 0.1, 0.1),
+    effect_allele.exposure = c("A", "G", "C"),
+    other_allele.exposure = c("G", "T", "A"),
+    pval.exposure = c(1e-10, 1e-8, 1e-9),
+    eaf.exposure = c(0.3, 0.4, 0.5),
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    mr_keep.exposure = TRUE,
+    pval_origin.exposure = "reported",
+    chr.exposure = c("1", "1", "1"),
+    pos.exposure = c(1000, 2000, 3000),
+    samplesize.exposure = 10000,
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = c("rs1", "rs2", "rs3"),
+    beta = c(0.1, 0.05, 0.08),
+    se = c(0.05, 0.03, 0.04),
+    pval = c(0.01, 0.1, 0.05),
+    eaf = c(0.3, 0.4, 0.5),
+    effect_allele = c("A", "G", "C"),
+    other_allele = c("G", "T", "A"),
+    chr = c("1", "1", "1"),
+    pos = c(1000, 2000, 3000),
+    n = 5000,
+    phenotype = "test_out",
+    stringsAsFactors = FALSE
+  )
+
+  run_args <- list(
+    exposure = exposure,
+    exposure_id = "test_exp",
+    outcome = outcome,
+    outcome_id = "test_out",
+    instruments = c("rs1", "rs2", "rs3"),
+    methods = c("ivw", "egger", "heterogeneity", "loo")
+  )
+
+  suppressMessages({
+    unflipped <- do.call(run_mr, run_args)
+    flipped <- do.call(run_mr, c(run_args, list(flip_beta = TRUE)))
+  })
+
+  expect_equal(flipped$results$b, -unflipped$results$b)
+  expect_equal(flipped$results$or, 1 / unflipped$results$or)
+  expect_equal(
+    flipped$instruments$beta.exposure,
+    -unflipped$instruments$beta.exposure
+  )
+  expect_equal(
+    flipped$loo$b[flipped$loo$SNP != "All"],
+    -unflipped$loo$b[unflipped$loo$SNP != "All"]
+  )
+  expect_true(flipped$params$flip_beta)
+  expect_false(unflipped$params$flip_beta)
+
+  # Sign-invariant outputs are unaffected by the flip
+  expect_equal(flipped$f_stats, unflipped$f_stats)
+  expect_equal(flipped$heterogeneity$Q, unflipped$heterogeneity$Q)
+
+  # Audit trail: beta.exposure_original preserves the pre-transform value,
+  # and effect_allele/other_allele/eaf are untouched by the flip (this is a
+  # phenotype transformation, not an allele reorientation).
+  expect_equal(
+    flipped$instruments$beta.exposure_original,
+    exposure$beta.exposure
+  )
+  expect_equal(
+    unflipped$instruments$beta.exposure_original,
+    exposure$beta.exposure
+  )
+  expect_equal(
+    flipped$instruments$effect_allele.exposure,
+    unflipped$instruments$effect_allele.exposure
+  )
+  expect_equal(
+    flipped$instruments$other_allele.exposure,
+    unflipped$instruments$other_allele.exposure
+  )
+  expect_equal(
+    flipped$instruments$eaf.exposure,
+    unflipped$instruments$eaf.exposure
+  )
+
+  # exposure_transformed/exposure_analysis_name on every output with an
+  # "exposure" column
+  expect_true(all(flipped$results$exposure_transformed))
+  expect_true(all(flipped$instruments$exposure_transformed))
+  expect_true(all(flipped$loo$exposure_transformed))
+  expect_false(any(unflipped$results$exposure_transformed))
+
+  expect_true(all(flipped$results$exposure_analysis_name == "-1 x test_exp"))
+  expect_true(all(unflipped$results$exposure_analysis_name == "test_exp"))
+})
+
+test_that("run_mr exposure_label overrides the auto-generated exposure_analysis_name", {
+  skip_if_not_installed("TwoSampleMR")
+
+  exposure <- data.frame(
+    SNP = "rs1",
+    beta.exposure = 0.5,
+    se.exposure = 0.1,
+    effect_allele.exposure = "A",
+    other_allele.exposure = "G",
+    pval.exposure = 1e-10,
+    eaf.exposure = 0.3,
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    mr_keep.exposure = TRUE,
+    pval_origin.exposure = "reported",
+    chr.exposure = "1",
+    pos.exposure = 1000,
+    samplesize.exposure = 10000,
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = "rs1",
+    beta = 0.1,
+    se = 0.05,
+    pval = 0.01,
+    eaf = 0.3,
+    effect_allele = "A",
+    other_allele = "G",
+    chr = "1",
+    pos = 1000,
+    n = 5000,
+    phenotype = "test_out",
+    stringsAsFactors = FALSE
+  )
+
+  suppressMessages({
+    result <- run_mr(
+      exposure = exposure,
+      exposure_id = "test_exp",
+      outcome = outcome,
+      outcome_id = "test_out",
+      instruments = "rs1",
+      methods = "ivw",
+      flip_beta = TRUE,
+      exposure_label = "Genetically proxied test inhibition"
+    )
+  })
+
+  expect_true(all(
+    result$results$exposure_analysis_name ==
+      "Genetically proxied test inhibition"
+  ))
+  expect_true(all(
+    result$instruments$exposure_analysis_name ==
+      "Genetically proxied test inhibition"
+  ))
+  expect_equal(
+    result$params$exposure_label,
+    "Genetically proxied test inhibition"
+  )
+})
+
+test_that("run_mr flip_beta = FALSE (default) matches omitting the argument", {
+  skip_if_not_installed("TwoSampleMR")
+
+  exposure <- data.frame(
+    SNP = "rs1",
+    beta.exposure = 0.5,
+    se.exposure = 0.1,
+    effect_allele.exposure = "A",
+    other_allele.exposure = "G",
+    pval.exposure = 1e-10,
+    eaf.exposure = 0.3,
+    exposure = "test_exp",
+    id.exposure = "exp1",
+    mr_keep.exposure = TRUE,
+    pval_origin.exposure = "reported",
+    chr.exposure = "1",
+    pos.exposure = 1000,
+    samplesize.exposure = 10000,
+    stringsAsFactors = FALSE
+  )
+
+  outcome <- data.frame(
+    rsids = "rs1",
+    beta = 0.1,
+    se = 0.05,
+    pval = 0.01,
+    eaf = 0.3,
+    effect_allele = "A",
+    other_allele = "G",
+    chr = "1",
+    pos = 1000,
+    n = 5000,
+    phenotype = "test_out",
+    stringsAsFactors = FALSE
+  )
+
+  suppressMessages({
+    default_call <- run_mr(
+      exposure = exposure,
+      exposure_id = "test_exp",
+      outcome = outcome,
+      outcome_id = "test_out",
+      instruments = "rs1",
+      methods = "ivw"
+    )
+    explicit_false <- run_mr(
+      exposure = exposure,
+      exposure_id = "test_exp",
+      outcome = outcome,
+      outcome_id = "test_out",
+      instruments = "rs1",
+      methods = "ivw",
+      flip_beta = FALSE
+    )
+  })
+
+  expect_equal(default_call$results$b, explicit_false$results$b)
+})

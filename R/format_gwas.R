@@ -133,9 +133,6 @@
 #'   `":"`.
 #' @param log10_pval Logical. If `TRUE`, the p-value column is in `-log10`
 #'   scale and is back-transformed via `10^-x`. Default `FALSE`.
-#' @param flip_beta Logical. If `TRUE`, multiplies `beta` by `-1` - use when
-#'   the source file encodes the inverse direction of the intended exposure
-#'   (e.g. modelling NLRP3 inhibition rather than activation). Default `FALSE`.
 #' @param n Integer. Explicit sample size. Added as the `n` column only when no
 #'   sample-size column is already present in the data.
 #' @param ref_frq Character. Path to a PLINK `.frq` file (produced by
@@ -179,12 +176,11 @@
 #'   col_map      = list(pval = "PVALUE")
 #' )
 #'
-#' # Exposure GWAS -- flip beta to model NLRP3 activation not suppression
+#' # Exposure GWAS, ready for run_mr()
 #' exposure <- format_gwas(
 #'   path         = "NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv",
 #'   phenotype_id = "NLRP3",
-#'   type         = "exposure",
-#'   flip_beta    = TRUE
+#'   type         = "exposure"
 #' )
 #' }
 #'
@@ -199,7 +195,6 @@ format_gwas <- function(
   marker_col = NULL,
   marker_sep = ":",
   log10_pval = FALSE,
-  flip_beta = FALSE,
   n = NULL,
   ref_frq = NULL
 ) {
@@ -346,7 +341,11 @@ format_gwas <- function(
     compound <- grepl("^rs[0-9]+:", dat[["rsids"]])
     if (any(compound, na.rm = TRUE)) {
       n_compound <- sum(compound, na.rm = TRUE)
-      dat[["rsids"]][compound] <- sub("^(rs[0-9]+):.*$", "\\1", dat[["rsids"]][compound])
+      dat[["rsids"]][compound] <- sub(
+        "^(rs[0-9]+):.*$",
+        "\\1",
+        dat[["rsids"]][compound]
+      )
       cli::cli_inform(
         "{.val {phenotype_id}}: cleaned {n_compound} compound \"rsID:allele:allele\" value{?s} in the rsids column to bare rsIDs."
       )
@@ -472,7 +471,10 @@ format_gwas <- function(
   # column that contains "NA" strings alongside numeric values). Coercing here
   # means TwoSampleMR::format_data() always receives the expected types and does
   # not emit "column is not numeric. Coercing..." warnings.
-  for (col in intersect(c("beta", "se", "or", "zscore", "eaf", "pval"), names(dat))) {
+  for (col in intersect(
+    c("beta", "se", "or", "zscore", "eaf", "pval"),
+    names(dat)
+  )) {
     dat[[col]] <- suppressWarnings(as.numeric(dat[[col]]))
   }
   for (col in intersect(c("pos", "n"), names(dat))) {
@@ -527,10 +529,6 @@ format_gwas <- function(
     dat <- dplyr::mutate(dat, pval = 10^-.data$pval)
   }
 
-  if (flip_beta && "beta" %in% names(dat)) {
-    dat <- dplyr::mutate(dat, beta = -.data$beta)
-  }
-
   # -- Derive beta + se from odds ratio when beta is absent ---------------------
   # Triggered when an or column exists but beta does not -- e.g. Rashkin 2020
   # cancer GWASes (NHL, melanoma) which publish odds_ratio + p_value only.
@@ -581,7 +579,8 @@ format_gwas <- function(
     } else if (all(c("eaf", "n") %in% names(dat))) {
       dat <- dplyr::mutate(
         dat,
-        se = 1 / sqrt(2 * .data$eaf * (1 - .data$eaf) * (.data$n + .data$zscore^2)),
+        se = 1 /
+          sqrt(2 * .data$eaf * (1 - .data$eaf) * (.data$n + .data$zscore^2)),
         beta = .data$zscore * .data$se
       )
       cli::cli_inform(
@@ -603,7 +602,12 @@ format_gwas <- function(
   # not -- e.g. the deCODE haematinics files (Iron_TSAT, Iron_Ferritin), which
   # publish Beta + P with no SE/OR/Z-score column at all. Same back-calculation
   # formula as the OR-derivation block above.
-  if ("beta" %in% names(dat) && !all(is.na(dat[["beta"]])) && !"se" %in% names(dat)) {
+  if (
+    "beta" %in%
+      names(dat) &&
+      !all(is.na(dat[["beta"]])) &&
+      !"se" %in% names(dat)
+  ) {
     if (!"pval" %in% names(dat)) {
       cli::cli_abort(
         c(
