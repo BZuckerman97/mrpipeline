@@ -305,3 +305,97 @@ test_that("outcome_forest_plot's section_order controls subcategory levels", {
     c("Negative control", "Positive control")
   )
 })
+
+test_that("outcome_forest_plot scale='beta' requires b/se, not the OR columns", {
+  dat <- outcome_forest_plot_fixture
+  dat$b <- log(dat$or)
+  dat$se <- (log(dat$or_uci95) - log(dat$or_lci95)) / (2 * 1.96)
+
+  # OR columns absent entirely -- should still work under scale="beta".
+  dat_no_or <- dplyr::select(dat, -"or", -"or_lci95", -"or_uci95")
+  p <- outcome_forest_plot(dat_no_or, xlab = "Beta (95% CI)", scale = "beta")
+  expect_s3_class(p, "ggplot")
+  expect_equal(p$data$.x, dat_no_or$b)
+
+  expect_error(
+    outcome_forest_plot(
+      dplyr::select(dat, -"se"),
+      xlab = "Beta (95% CI)",
+      scale = "beta"
+    ),
+    "missing column"
+  )
+})
+
+test_that("outcome_forest_plot scale='beta' uses a linear x-axis with vline at 0", {
+  dat <- outcome_forest_plot_fixture
+  dat$b <- log(dat$or)
+  dat$se <- (log(dat$or_uci95) - log(dat$or_lci95)) / (2 * 1.96)
+
+  p <- outcome_forest_plot(dat, xlab = "Beta (95% CI)", scale = "beta")
+  expect_equal(p$scales$scales[[1]]$trans$name, "identity")
+  # ggplot2 4.0 moved geom_vline()'s xintercept from geom_params into a
+  # one-row `data` frame on the layer -- not a functional change, just where
+  # the value now lives internally.
+  expect_equal(p$layers[[1]]$data$xintercept, 0)
+})
+
+test_that("outcome_forest_plot's or_col/or_lci_col/or_uci_col let a rescaled column be plotted", {
+  dat <- outcome_forest_plot_fixture
+  dat$or_scaled <- dat$or * 2
+  dat$or_scaled_lci95 <- dat$or_lci95 * 2
+  dat$or_scaled_uci95 <- dat$or_uci95 * 2
+
+  p <- outcome_forest_plot(
+    dat,
+    xlab = "OR (95% CI)",
+    or_col = "or_scaled",
+    or_lci_col = "or_scaled_lci95",
+    or_uci_col = "or_scaled_uci95"
+  )
+  expect_equal(p$data$.x, dat$or_scaled)
+})
+
+test_that("outcome_forest_plot's b_col/se_col let a rescaled column be plotted", {
+  dat <- outcome_forest_plot_fixture
+  dat$b_scaled <- log(dat$or) * 0.5
+  dat$se_scaled <- ((log(dat$or_uci95) - log(dat$or_lci95)) / (2 * 1.96)) * 0.5
+
+  p <- outcome_forest_plot(
+    dat,
+    xlab = "Beta (95% CI)",
+    scale = "beta",
+    b_col = "b_scaled",
+    se_col = "se_scaled"
+  )
+  expect_equal(p$data$.x, dat$b_scaled)
+})
+
+test_that("outcome_forest_plot's group_by nests an outer nested facet above subcategory", {
+  dat <- outcome_forest_plot_fixture
+  dat$tier_group <- ifelse(
+    dat$subcategory == "Positive control",
+    "Primary",
+    "Sensitivity Analysis"
+  )
+
+  p <- outcome_forest_plot(
+    dat,
+    xlab = "OR (95% CI)",
+    group_by = "tier_group",
+    group_order = c("Primary", "Sensitivity Analysis")
+  )
+  expect_equal(
+    levels(p$data$tier_group),
+    c("Primary", "Sensitivity Analysis")
+  )
+  # facet_grid's rows should include both grouping variables.
+  facet_vars <- names(p$facet$params$rows)
+  expect_setequal(facet_vars, c("tier_group", "subcategory"))
+})
+
+test_that("outcome_forest_plot without group_by behaves exactly as before (single facet)", {
+  p <- outcome_forest_plot(outcome_forest_plot_fixture, xlab = "OR (95% CI)")
+  facet_vars <- names(p$facet$params$rows)
+  expect_setequal(facet_vars, "subcategory")
+})

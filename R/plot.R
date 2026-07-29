@@ -31,7 +31,11 @@
 #' }
 #'
 #' @export
-plot.mr_result <- function(x, type = c("scatter", "forest", "funnel", "loo"), ...) {
+plot.mr_result <- function(
+  x,
+  type = c("scatter", "forest", "funnel", "loo"),
+  ...
+) {
   rlang::check_installed("ggplot2", reason = "to plot MR results.")
   type <- match.arg(type)
 
@@ -42,7 +46,9 @@ plot.mr_result <- function(x, type = c("scatter", "forest", "funnel", "loo"), ..
 
   if (type == "loo") {
     if (is.null(x$loo) || nrow(x$loo) == 0) {
-      cli::cli_inform("Cannot plot: leave-one-out results not available (add \"loo\" to methods).")
+      cli::cli_inform(
+        "Cannot plot: leave-one-out results not available (add \"loo\" to methods)."
+      )
       return(invisible(NULL))
     }
     return(TwoSampleMR::mr_leaveoneout_plot(x$loo))
@@ -340,10 +346,10 @@ forest_plot <- function(
 #' colliding. Requires the `ggplot2` package.
 #'
 #' @param mr_res Data frame with columns `exposure`, `outcome`, `method`,
-#'   `or`, `or_lci95`, `or_uci95`, `subcategory` -- typically built by the
-#'   caller by binding together the `$results` of several `mr_result`
-#'   objects and attaching a `subcategory` (and any grouping columns) with
-#'   `dplyr::mutate()`. See examples.
+#'   `subcategory`, plus whichever value columns `scale` requires (see
+#'   below) -- typically built by the caller by binding together the
+#'   `$results` of several `mr_result` objects and attaching a `subcategory`
+#'   (and any grouping columns) with `dplyr::mutate()`. See examples.
 #' @param xlab X-axis label.
 #' @param method Character vector of `method` values to include. Default
 #'   `c("Inverse variance weighted", "IVW (fixed effects)")` includes both
@@ -362,6 +368,32 @@ forest_plot <- function(
 #'   order, or `NULL` to use first-appearance order.
 #' @param dodge_width Vertical dodge width applied when two rows share an
 #'   outcome (e.g. fixed and random effects for the same outcome).
+#' @param scale `"or"` (default) plots an odds-ratio scale: `or_col`/
+#'   `or_lci_col`/`or_uci_col` on a log2 x-axis with a reference line at 1.
+#'   `"beta"` plots a linear effect-size scale: `b_col`/`se_col` (CI derived
+#'   internally as `b \eqn{\pm} 1.96*se`) on a linear x-axis with a
+#'   reference line at 0. Required columns depend on this choice -- only the
+#'   3 OR columns are required for `scale="or"`, only the 2 beta/SE columns
+#'   for `scale="beta"`.
+#' @param or_col,or_lci_col,or_uci_col Column names to use for the OR point
+#'   estimate and 95% CI when `scale="or"`. Defaults (`"or"`/`"or_lci95"`/
+#'   `"or_uci95"`) match every existing call site -- override to plot a
+#'   rescaled column (e.g. `or_col="or_scaled"`) without needing to rename
+#'   columns in the caller.
+#' @param b_col,se_col Column names to use for the point estimate and
+#'   standard error when `scale="beta"`. Defaults `"b"`/`"se"` -- override to
+#'   plot a rescaled column (e.g. `b_col="b_scaled", se_col="se_scaled"`).
+#' @param group_by Optional column name in `mr_res` giving an outer grouping
+#'   above `subcategory` (e.g. "Primary" vs "Sensitivity Analysis"). When
+#'   supplied, facets on `vars(.data[[group_by]], subcategory)` instead of
+#'   just `vars(subcategory)` -- `ggplot2::facet_grid()`'s native handling of
+#'   multiple row-facetting variables spans the outer variable's strip across
+#'   its contiguous inner rows, giving a nested header with no extra
+#'   dependency. `NULL` (default) reproduces today's single-facet behaviour
+#'   exactly.
+#' @param group_order Character vector giving `group_by`'s display order
+#'   (parallel to `section_order` for `subcategory`), or `NULL` for
+#'   first-appearance order. Ignored if `group_by` is `NULL`.
 #'
 #' @return A ggplot object.
 #'
@@ -394,6 +426,16 @@ forest_plot <- function(
 #'   shape_values = c("Random effects" = 16, "Fixed effects" = 17),
 #'   section_order = c("Primary", "Positive control", "Negative control")
 #' )
+#'
+#' # Linear beta/SE scale on a rescaled column, nested Primary/Sensitivity header
+#' outcome_forest_plot(
+#'   mr_res,
+#'   xlab = "Beta (95% CI)",
+#'   scale = "beta",
+#'   b_col = "b_scaled", se_col = "se_scaled",
+#'   group_by = "tier_group", group_order = c("Primary", "Sensitivity Analysis"),
+#'   section_order = c("Cohort A", "Cohort B")
+#' )
 #' }
 #'
 #' @export
@@ -410,19 +452,28 @@ outcome_forest_plot <- function(
   colour_values = NULL,
   shape_values = NULL,
   section_order = NULL,
-  dodge_width = 0.5
+  dodge_width = 0.5,
+  scale = c("or", "beta"),
+  or_col = "or",
+  or_lci_col = "or_lci95",
+  or_uci_col = "or_uci95",
+  b_col = "b",
+  se_col = "se",
+  group_by = NULL,
+  group_order = NULL
 ) {
   rlang::check_installed("ggplot2", reason = "to plot MR results.")
+  scale <- match.arg(scale)
 
-  required_cols <- c(
-    "exposure",
-    "outcome",
-    "method",
-    "or",
-    "or_lci95",
-    "or_uci95",
-    "subcategory"
-  )
+  value_cols <- if (scale == "or") {
+    c(or_col, or_lci_col, or_uci_col)
+  } else {
+    c(b_col, se_col)
+  }
+  required_cols <- c("exposure", "outcome", "method", "subcategory", value_cols)
+  if (!is.null(group_by)) {
+    required_cols <- c(required_cols, group_by)
+  }
   missing_cols <- setdiff(required_cols, names(mr_res))
   if (length(missing_cols) > 0) {
     cli::cli_abort("{.arg mr_res} is missing column{?s}: {missing_cols}.")
@@ -450,11 +501,36 @@ outcome_forest_plot <- function(
   }
   dat$outcome <- factor(dat$outcome, levels = rev(unique(dat$outcome)))
 
+  if (!is.null(group_by)) {
+    dat[[group_by]] <- if (!is.null(group_order)) {
+      factor(dat[[group_by]], levels = group_order)
+    } else {
+      factor(dat[[group_by]], levels = unique(dat[[group_by]]))
+    }
+  }
+
+  # scale-dependent x/xmin/xmax, trans, and reference line -- everything
+  # downstream (aes, geoms, facets, theme) is otherwise identical between
+  # the two scales.
+  if (scale == "or") {
+    dat$.x <- dat[[or_col]]
+    dat$.xmin <- dat[[or_lci_col]]
+    dat$.xmax <- dat[[or_uci_col]]
+    x_trans <- "log2"
+    vline_at <- 1
+  } else {
+    dat$.x <- dat[[b_col]]
+    dat$.xmin <- dat[[b_col]] - 1.96 * dat[[se_col]]
+    dat$.xmax <- dat[[b_col]] + 1.96 * dat[[se_col]]
+    x_trans <- "identity"
+    vline_at <- 0
+  }
+
   # Always group by method so that two rows sharing the same outcome (one
   # random-effects, one fixed-effects) dodge apart instead of overplotting,
   # regardless of whether `method` is also mapped to colour/shape.
   aes_list <- list(
-    x = rlang::expr(.data$or),
+    x = rlang::expr(.data$.x),
     y = rlang::expr(.data$outcome),
     group = rlang::expr(.data$method)
   )
@@ -468,23 +544,33 @@ outcome_forest_plot <- function(
 
   dodge <- ggplot2::position_dodge(width = dodge_width)
 
+  # facet_grid()'s native handling of multiple row-facetting variables spans
+  # the outer (group_by) variable's strip across its contiguous inner
+  # (subcategory) rows -- a nested header with no extra dependency (e.g.
+  # ggh4x) needed.
+  facet_rows <- if (!is.null(group_by)) {
+    ggplot2::vars(.data[[group_by]], subcategory)
+  } else {
+    ggplot2::vars(subcategory)
+  }
+
   p <- ggplot2::ggplot(dat, mapping) +
     ggplot2::geom_vline(
-      xintercept = 1,
+      xintercept = vline_at,
       linetype = "dashed",
       colour = "grey45",
       linewidth = 0.4
     ) +
     ggplot2::geom_errorbarh(
-      ggplot2::aes(xmin = .data$or_lci95, xmax = .data$or_uci95),
+      ggplot2::aes(xmin = .data$.xmin, xmax = .data$.xmax),
       height = 0,
       linewidth = 0.7,
       position = dodge
     ) +
     ggplot2::geom_point(size = 3, position = dodge) +
-    ggplot2::scale_x_continuous(trans = "log2") +
+    ggplot2::scale_x_continuous(trans = x_trans) +
     ggplot2::facet_grid(
-      rows = ggplot2::vars(subcategory),
+      rows = facet_rows,
       scales = "free_y",
       space = "free_y",
       switch = "y"

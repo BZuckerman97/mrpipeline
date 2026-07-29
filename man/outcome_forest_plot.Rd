@@ -15,15 +15,23 @@ outcome_forest_plot(
   colour_values = NULL,
   shape_values = NULL,
   section_order = NULL,
-  dodge_width = 0.5
+  dodge_width = 0.5,
+  scale = c("or", "beta"),
+  or_col = "or",
+  or_lci_col = "or_lci95",
+  or_uci_col = "or_uci95",
+  b_col = "b",
+  se_col = "se",
+  group_by = NULL,
+  group_order = NULL
 )
 }
 \arguments{
 \item{mr_res}{Data frame with columns \code{exposure}, \code{outcome}, \code{method},
-\code{or}, \code{or_lci95}, \code{or_uci95}, \code{subcategory} -- typically built by the
-caller by binding together the \verb{$results} of several \code{mr_result}
-objects and attaching a \code{subcategory} (and any grouping columns) with
-\code{dplyr::mutate()}. See examples.}
+\code{subcategory}, plus whichever value columns \code{scale} requires (see
+below) -- typically built by the caller by binding together the
+\verb{$results} of several \code{mr_result} objects and attaching a \code{subcategory}
+(and any grouping columns) with \code{dplyr::mutate()}. See examples.}
 
 \item{xlab}{X-axis label.}
 
@@ -49,6 +57,37 @@ order, or \code{NULL} to use first-appearance order.}
 
 \item{dodge_width}{Vertical dodge width applied when two rows share an
 outcome (e.g. fixed and random effects for the same outcome).}
+
+\item{scale}{\code{"or"} (default) plots an odds-ratio scale: \code{or_col}/
+\code{or_lci_col}/\code{or_uci_col} on a log2 x-axis with a reference line at 1.
+\code{"beta"} plots a linear effect-size scale: \code{b_col}/\code{se_col} (CI derived
+internally as \verb{b \eqn{\pm} 1.96*se}) on a linear x-axis with a
+reference line at 0. Required columns depend on this choice -- only the
+3 OR columns are required for \code{scale="or"}, only the 2 beta/SE columns
+for \code{scale="beta"}.}
+
+\item{or_col, or_lci_col, or_uci_col}{Column names to use for the OR point
+estimate and 95\% CI when \code{scale="or"}. Defaults (\code{"or"}/\code{"or_lci95"}/
+\code{"or_uci95"}) match every existing call site -- override to plot a
+rescaled column (e.g. \code{or_col="or_scaled"}) without needing to rename
+columns in the caller.}
+
+\item{b_col, se_col}{Column names to use for the point estimate and
+standard error when \code{scale="beta"}. Defaults \code{"b"}/\code{"se"} -- override to
+plot a rescaled column (e.g. \verb{b_col="b_scaled", se_col="se_scaled"}).}
+
+\item{group_by}{Optional column name in \code{mr_res} giving an outer grouping
+above \code{subcategory} (e.g. "Primary" vs "Sensitivity Analysis"). When
+supplied, facets on \code{vars(.data[[group_by]], subcategory)} instead of
+just \code{vars(subcategory)} -- \code{ggplot2::facet_grid()}'s native handling of
+multiple row-facetting variables spans the outer variable's strip across
+its contiguous inner rows, giving a nested header with no extra
+dependency. \code{NULL} (default) reproduces today's single-facet behaviour
+exactly.}
+
+\item{group_order}{Character vector giving \code{group_by}'s display order
+(parallel to \code{section_order} for \code{subcategory}), or \code{NULL} for
+first-appearance order. Ignored if \code{group_by} is \code{NULL}.}
 }
 \value{
 A ggplot object.
@@ -90,6 +129,16 @@ outcome_forest_plot(
   colour_values = c("GWS instrument" = "#3c6e5e", "Functional instrument" = "#b5541f"),
   shape_values = c("Random effects" = 16, "Fixed effects" = 17),
   section_order = c("Primary", "Positive control", "Negative control")
+)
+
+# Linear beta/SE scale on a rescaled column, nested Primary/Sensitivity header
+outcome_forest_plot(
+  mr_res,
+  xlab = "Beta (95\% CI)",
+  scale = "beta",
+  b_col = "b_scaled", se_col = "se_scaled",
+  group_by = "tier_group", group_order = c("Primary", "Sensitivity Analysis"),
+  section_order = c("Cohort A", "Cohort B")
 )
 }
 
