@@ -84,21 +84,20 @@ remaining SNP's Wald ratio, which isn't informative); otherwise
 as a data frame with one row per SNP plus a pooled `"All"` row, columns `SNP`,
 `b`, `se`, `p`, `exposure`, `outcome`.
 
-#### Flipping exposure direction (`flip_beta`)
+#### Flipping exposure direction -- deliberately not provided
 
-When `flip_beta = TRUE`, `harmonised$beta.exposure` is negated once,
-immediately after harmonisation and before F-statistics, LD correction, or
-any method/steiger/pleiotropy/heterogeneity/loo computation runs. Because
-every downstream step reads from the same `harmonised` object, the flip
-propagates consistently into `$results`, `$instruments`, and `$loo` -- there
-is no separate flip step for each output. `$params$flip_beta` records
-whether it was applied. This replaced an earlier design where the flip lived
-in `format_gwas()` (negating `beta` before harmonisation); the two are
-mathematically equivalent since instrument clumping (p-value/LD driven) and
-`align_to_ld_matrix()`'s per-SNP `ld_sign` (allele-matching driven) don't
-depend on `beta`'s sign, but co-locating the flip with the specific
-`run_mr()` call that needs it (rather than a shared exposure-build step
-several targets might reuse) makes it far harder to silently omit.
+`run_mr()` has no `flip_beta`/`exposure_label` argument, and none should be
+added. An earlier design (2026-07-29 to 2026-08-01) negated
+`harmonised$beta.exposure` once, immediately after harmonisation, so the
+flip propagated consistently into `$results`, `$instruments`, and `$loo`.
+It was removed because a shared-library flag that only ever touches
+`beta.exposure` -- never `effect_allele.exposure`/`other_allele.exposure`/
+`eaf.exposure`/`beta.outcome` -- hides that scope from the caller, inviting
+misuse. Projects that need to redefine exposure direction (e.g. modelling a
+drug's inhibition mechanism) should write their own `flipped_beta()`-style
+helper in project-level code and apply it to the exposure/harmonised data
+before it reaches `run_mr()`. See the `mrpipeline`/root `CLAUDE.md` files
+for the full rationale.
 
 #### `print.mr_result()` and `summary.mr_result()`
 

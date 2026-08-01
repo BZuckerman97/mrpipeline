@@ -21,8 +21,6 @@ run_mr(
   exclude_regions = NULL,
   methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
   ld_correct = FALSE,
-  flip_beta = FALSE,
-  exposure_label = NULL,
   exposure_n = NULL,
   presso_n_dist = 1000,
   plink_threads = plink_option("threads"),
@@ -89,20 +87,6 @@ method name from \code{TwoSampleMR::mr_method_list()$obj} directly (e.g.
 \item{ld_correct}{Logical. Use LD-corrected IVW/Egger via the
 \code{MendelianRandomization} package. Requires \code{bfile}. Default \code{FALSE}.}
 
-\item{flip_beta}{Logical. If \code{TRUE}, negates \code{beta.exposure} on the
-harmonised data before any method/sensitivity analysis runs -- use when
-the exposure GWAS encodes the inverse direction of the intended exposure
-(e.g. modelling NLRP3 inhibition rather than activation). Applied once,
-immediately after harmonisation, so it propagates consistently into
-\verb{$results}, \verb{$instruments}, and \verb{$loo}. See "Flipping exposure
-direction" below. Default \code{FALSE}.}
-
-\item{exposure_label}{Character. Human-readable label for the (possibly
-transformed) exposure, stored as \code{exposure_analysis_name} on \verb{$results}/
-\verb{$instruments}/\verb{$loo} -- e.g. \code{"Genetically proxied NLRP3 inhibition"}.
-If \code{NULL} (default), auto-generated as \code{"-1 x <exposure_id>"} when
-\code{flip_beta = TRUE}, or \code{exposure_id} unchanged otherwise.}
-
 \item{exposure_n}{Numeric. Exposure sample size. If \code{NULL}, inferred from
 \code{samplesize.exposure} column.}
 
@@ -127,9 +111,7 @@ Default \code{TRUE}.}
 An \code{mr_result} object. Check \code{result$status} for \code{"success"} vs
 failure reasons. The \verb{$results} data frame includes \code{or}, \code{or_lci95}, and
 \code{or_uci95} columns (from \code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}) alongside
-the raw \code{b} and \code{se}, plus \code{exposure_analysis_name}/\code{exposure_transformed}
-(see "Flipping exposure direction"). \verb{$instruments} additionally carries
-\code{beta.exposure_original}. The \verb{$timing} field contains a named numeric
+the raw \code{b} and \code{se}. The \verb{$timing} field contains a named numeric
 vector of elapsed seconds for each major step.
 }
 \description{
@@ -175,38 +157,6 @@ to add \code{"pleiotropy"} to \code{methods} separately. The \code{"pleiotropy"}
 remains available for running the intercept test without Egger.
 }
 
-\section{Flipping exposure direction}{
-
-\code{flip_beta = TRUE} defines the analysis exposure as the negative of the
-original GWAS phenotype, such that \code{X_transformed = -X_original} -- e.g.
-modelling a drug's mechanism of inhibition rather than the GWAS trait's
-raw increasing direction. This is a \strong{phenotype transformation, not an
-allele reorientation}: \code{beta.exposure} is negated, but
-\code{effect_allele.exposure}, \code{other_allele.exposure}, and \code{eaf.exposure} are
-left untouched, because the same physical effect allele is still being
-counted -- only its association is now expressed relative to the
-transformed exposure. This must not be used to correct effect-allele or
-strand mislabelling; genuine allele reorientation requires swapping the
-effect and other alleles, negating beta, \emph{and} replacing \code{eaf} with
-\code{1 - eaf}, none of which \code{flip_beta} does.
-
-The transformation is applied once, to \code{harmonised$beta.exposure},
-immediately after harmonisation and before F-statistics, LD correction, or
-any method/steiger/pleiotropy/heterogeneity/loo computation, so every
-direction-sensitive output (\verb{$results}, \verb{$instruments}, \verb{$loo}) refers to
-the same transformed direction consistently -- including per-SNP plots
-built from \verb{$instruments}/\verb{$loo}, not just the pooled \verb{$results} estimate.
-
-For traceability, \verb{$instruments} retains the pre-transform value in
-\code{beta.exposure_original}, and \verb{$results}/\verb{$instruments}/\verb{$loo} all carry
-\code{exposure_transformed} (logical, \code{TRUE} when \code{flip_beta = TRUE}) and
-\code{exposure_analysis_name} (character -- \code{exposure_label} if supplied,
-otherwise auto-generated as \code{"-1 x <exposure_id>"} when flipped or
-\code{exposure_id} unchanged) so the flip status and a human-readable label
-survive being extracted into a flat exported file, without needing to
-separately consult \verb{$params}.
-}
-
 \examples{
 \dontrun{
 # Cis-MR using bundled CD40/Sjogren's data
@@ -222,20 +172,6 @@ result <- run_mr(
 )
 result
 summary(result)
-
-# Exposure GWAS -- flip beta to model NLRP3 inhibition, not activation
-result_flipped <- run_mr(
-  exposure = crp_exposure,
-  exposure_id = "NLRP3",
-  outcome = crp_outcome,
-  outcome_id = "CAD",
-  instrument_region = list(
-    chromosome = "1", start = 159709158, end = 159714345
-  ),
-  bfile = bfile,
-  flip_beta = TRUE,
-  exposure_label = "Genetically proxied NLRP3 inhibition"
-)
 }
 
 }

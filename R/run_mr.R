@@ -34,37 +34,6 @@
 #' run automatically and its result stored in `$pleiotropy`. You do not need
 #' to add `"pleiotropy"` to `methods` separately. The `"pleiotropy"` shortcut
 #' remains available for running the intercept test without Egger.
-#'
-#' @section Flipping exposure direction:
-#' `flip_beta = TRUE` defines the analysis exposure as the negative of the
-#' original GWAS phenotype, such that `X_transformed = -X_original` -- e.g.
-#' modelling a drug's mechanism of inhibition rather than the GWAS trait's
-#' raw increasing direction. This is a **phenotype transformation, not an
-#' allele reorientation**: `beta.exposure` is negated, but
-#' `effect_allele.exposure`, `other_allele.exposure`, and `eaf.exposure` are
-#' left untouched, because the same physical effect allele is still being
-#' counted -- only its association is now expressed relative to the
-#' transformed exposure. This must not be used to correct effect-allele or
-#' strand mislabelling; genuine allele reorientation requires swapping the
-#' effect and other alleles, negating beta, *and* replacing `eaf` with
-#' `1 - eaf`, none of which `flip_beta` does.
-#'
-#' The transformation is applied once, to `harmonised$beta.exposure`,
-#' immediately after harmonisation and before F-statistics, LD correction, or
-#' any method/steiger/pleiotropy/heterogeneity/loo computation, so every
-#' direction-sensitive output (`$results`, `$instruments`, `$loo`) refers to
-#' the same transformed direction consistently -- including per-SNP plots
-#' built from `$instruments`/`$loo`, not just the pooled `$results` estimate.
-#'
-#' For traceability, `$instruments` retains the pre-transform value in
-#' `beta.exposure_original`, and `$results`/`$instruments`/`$loo` all carry
-#' `exposure_transformed` (logical, `TRUE` when `flip_beta = TRUE`) and
-#' `exposure_analysis_name` (character -- `exposure_label` if supplied,
-#' otherwise auto-generated as `"-1 x <exposure_id>"` when flipped or
-#' `exposure_id` unchanged) so the flip status and a human-readable label
-#' survive being extracted into a flat exported file, without needing to
-#' separately consult `$params`.
-#'
 #' @param exposure Data frame of formatted exposure data (output of
 #'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
 #' @param exposure_id Character. Identifier for the exposure (e.g. protein
@@ -107,18 +76,6 @@
 #'   `ld_correct = TRUE`.
 #' @param ld_correct Logical. Use LD-corrected IVW/Egger via the
 #'   `MendelianRandomization` package. Requires `bfile`. Default `FALSE`.
-#' @param flip_beta Logical. If `TRUE`, negates `beta.exposure` on the
-#'   harmonised data before any method/sensitivity analysis runs -- use when
-#'   the exposure GWAS encodes the inverse direction of the intended exposure
-#'   (e.g. modelling NLRP3 inhibition rather than activation). Applied once,
-#'   immediately after harmonisation, so it propagates consistently into
-#'   `$results`, `$instruments`, and `$loo`. See "Flipping exposure
-#'   direction" below. Default `FALSE`.
-#' @param exposure_label Character. Human-readable label for the (possibly
-#'   transformed) exposure, stored as `exposure_analysis_name` on `$results`/
-#'   `$instruments`/`$loo` -- e.g. `"Genetically proxied NLRP3 inhibition"`.
-#'   If `NULL` (default), auto-generated as `"-1 x <exposure_id>"` when
-#'   `flip_beta = TRUE`, or `exposure_id` unchanged otherwise.
 #' @param exposure_n Numeric. Exposure sample size. If `NULL`, inferred from
 #'   `samplesize.exposure` column.
 #' @param presso_n_dist Integer. Number of distributions for MR-PRESSO. Default
@@ -138,9 +95,7 @@
 #' @return An `mr_result` object. Check `result$status` for `"success"` vs
 #'   failure reasons. The `$results` data frame includes `or`, `or_lci95`, and
 #'   `or_uci95` columns (from [TwoSampleMR::generate_odds_ratios()]) alongside
-#'   the raw `b` and `se`, plus `exposure_analysis_name`/`exposure_transformed`
-#'   (see "Flipping exposure direction"). `$instruments` additionally carries
-#'   `beta.exposure_original`. The `$timing` field contains a named numeric
+#'   the raw `b` and `se`. The `$timing` field contains a named numeric
 #'   vector of elapsed seconds for each major step.
 #'
 #' @examples
@@ -158,20 +113,6 @@
 #' )
 #' result
 #' summary(result)
-#'
-#' # Exposure GWAS -- flip beta to model NLRP3 inhibition, not activation
-#' result_flipped <- run_mr(
-#'   exposure = crp_exposure,
-#'   exposure_id = "NLRP3",
-#'   outcome = crp_outcome,
-#'   outcome_id = "CAD",
-#'   instrument_region = list(
-#'     chromosome = "1", start = 159709158, end = 159714345
-#'   ),
-#'   bfile = bfile,
-#'   flip_beta = TRUE,
-#'   exposure_label = "Genetically proxied NLRP3 inhibition"
-#' )
 #' }
 #'
 #' @export
@@ -192,8 +133,6 @@ run_mr <- function(
   exclude_regions = NULL,
   methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
   ld_correct = FALSE,
-  flip_beta = FALSE,
-  exposure_label = NULL,
   exposure_n = NULL,
   presso_n_dist = 1000,
   plink_threads = plink_option("threads"),
@@ -248,8 +187,6 @@ run_mr <- function(
     exclude_regions = exclude_regions,
     methods = methods,
     ld_correct = ld_correct,
-    flip_beta = flip_beta,
-    exposure_label = exposure_label,
     exposure_n = exposure_n,
     presso_n_dist = presso_n_dist
   )
@@ -538,35 +475,6 @@ run_mr <- function(
       timing = timing
     ))
   }
-
-  # --- Flip exposure direction -----------------------------------------------
-  # Applied once, here, to harmonised$beta.exposure -- before F-statistics,
-  # LD correction, and every method/steiger/pleiotropy/heterogeneity/loo
-  # computation below, so the flip propagates identically into $results,
-  # $instruments, and $loo. This is equivalent to negating beta before
-  # harmonisation (format_gwas()'s former flip_beta argument): instrument
-  # clumping depends on p-values/LD (not beta sign), and
-  # align_to_ld_matrix()'s per-SNP ld_sign is derived from allele matching,
-  # not beta's sign, so a uniform sign flip here commutes with everything
-  # upstream and downstream of this point.
-  #
-  # This is a phenotype transformation (X_transformed = -X_original), not an
-  # allele reorientation -- effect_allele.exposure/other_allele.exposure/
-  # eaf.exposure are deliberately left untouched, since the same physical
-  # allele is still being counted; only the derived beta is expressed
-  # relative to the transformed exposure. beta.exposure_original preserves
-  # the pre-transform value for audit/traceability, and exposure_transformed
-  # flags every row so this is visible directly on $instruments without
-  # needing to separately consult $params.
-  harmonised$beta.exposure_original <- harmonised$beta.exposure
-  harmonised$exposure_transformed <- flip_beta
-  if (flip_beta) {
-    harmonised$beta.exposure <- -harmonised$beta.exposure
-  }
-
-  exposure_analysis_name <- exposure_label %||%
-    if (flip_beta) paste0("-1 x ", exposure_id) else exposure_id
-  harmonised$exposure_analysis_name <- exposure_analysis_name
 
   # --- Resolve sample size --------------------------------------------------
 
@@ -1006,21 +914,6 @@ run_mr <- function(
     results_df <- do.call(rbind, results_list)
     rownames(results_df) <- NULL
     results_df <- TwoSampleMR::generate_odds_ratios(results_df)
-  }
-
-  # exposure_analysis_name/exposure_transformed added once here (rather than
-  # at each per-method results_list row above) so every output carrying an
-  # "exposure" column -- $results and $loo -- stays traceable to whether
-  # flip_beta was applied, without needing to separately consult $params.
-  # $instruments (== harmonised) already got both columns at the flip step
-  # above, alongside beta.exposure_original.
-  if (nrow(results_df) > 0) {
-    results_df$exposure_analysis_name <- exposure_analysis_name
-    results_df$exposure_transformed <- flip_beta
-  }
-  if (!is.null(loo_result) && nrow(loo_result) > 0) {
-    loo_result$exposure_analysis_name <- exposure_analysis_name
-    loo_result$exposure_transformed <- flip_beta
   }
 
   new_mr_result(
