@@ -594,12 +594,22 @@ sjogren_sumstats <- tibble::tribble(
   341L , 22L    , "rs4008579"    , 17106549L , "A"  , "G"  , 0.9157 , 0.04323 , 0.04161    , 6098L , 34928L , 0.1387  , 41420L , -0.08806648          , "22:17106549:A:G" , "SjD_h37"
 )
 
-# CD40 exposure (TwoSampleMR format) ----------------------------------------
-#
-# 50 SNPs from the CD40 cis region on chr20 (44646911-44858502), pre-formatted
-# as a TwoSampleMR exposure data frame. Derived from cd40_sumstats. All SNPs
-# overlap with the bundled LD reference panel (inst/extdata/ld_ref.*).
-
+#' CD40 exposure data (TwoSampleMR format)
+#'
+#' 50 SNPs from the CD40 cis region on chr20 (44646911-44858502),
+#' pre-formatted as a TwoSampleMR exposure data frame. Derived from
+#' `cd40_sumstats`. All SNPs overlap with the bundled LD reference panel
+#' (`inst/extdata/ld_ref.*`) and with `sjogren_outcome`, so the two can be
+#' used together in [run_mr()]/[run_coloc()] examples without any external
+#' data.
+#'
+#' @format A data frame with 50 rows and the standard TwoSampleMR exposure
+#'   columns (`SNP`, `chr.exposure`, `pos.exposure`,
+#'   `effect_allele.exposure`, `other_allele.exposure`, `beta.exposure`,
+#'   `se.exposure`, `pval.exposure`, `eaf.exposure`,
+#'   `samplesize.exposure`, `exposure`, `id.exposure`, `mr_keep.exposure`,
+#'   `pval_origin.exposure`).
+#' @export
 cd40_exposure <- tibble::tribble(
   ~SNP         , ~chr.exposure , ~pos.exposure , ~effect_allele.exposure , ~other_allele.exposure , ~beta.exposure , ~se.exposure , ~pval.exposure , ~eaf.exposure , ~samplesize.exposure , ~exposure , ~id.exposure , ~mr_keep.exposure , ~pval_origin.exposure ,
   "rs3848726"  , "20"          , 44666595L     , "T"                     , "G"                    , -0.175824      , 0.0077765    , 3.4834e-113    , 0.375680      , 33655L               , "CD40"    , "CD40"       , TRUE              , "reported"            ,
@@ -654,13 +664,18 @@ cd40_exposure <- tibble::tribble(
   "rs17381472" , "20"          , 44782428L     , "T"                     , "C"                    , -0.253710      , 0.0120936    , 1.0235e-97     , 0.112207      , 33655L               , "CD40"    , "CD40"       , TRUE              , "reported"
 )
 
-# Sjogren's Disease outcome (standardised format) ---------------------------
-#
-# 50 SNPs in the CD40 cis region on chr20, in standardised outcome format
-# (rsids, chr, pos, beta, se, eaf, pval, n, effect_allele, other_allele,
-# phenotype). One real SNP (rs9074) from sjogren_sumstats; 49 synthetic SNPs
-# with realistic effect sizes to match the LD reference panel.
-
+#' Sjogren's disease outcome data (standardised format)
+#'
+#' 50 SNPs in the CD40 cis region on chr20, in standardised outcome format,
+#' matching [format_gwas()]'s `type = "outcome"` schema. One real SNP
+#' (`rs9074`) from `sjogren_sumstats`; 49 synthetic SNPs with realistic
+#' effect sizes to match the bundled LD reference panel
+#' (`inst/extdata/ld_ref.*`) and `cd40_exposure`.
+#'
+#' @format A data frame with 50 rows and columns `rsids`, `chr`, `pos`,
+#'   `beta`, `se`, `eaf`, `pval`, `n`, `effect_allele`, `other_allele`,
+#'   `phenotype`.
+#' @export
 sjogren_outcome <- tibble::tribble(
   ~rsids       , ~chr , ~pos      , ~beta         , ~se          , ~eaf         , ~pval        , ~n     , ~effect_allele , ~other_allele , ~phenotype ,
   "rs9074"     , "20" , 44688665L ,  8.801088e-02 , 3.28e-02     , 2.62e-01     , 7.388e-03    , 41420L , "A"            , "G"           , "SjD"      ,

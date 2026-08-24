@@ -12,9 +12,16 @@
 #' @param pqtl_assay String, name of the deCODE genetics protein assayed
 #' @param x_y_chr_file String, optional file path to a file containing rsids for X and Y
 #'   chromosomes. This file should be tab-separated with columns: Chromosome, Position, RSID.
+#' @param type Character, either `"exposure"` (default) or `"outcome"`.
+#'   `"exposure"` runs the data through [TwoSampleMR::format_data()] and
+#'   returns `list(exposure = <formatted data frame>)`. `"outcome"` skips
+#'   `format_data()` and returns a plain data frame normalised to the same
+#'   schema as `format_gwas(type = "outcome")`, so [run_mr()] can pre-filter
+#'   by rsids before calling `format_data()` internally.
 #'
-#' @return A list with two elements:
-#'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
+#' @return For `type = "exposure"`: a list with one element, `exposure`
+#'   (formatted exposure data frame, output of TwoSampleMR::format_data()).
+#'   For `type = "outcome"`: a plain data frame (not wrapped in a list).
 #'
 #' @examples
 #' \dontrun{

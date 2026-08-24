@@ -24,12 +24,18 @@ data will be combined.}
 
 \item{x_y_chr_file}{String, optional file path to a file containing rsids for X and Y
 chromosomes. This file should be tab-separated with columns: Chromosome, Position, RSID.}
+
+\item{type}{Character, either \code{"exposure"} (default) or \code{"outcome"}.
+\code{"exposure"} runs the data through \code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}} and
+returns \verb{list(exposure = <formatted data frame>)}. \code{"outcome"} skips
+\code{format_data()} and returns a plain data frame normalised to the same
+schema as \code{format_gwas(type = "outcome")}, so \code{\link[=run_mr]{run_mr()}} can pre-filter
+by rsids before calling \code{format_data()} internally.}
 }
 \value{
-A list with two elements:
-\itemize{
-\item \code{exposure}: Formatted exposure data frame (output of TwoSampleMR::format_data).
-}
+For \code{type = "exposure"}: a list with one element, \code{exposure}
+(formatted exposure data frame, output of TwoSampleMR::format_data()).
+For \code{type = "outcome"}: a plain data frame (not wrapped in a list).
 }
 \description{
 This function filters deCODE genetics GWAS by the deCODE included variants file,

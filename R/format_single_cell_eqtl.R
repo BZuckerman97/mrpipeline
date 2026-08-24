@@ -203,15 +203,7 @@ format_single_cell_onek1k <- function(
     cli::cli_abort("No variants with valid SE remain after filtering.")
   }
 
-  if (!is.null(sample_size)) {
-    eqtl_data <- eqtl_data |>
-      dplyr::mutate(samplesize_col = as.integer(.env$sample_size))
-    ss_col <- "samplesize_col"
-  } else {
-    ss_col <- NULL
-  }
-
-  TwoSampleMR::format_data(
+  format_data_args <- list(
     dat = eqtl_data,
     type = "exposure",
     phenotype_col = "phenotype_label",
@@ -223,9 +215,21 @@ format_single_cell_onek1k <- function(
     other_allele_col = "A1",
     pval_col = "P_VALUE",
     chr_col = "CHR",
-    pos_col = "POS",
-    samplesize_col = ss_col
+    pos_col = "POS"
   )
+
+  # TwoSampleMR::format_data() defaults samplesize_col to the string
+  # "samplesize", not NULL -- passing samplesize_col = NULL explicitly
+  # breaks its internal `samplesize_col %in% names(dat)` check (argument of
+  # length zero), so omit the argument entirely rather than pass NULL.
+  if (!is.null(sample_size)) {
+    eqtl_data <- eqtl_data |>
+      dplyr::mutate(samplesize_col = as.integer(.env$sample_size))
+    format_data_args$dat <- eqtl_data
+    format_data_args$samplesize_col <- "samplesize_col"
+  }
+
+  do.call(TwoSampleMR::format_data, format_data_args)
 }
 
 

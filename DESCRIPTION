@@ -36,6 +36,7 @@ Suggests:
     ggplot2,
     knitr,
     locuszoomr,
+    R.utils,
     rmarkdown,
     susieR,
     testthat (>= 3.0.0)

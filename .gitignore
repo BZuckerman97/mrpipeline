@@ -7,3 +7,4 @@ data
 amd_drug_repurposing_minutes
 pipeline_notes
 docs/
+tests/testthat/Rplots.pdf

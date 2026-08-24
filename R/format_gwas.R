@@ -66,6 +66,21 @@
 #' non-standard sample-size column (e.g. METAL's `Weight`), via
 #' `col_map = list(n = "Weight")`.
 #'
+#' @section Automatic se derivation from beta + zscore:
+#' Some GWAS files report a real `beta` and a `zscore` but no `se` column --
+#' e.g. the D-dimer Suhre GCST90100910 file, which publishes `Beta` + `Z`
+#' (its `z` column needs `col_map = list(zscore = "z")`, since a bare `"z"`
+#' is not in the built-in `zscore` alias table). When this happens, the
+#' function derives `se` as an exact algebraic inversion of `z = beta / se`:
+#'
+#' - `se = |beta / zscore|`
+#'
+#' This is preferred over the beta+p-value back-calculation below whenever a
+#' `zscore` column is available, since it does not depend on a (possibly
+#' rounded) p-value -- the p-value method is undefined when `pval == 1`, a
+#' real risk for a true-null SNP. An informative message is emitted whenever
+#' this derivation is applied.
+#'
 #' @section Automatic se derivation from beta + p-value:
 #' Some GWAS files report a real `beta` and `pval` but no `se`, `or`, or
 #' `zscore` column at all -- e.g. the deCODE haematinics files (Iron_TSAT,
@@ -597,6 +612,29 @@ format_gwas <- function(
     }
   }
 
+  # -- Derive se from beta + zscore when se is absent ---------------------------
+  # Triggered when beta and zscore are both present but se is not -- e.g. the
+  # D-dimer Suhre GCST90100910 file, which publishes Beta + Z with no SE
+  # column at all (col_map = list(zscore = "z") needed, since a bare "z"
+  # column is not in the built-in zscore alias table). Preferred over the
+  # beta+pval back-calculation below whenever a zscore column is available,
+  # since it is an exact algebraic inversion of z = beta / se rather than a
+  # back-calculation from a (possibly rounded) p-value -- which is undefined
+  # when pval == 1, a real risk for any true-null SNP in the file.
+  # Formula: se = |beta / zscore|.
+  if (
+    "beta" %in%
+      names(dat) &&
+      !all(is.na(dat[["beta"]])) &&
+      "zscore" %in% names(dat) &&
+      !"se" %in% names(dat)
+  ) {
+    dat <- dplyr::mutate(dat, se = abs(.data$beta / .data$zscore))
+    cli::cli_inform(
+      "{.val {phenotype_id}}: no se column found -- derived se = |beta / zscore|."
+    )
+  }
+
   # -- Derive se from beta + pval when se is absent -----------------------------
   # Triggered when beta and pval are both present but se, or, and zscore are
   # not -- e.g. the deCODE haematinics files (Iron_TSAT, Iron_Ferritin), which
@@ -606,6 +644,7 @@ format_gwas <- function(
     "beta" %in%
       names(dat) &&
       !all(is.na(dat[["beta"]])) &&
+      !"zscore" %in% names(dat) &&
       !"se" %in% names(dat)
   ) {
     if (!"pval" %in% names(dat)) {

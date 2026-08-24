@@ -16,9 +16,17 @@
 #'   the rsid file. Either `"b38"` (GRCh38, uses `POS38` column; default) or
 #'   `"b37"` (GRCh37, uses `POS19` column). Must match the build used in the
 #'   UKB-PPP GWAS `GENPOS` column.
+#' @param type Character, either `"exposure"` (default) or `"outcome"`.
+#'   `"exposure"` runs the data through [TwoSampleMR::format_data()].
+#'   `"outcome"` skips `format_data()` and returns a plain data frame
+#'   normalised to the same schema as `format_gwas(type = "outcome")`, so
+#'   [run_mr()] can pre-filter by rsids before calling `format_data()`
+#'   internally.
 #'
-#' @return A list with two elements:
-#'   - `exposure`: Formatted exposure data frame (output of TwoSampleMR::format_data).
+#' @return A plain data frame (not a list) in both cases: for
+#'   `type = "exposure"`, the output of TwoSampleMR::format_data(); for
+#'   `type = "outcome"`, data normalised to `format_gwas(type = "outcome")`'s
+#'   schema.
 #'
 #' @export
 #'

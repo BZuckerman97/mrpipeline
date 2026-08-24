@@ -149,6 +149,24 @@ non-standard sample-size column (e.g. METAL's \code{Weight}), via
 \code{col_map = list(n = "Weight")}.
 }
 
+\section{Automatic se derivation from beta + zscore}{
+
+Some GWAS files report a real \code{beta} and a \code{zscore} but no \code{se} column --
+e.g. the D-dimer Suhre GCST90100910 file, which publishes \code{Beta} + \code{Z}
+(its \code{z} column needs \code{col_map = list(zscore = "z")}, since a bare \code{"z"}
+is not in the built-in \code{zscore} alias table). When this happens, the
+function derives \code{se} as an exact algebraic inversion of \code{z = beta / se}:
+\itemize{
+\item \verb{se = |beta / zscore|}
+}
+
+This is preferred over the beta+p-value back-calculation below whenever a
+\code{zscore} column is available, since it does not depend on a (possibly
+rounded) p-value -- the p-value method is undefined when \code{pval == 1}, a
+real risk for a true-null SNP. An informative message is emitted whenever
+this derivation is applied.
+}
+
 \section{Automatic se derivation from beta + p-value}{
 
 Some GWAS files report a real \code{beta} and \code{pval} but no \code{se}, \code{or}, or

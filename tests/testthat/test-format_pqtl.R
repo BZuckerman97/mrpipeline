@@ -153,6 +153,29 @@ test_that("format_pqtl_ukbppp drops SNPs absent from rsid file", {
   expect_equal(nrow(result), 3L)
 })
 
+make_decode_linker <- function() {
+  data.frame(
+    seqID = c("SEQ1", "SEQ2"),
+    identifier = c("file1.txt.gz", "file2.txt.gz"),
+    stringsAsFactors = FALSE
+  )
+}
+
+test_that("decode_pqtl_file_name returns the decode path and id for a matching seqID", {
+  linker <- make_decode_linker()
+  result <- decode_pqtl_file_name("SEQ1", linker, "some_dir")
+  expect_equal(result$decode, file.path("some_dir", "file1.txt.gz"))
+  expect_equal(result$id, "SEQ1")
+})
+
+test_that("decode_pqtl_file_name errors when unique_id matches zero or multiple rows", {
+  linker <- make_decode_linker()
+  expect_error(decode_pqtl_file_name("MISSING", linker, "some_dir"))
+
+  linker_dup <- rbind(linker, linker[1, ])
+  expect_error(decode_pqtl_file_name("SEQ1", linker_dup, "some_dir"))
+})
+
 make_ukbppp_linker_row <- function(chr = "7") {
   data.frame(
     Code = "syn51468683",

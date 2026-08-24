@@ -29,12 +29,19 @@ read via \code{data.table::fread()}.}
 the rsid file. Either \code{"b38"} (GRCh38, uses \code{POS38} column; default) or
 \code{"b37"} (GRCh37, uses \code{POS19} column). Must match the build used in the
 UKB-PPP GWAS \code{GENPOS} column.}
+
+\item{type}{Character, either \code{"exposure"} (default) or \code{"outcome"}.
+\code{"exposure"} runs the data through \code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}}.
+\code{"outcome"} skips \code{format_data()} and returns a plain data frame
+normalised to the same schema as \code{format_gwas(type = "outcome")}, so
+\code{\link[=run_mr]{run_mr()}} can pre-filter by rsids before calling \code{format_data()}
+internally.}
 }
 \value{
-A list with two elements:
-\itemize{
-\item \code{exposure}: Formatted exposure data frame (output of TwoSampleMR::format_data).
-}
+A plain data frame (not a list) in both cases: for
+\code{type = "exposure"}, the output of TwoSampleMR::format_data(); for
+\code{type = "outcome"}, data normalised to \code{format_gwas(type = "outcome")}'s
+schema.
 }
 \description{
 This function processes pQTL summary statistics from UKB-PPP,

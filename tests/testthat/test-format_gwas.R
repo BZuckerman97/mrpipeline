@@ -206,6 +206,28 @@ test_that("format_gwas resolves a non-standard zscore column via col_map", {
   expect_equal(result$beta, df$Zstat * df$se, tolerance = 1e-10)
 })
 
+test_that("format_gwas derives se = |beta / zscore| when beta and zscore present but se absent", {
+  df <- make_gwas()
+  df$zscore <- df$beta / df$se
+  df <- df[, setdiff(names(df), "se")]
+  result <- format_gwas(df, phenotype_id = "TEST")
+  expect_true("se" %in% names(result))
+  expect_equal(result$se, abs(df$beta / df$zscore), tolerance = 1e-10)
+  # beta itself must be untouched, not re-derived from zscore
+  expect_equal(result$beta, df$beta, tolerance = 1e-10)
+})
+
+test_that("format_gwas prefers se = |beta / zscore| over the beta+pval back-calculation", {
+  df <- make_gwas()
+  df$zscore <- df$beta / df$se
+  df <- df[, setdiff(names(df), "se")]
+  result <- format_gwas(df, phenotype_id = "TEST")
+  pval_derived_se <- abs(df$beta) /
+    stats::qnorm(df$pval / 2, lower.tail = FALSE)
+  expect_false(isTRUE(all.equal(result$se, pval_derived_se, tolerance = 1e-10)))
+  expect_equal(result$se, abs(df$beta / df$zscore), tolerance = 1e-10)
+})
+
 # -- marker_col parsing -------------------------------------------------------
 
 test_that("format_gwas parses chr and pos from marker_col", {
