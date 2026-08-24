@@ -30,8 +30,12 @@ Additional_repositories:
 Suggests:
     biomaRt,
     colocPropTest,
+    ensembldb,
+    EnsDb.Hsapiens.v75,
+    forestplot,
     ggplot2,
     knitr,
+    locuszoomr,
     rmarkdown,
     susieR,
     testthat (>= 3.0.0)

@@ -138,20 +138,40 @@ Both S3 classes have `plot()` methods defined in `R/plot.R`:
   - `"scatter"` (default): `TwoSampleMR::mr_scatter_plot()`
   - `"forest"`: `TwoSampleMR::mr_forest_plot()`
   - `"funnel"`: `TwoSampleMR::mr_funnel_plot()`
-- `plot.coloc_result(x, type)` — custom ggplot2 plots:
+- `plot.coloc_result(x, type)` — custom ggplot2 plots, except `"locuszoom"`:
   - `"pp_bar"` (default): bar chart of ABF posterior probabilities (H0–H4)
   - `"regional"`: side-by-side regional association plots (-log10(p) vs
     position) for exposure and outcome
+  - `"locuszoom"`: LD-coloured regional plots via the (`Suggests`-only)
+    `locuszoomr` package, dispatched to the internal
+    `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)`.
+    Unlike every other plot function in this file, this one does **not**
+    return a ggplot object (or any re-renderable object) -- `locuszoomr`'s
+    `locus()`/`multi_layout()` draw directly to the current graphics device
+    as a side effect, like base/grid plotting functions, and
+    `plot_coloc_locuszoom()` returns `NULL` invisibly regardless of success.
+    Callers must open a device (`pdf()`, `png()`, ...) before calling and
+    `dev.off()` after, to save the result. `ens_db`, if given as a string,
+    must already be **attached** via `library()` -- `locuszoomr::locus()`
+    resolves it via `get(ens_db)` on the search path and errors if it's
+    only installed, not attached. LD (r2) is computed against a single
+    index SNP (default: the SNP with the lowest `pval.exposure`, matching
+    `locuszoomr::locus()`'s own default) via the internal helper
+    `compute_ld_to_index()` (see below), which reuses `compute_ld_matrix()`
+    -- no new LD mechanism or network calls. There is no genome-build field
+    stored on `coloc_result`, so the caller must supply `ens_db` matching
+    whatever build the data/`bfile` actually use (e.g. `EnsDb.Hsapiens.v75`
+    for GRCh37, `EnsDb.Hsapiens.v86` for GRCh38) -- no auto-detection.
 
-Both methods return `NULL` invisibly for non-success results with an
+Both S3 methods return `NULL` invisibly for non-success results with an
 informative message.
 
-### forest_plot() and outcome_forest_plot()
+### forest_plot(), outcome_forest_plot(), and table_forest_plot()
 
-`R/plot.R` also defines two plain exported functions (not S3 methods --
-`forest_plot()` takes a list of `mr_result` objects, and
-`outcome_forest_plot()` takes a flat data frame the caller builds, neither
-of which fits `plot(x, ...)` dispatch):
+`R/plot.R` also defines three plain exported functions (not S3 methods --
+none of `forest_plot()`'s list-of-`mr_result` input, `outcome_forest_plot()`'s
+and `table_forest_plot()`'s caller-built data frame input fit `plot(x, ...)`
+dispatch):
 
 - `forest_plot(results, methods, relabel, ...)` -- one row per *method*.
   Filters and reorders each result's `$results` to `methods`, binds them
@@ -181,6 +201,18 @@ random-effects estimate for the same outcome) instead of fully overplotting
 them -- removing that `group` binding would silently break the dodge for
 callers who only map `colour_by`/`shape_by` to something other than
 `method`.
+
+- `table_forest_plot(dat, null_value, xlab, box_colour)` -- one row per
+  outcome, rendered as an inline result/CI/p-value table alongside the
+  plotted estimate, via the (`Suggests`-only) `forestplot` package rather
+  than `ggplot2`. Ported from a project-level script
+  (`NLRP3/Lanyue_forestplot_script/build_cardiometabolic_forestplot.R`) that
+  was a deliberate one-off exception to `outcome_forest_plot()`'s usual
+  convention. Unlike that original script, this function never opens its
+  own graphics device (no internal `pdf()`/`dev.off()`) -- it returns the
+  `forestplot` object, matching how every other plot function in this file
+  behaves; the caller renders it via `plot()`/`print()` and controls the
+  output device.
 
 ## Exported Utility Functions
 
@@ -288,6 +320,12 @@ All helpers live in `R/helpers.R`, are tagged `@keywords internal`, and are not 
 ### `compute_ld_matrix()`
 
 <!-- TODO: document purpose, inputs, outputs, why bfile is always required -->
+
+### `compute_ld_to_index()`
+
+Reuses `compute_ld_matrix()` and squares its signed correlation column for
+one chosen index SNP to get r2 -- no separate LD mechanism. Backs
+`plot_coloc_locuszoom()`'s LD colouring; not used anywhere else.
 
 ### `clump_instruments()`
 

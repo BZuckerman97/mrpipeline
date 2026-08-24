@@ -19,6 +19,13 @@ reference:
       - summary.coloc_result
       - plot.coloc_result
 
+  - title: Plotting
+    desc: Plot MR results across multiple exposures/outcomes.
+    contents:
+      - forest_plot
+      - outcome_forest_plot
+      - table_forest_plot
+
   - title: Data Formatting
     desc: Format GWAS summary statistics for use with mrpipeline.
     contents:
@@ -26,6 +33,9 @@ reference:
       - format_pqtl_decode
       - format_pqtl_ukbppp
       - format_single_cell_onek1k
+      - format_sceqtl_1m_scbloodnl
+      - format_sceqtl_dice
+      - format_sceqtl_dynamic_cseqtl
       - decode_pqtl_file_name
       - ukbppp_pqtl_file_name
 
@@ -33,3 +43,9 @@ reference:
     desc: Helper functions for analysis workflows.
     contents:
       - get_gene_coords
+
+  - title: Example Data
+    desc: Bundled datasets used in examples and vignettes.
+    contents:
+      - cd40_exposure
+      - sjogren_outcome

@@ -313,6 +313,45 @@ test_that("compute_ld_matrix works with local reference panel", {
   expect_true(all(c("ld_a1", "ld_a2") %in% names(result$alleles)))
 })
 
+# --- compute_ld_to_index ------------------------------------------------------
+# Integration test: requires local bfile + plink
+
+test_that("compute_ld_to_index matches compute_ld_matrix's squared, signed r", {
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+
+  bim <- utils::read.table(
+    paste0(bfile, ".bim"),
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  test_snps <- head(bim$V2, 5)
+  index_snp <- test_snps[1]
+
+  result <- compute_ld_to_index(test_snps, index_snp, bfile)
+
+  expect_true(is.data.frame(result))
+  expect_setequal(names(result), c("SNP", "r2"))
+  expect_setequal(result$SNP, test_snps)
+
+  m <- compute_ld_matrix(test_snps, bfile)
+  r2_direct <- as.numeric(m$ld[, index_snp])^2
+  expect_equal(
+    result$r2[match(rownames(m$ld), result$SNP)],
+    r2_direct
+  )
+
+  # LD of the index SNP against itself is always 1.
+  expect_equal(result$r2[result$SNP == index_snp], 1)
+})
+
 # --- clump_instruments --------------------------------------------------------
 # Integration test: requires local bfile + plink
 

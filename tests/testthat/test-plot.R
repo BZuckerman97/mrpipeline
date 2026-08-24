@@ -104,6 +104,89 @@ test_that("plot.coloc_result regional returns NULL without data", {
   expect_null(p)
 })
 
+test_that("plot.coloc_result locuszoom requires locuszoomr and ensembldb", {
+  skip_if(
+    requireNamespace("locuszoomr", quietly = TRUE) &&
+      requireNamespace("ensembldb", quietly = TRUE),
+    "locuszoomr and ensembldb are installed -- guard cannot be exercised"
+  )
+
+  dat <- data.frame(
+    SNP = c("rs1", "rs2", "rs3"),
+    chr.exposure = 1,
+    pos.exposure = c(1000, 2000, 3000),
+    pval.exposure = c(0.01, 1e-6, 0.2),
+    chr.outcome = 1,
+    pos.outcome = c(1000, 2000, 3000),
+    pval.outcome = c(0.05, 1e-4, 0.3)
+  )
+
+  res <- new_coloc_result(
+    harmonised_data = dat,
+    n_snps = 3L,
+    status = "success"
+  )
+
+  expect_error(
+    plot(res, type = "locuszoom", ens_db = "EnsDb.Hsapiens.v75", bfile = "unused"),
+    "locuszoomr.*ensembldb|ensembldb.*locuszoomr"
+  )
+})
+
+test_that("plot.coloc_result locuszoom renders with locuszoomr/ensembldb installed", {
+  skip_if_not_installed("locuszoomr")
+  skip_if_not_installed("ensembldb")
+  skip_if_not_installed("EnsDb.Hsapiens.v75")
+  # locuszoomr::locus() resolves a character `ens_db` via `get(ens_db)` on
+  # the search path, so the annotation package must be attached, not just
+  # installed -- matching what a real caller must also do.
+  library(EnsDb.Hsapiens.v75)
+
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+
+  bim <- utils::read.table(
+    paste0(bfile, ".bim"),
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  test_snps <- head(bim$V2, 5)
+
+  dat <- data.frame(
+    SNP = test_snps,
+    chr.exposure = bim$V1[seq_along(test_snps)],
+    pos.exposure = bim$V4[seq_along(test_snps)],
+    pval.exposure = c(1e-8, 0.01, 0.02, 0.03, 0.04),
+    chr.outcome = bim$V1[seq_along(test_snps)],
+    pos.outcome = bim$V4[seq_along(test_snps)],
+    pval.outcome = c(0.05, 1e-6, 0.06, 0.07, 0.08)
+  )
+
+  res <- new_coloc_result(
+    harmonised_data = dat,
+    n_snps = length(test_snps),
+    status = "success"
+  )
+
+  # Like base/grid plotting functions, this draws directly to the current
+  # graphics device and returns NULL -- confirm it actually drew something
+  # (a non-trivial file), not just that the call completed without error.
+  out_file <- tempfile(fileext = ".png")
+  grDevices::png(out_file, width = 800, height = 800)
+  p <- plot(res, type = "locuszoom", ens_db = "EnsDb.Hsapiens.v75", bfile = bfile)
+  grDevices::dev.off()
+
+  expect_null(p)
+  expect_gt(file.size(out_file), 1000)
+})
+
 # --- forest_plot ---------------------------------------------------------
 
 test_that("forest_plot on a single result returns a plot with default methods", {
@@ -398,4 +481,63 @@ test_that("outcome_forest_plot without group_by behaves exactly as before (singl
   p <- outcome_forest_plot(outcome_forest_plot_fixture, xlab = "OR (95% CI)")
   facet_vars <- names(p$facet$params$rows)
   expect_setequal(facet_vars, "subcategory")
+})
+
+# --- table_forest_plot ------------------------------------------------------
+
+table_forest_plot_fixture <- data.frame(
+  exposure = "Genetically-proxied NLRP3 inhibition",
+  outcome = c("CHD", "Stroke", "Type 2 diabetes"),
+  n_snps = c(8, 8, 8),
+  estimate = c(0.92, 0.95, 1.03),
+  lower = c(0.85, 0.88, 0.94),
+  upper = c(0.99, 1.02, 1.13),
+  p_value = c(0.02, 0.15, 0.0001)
+)
+
+test_that("table_forest_plot errors when required columns are missing", {
+  skip_if_not_installed("forestplot")
+
+  expect_error(
+    table_forest_plot(
+      dplyr::select(table_forest_plot_fixture, -"estimate"),
+      null_value = 1,
+      xlab = "OR (95% CI)"
+    ),
+    "missing column"
+  )
+})
+
+test_that("table_forest_plot returns a forestplot object", {
+  skip_if_not_installed("forestplot")
+
+  fp <- table_forest_plot(
+    table_forest_plot_fixture,
+    null_value = 1,
+    xlab = "OR (95% CI)"
+  )
+  expect_s3_class(fp, "gforge_forestplot")
+})
+
+test_that("table_forest_plot does not mutate the caller's data frame", {
+  skip_if_not_installed("forestplot")
+
+  dat_before <- table_forest_plot_fixture
+  table_forest_plot(table_forest_plot_fixture, null_value = 1, xlab = "x")
+  expect_identical(table_forest_plot_fixture, dat_before)
+})
+
+test_that("table_forest_plot formats small p-values in scientific notation", {
+  skip_if_not_installed("forestplot")
+
+  fp <- table_forest_plot(
+    table_forest_plot_fixture,
+    null_value = 1,
+    xlab = "OR (95% CI)"
+  )
+  # fp$labels is a forestplot_labeltext list of columns; the last column is
+  # "P value", with the header as its first element.
+  p_text_col <- unlist(fp$labels[[length(fp$labels)]])[-1]
+  expect_true(grepl("e-04", p_text_col[3]))
+  expect_false(any(grepl("e", p_text_col[1:2])))
 })

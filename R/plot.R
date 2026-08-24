@@ -83,12 +83,19 @@ plot.mr_result <- function(
 #'
 #' @param x A `coloc_result` object.
 #' @param type Character. Plot type: `"pp_bar"` (default) for a bar chart of
-#'   ABF posterior probabilities (H0--H4), or `"regional"` for side-by-side
-#'   regional association plots.
-#' @param ... Ignored.
+#'   ABF posterior probabilities (H0--H4), `"regional"` for side-by-side
+#'   regional association plots, or `"locuszoom"` for LD-coloured regional
+#'   plots via the `locuszoomr` package (see [plot_coloc_locuszoom()] for its
+#'   additional required arguments, passed through `...`).
+#' @param ... For `type = "locuszoom"`, forwarded to
+#'   [plot_coloc_locuszoom()] (`ens_db`, `bfile`, and optionally `plink_bin`/
+#'   `index_snp`). Ignored for other types.
 #'
-#' @return A ggplot object. Returns `NULL` invisibly if the result status is
-#'   not `"success"` or if the required data is unavailable.
+#' @return For `type = "pp_bar"`/`"regional"`, a ggplot object (or `NULL`
+#'   invisibly if the result status is not `"success"` or the required data
+#'   is unavailable). For `type = "locuszoom"`, `NULL` invisibly always --
+#'   see [plot_coloc_locuszoom()], which draws directly to the current
+#'   graphics device rather than returning a re-renderable object.
 #'
 #' @examples
 #' \dontrun{
@@ -100,10 +107,24 @@ plot.mr_result <- function(
 #' )
 #' plot(result, type = "pp_bar")
 #' plot(result, type = "regional")
+#'
+#' # locuszoomr resolves a character ens_db via the search path, so the
+#' # annotation package must be attached, not just installed.
+#' library(EnsDb.Hsapiens.v75)
+#' plot(
+#'   result,
+#'   type = "locuszoom",
+#'   ens_db = "EnsDb.Hsapiens.v75",
+#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#' )
 #' }
 #'
 #' @export
-plot.coloc_result <- function(x, type = c("pp_bar", "regional"), ...) {
+plot.coloc_result <- function(
+  x,
+  type = c("pp_bar", "regional", "locuszoom"),
+  ...
+) {
   rlang::check_installed("ggplot2", reason = "to plot coloc results.")
   type <- match.arg(type)
 
@@ -115,7 +136,8 @@ plot.coloc_result <- function(x, type = c("pp_bar", "regional"), ...) {
   switch(
     type,
     pp_bar = plot_coloc_pp_bar(x),
-    regional = plot_coloc_regional(x)
+    regional = plot_coloc_regional(x),
+    locuszoom = plot_coloc_locuszoom(x, ...)
   )
 }
 
@@ -185,6 +207,117 @@ plot_coloc_regional <- function(x) {
       y = expression(-log[10](p))
     ) +
     ggplot2::theme_minimal()
+}
+
+#' LD-coloured regional plots for coloc results, via locuszoomr
+#'
+#' Builds exposure and outcome regional plots using `locuszoomr::locus()`,
+#' coloured by LD (r2) to a chosen index SNP, and stacks them with
+#' `locuszoomr::multi_layout()`. LD is computed from a local reference panel
+#' via [compute_ld_to_index()] (reusing [compute_ld_matrix()] -- no network
+#' lookups).
+#'
+#' There is no genome-build field stored on a `coloc_result` -- `ens_db` must
+#' match whatever build the exposure/outcome data (and `bfile`) actually use
+#' (e.g. `EnsDb.Hsapiens.v75` for GRCh37, `EnsDb.Hsapiens.v86` for GRCh38).
+#'
+#' @param x A `coloc_result` object.
+#' @param ens_db Either an `ensembldb::EnsDb` object, or the name of an
+#'   Ensembl annotation package as a string (e.g. `"EnsDb.Hsapiens.v75"`),
+#'   matching the genome build of `x`'s data. If given as a string, the
+#'   package must be **attached** first (`library(EnsDb.Hsapiens.v75)`), not
+#'   merely installed -- `locuszoomr::locus()` resolves a character `ens_db`
+#'   via `get(ens_db)` on the search path, and errors
+#'   ("Ensembl database not loaded") if it isn't attached.
+#' @param bfile Path to PLINK bfile prefix (without .bed/.bim/.fam), used as
+#'   the local LD reference panel.
+#' @param plink_bin Path to PLINK binary. If `NULL`, auto-detected via
+#'   [genetics.binaRies::get_plink_binary()].
+#' @param index_snp rsID to colour LD against and centre the plotted region
+#'   on. Defaults to the SNP with the lowest `pval.exposure`, matching
+#'   `locuszoomr::locus()`'s own default when no index SNP is given.
+#' @param ... Forwarded to [compute_ld_to_index()] (`plink_threads`,
+#'   `plink_memory`).
+#'
+#' @return `NULL`, invisibly. Like base/grid plotting functions (and unlike
+#'   this package's other `plot_coloc_*()` functions, which return a ggplot
+#'   object), this draws directly to the current graphics device as a side
+#'   effect -- open a device (`pdf()`, `png()`, ...) before calling, and
+#'   `dev.off()` after, to save the result.
+#'
+#' @keywords internal
+plot_coloc_locuszoom <- function(
+  x,
+  ens_db,
+  bfile,
+  plink_bin = NULL,
+  index_snp = NULL,
+  ...
+) {
+  rlang::check_installed(
+    c("locuszoomr", "ensembldb"),
+    reason = "to build locuszoom regional plots."
+  )
+
+  dat <- x$harmonised_data
+  if (is.null(dat) || nrow(dat) == 0) {
+    cli::cli_inform("No harmonised data available for locuszoom plot.")
+    return(invisible(NULL))
+  }
+
+  if (is.null(index_snp)) {
+    index_snp <- dat$SNP[which.min(dat$pval.exposure)]
+  }
+
+  ld <- compute_ld_to_index(
+    dat$SNP,
+    index_snp,
+    bfile,
+    plink_bin = plink_bin,
+    ...
+  )
+
+  exposure_dat <- dat[, c(
+    "SNP",
+    "chr.exposure",
+    "pos.exposure",
+    "pval.exposure"
+  )]
+  names(exposure_dat) <- c("SNP", "chrom", "pos", "pval")
+  exposure_dat <- merge(exposure_dat, ld, by = "SNP")
+
+  outcome_dat <- dat[, c("SNP", "chr.outcome", "pos.outcome", "pval.outcome")]
+  names(outcome_dat) <- c("SNP", "chrom", "pos", "pval")
+  outcome_dat <- merge(outcome_dat, ld, by = "SNP")
+
+  loc_exp <- locuszoomr::locus(
+    data = exposure_dat,
+    ens_db = ens_db,
+    chrom = "chrom",
+    pos = "pos",
+    p = "pval",
+    labs = "SNP",
+    LD = "r2",
+    index_snp = index_snp
+  )
+  loc_out <- locuszoomr::locus(
+    data = outcome_dat,
+    ens_db = ens_db,
+    chrom = "chrom",
+    pos = "pos",
+    p = "pval",
+    labs = "SNP",
+    LD = "r2",
+    index_snp = index_snp
+  )
+
+  # multi_layout()'s nrow/ncol both default to 1 -- a 1x1 grid silently
+  # drops the second plot rather than erroring, so nrow must be set
+  # explicitly to actually stack both panels. Like base/grid plotting
+  # functions, multi_layout() draws directly to the current graphics device
+  # as a side effect and returns NULL -- it is not a re-renderable object
+  # like a ggplot; wrap in pdf()/png()/dev.off() (or similar) to save it.
+  invisible(locuszoomr::multi_layout(list(loc_exp, loc_out), nrow = 2, ncol = 1))
 }
 
 #' Forest plot of MR methods for one or more results
@@ -295,7 +428,7 @@ forest_plot <- function(
     }
     # Filtering/ordering uses the RAW method labels (as they appear in
     # res$results); relabelling happens afterwards, display-only.
-    dat <- res$results |> dplyr::filter(method %in% methods)
+    dat <- res$results |> dplyr::filter(.data$method %in% methods)
     dat <- dat[match(methods, dat$method), , drop = FALSE]
     dat <- dat[!is.na(dat$method), , drop = FALSE]
     dat$subcategory <- label
@@ -549,9 +682,9 @@ outcome_forest_plot <- function(
   # (subcategory) rows -- a nested header with no extra dependency (e.g.
   # ggh4x) needed.
   facet_rows <- if (!is.null(group_by)) {
-    ggplot2::vars(.data[[group_by]], subcategory)
+    ggplot2::vars(.data[[group_by]], .data$subcategory)
   } else {
-    ggplot2::vars(subcategory)
+    ggplot2::vars(.data$subcategory)
   }
 
   p <- ggplot2::ggplot(dat, mapping) +
@@ -601,4 +734,96 @@ outcome_forest_plot <- function(
   }
 
   p
+}
+
+#' Table-style forest plot (forestplot package backend)
+#'
+#' One row per outcome, with an inline result/CI/p-value table alongside the
+#' plotted estimate and confidence interval. Requires the `forestplot`
+#' package.
+#'
+#' @param dat Data frame with columns `exposure`, `outcome`, `n_snps`,
+#'   `estimate`, `lower`, `upper`, `p_value`.
+#' @param null_value Reference line value (1 for OR scale, 0 for beta scale).
+#' @param xlab X-axis label.
+#' @param box_colour Point/line colour.
+#'
+#' @return A forestplot object (render with `plot()`/`print()`).
+#'
+#' @examples
+#' \dontrun{
+#' dat <- data.frame(
+#'   exposure = "Genetically-proxied NLRP3 inhibition",
+#'   outcome = c("CHD", "Stroke", "Type 2 diabetes"),
+#'   n_snps = c(8, 8, 8),
+#'   estimate = c(0.92, 0.95, 1.03),
+#'   lower = c(0.85, 0.88, 0.94),
+#'   upper = c(0.99, 1.02, 1.13),
+#'   p_value = c(0.02, 0.15, 0.5)
+#' )
+#' table_forest_plot(dat, null_value = 1, xlab = "OR (95% CI)")
+#' }
+#'
+#' @export
+table_forest_plot <- function(dat, null_value, xlab, box_colour = "#35568a") {
+  rlang::check_installed(
+    "forestplot",
+    reason = "to build table-style forest plots."
+  )
+
+  required_cols <- c(
+    "exposure",
+    "outcome",
+    "n_snps",
+    "estimate",
+    "lower",
+    "upper",
+    "p_value"
+  )
+  missing_cols <- setdiff(required_cols, names(dat))
+  if (length(missing_cols) > 0) {
+    cli::cli_abort("{.arg dat} is missing column{?s}: {missing_cols}.")
+  }
+
+  result <- sprintf("%.3f [%.3f; %.3f]", dat$estimate, dat$lower, dat$upper)
+  p_text <- ifelse(
+    dat$p_value < 0.001,
+    format(dat$p_value, scientific = TRUE, digits = 2),
+    sprintf("%.3f", dat$p_value)
+  )
+
+  table_text <- cbind(
+    c("Exposure", dat$exposure),
+    c("Outcome", as.character(dat$outcome)),
+    c("# SNPs", dat$n_snps),
+    c("Estimate [95% CI]", result),
+    c("P value", p_text)
+  )
+
+  forestplot::forestplot(
+    labeltext = table_text,
+    mean = c(NA, dat$estimate),
+    lower = c(NA, dat$lower),
+    upper = c(NA, dat$upper),
+    new_page = FALSE,
+    zero = null_value,
+    xlog = FALSE,
+    xlab = xlab,
+    graph.pos = 3,
+    graphwidth = grid::unit(35, "mm"),
+    boxsize = 0.14,
+    lwd.ci = 1,
+    ci.vertices = TRUE,
+    fn.ci_norm = forestplot::fpDrawCircleCI,
+    col = forestplot::fpColors(
+      box = box_colour,
+      lines = box_colour,
+      zero = "grey50"
+    ),
+    txt_gp = forestplot::fpTxtGp(
+      label = grid::gpar(cex = 0.8),
+      ticks = grid::gpar(cex = 0.8),
+      xlab = grid::gpar(cex = 0.8)
+    )
+  )
 }

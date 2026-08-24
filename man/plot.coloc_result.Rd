@@ -4,20 +4,27 @@
 \alias{plot.coloc_result}
 \title{Plot a coloc_result object}
 \usage{
-\method{plot}{coloc_result}(x, type = c("pp_bar", "regional"), ...)
+\method{plot}{coloc_result}(x, type = c("pp_bar", "regional", "locuszoom"), ...)
 }
 \arguments{
 \item{x}{A \code{coloc_result} object.}
 
 \item{type}{Character. Plot type: \code{"pp_bar"} (default) for a bar chart of
-ABF posterior probabilities (H0--H4), or \code{"regional"} for side-by-side
-regional association plots.}
+ABF posterior probabilities (H0--H4), \code{"regional"} for side-by-side
+regional association plots, or \code{"locuszoom"} for LD-coloured regional
+plots via the \code{locuszoomr} package (see \code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}} for its
+additional required arguments, passed through \code{...}).}
 
-\item{...}{Ignored.}
+\item{...}{For \code{type = "locuszoom"}, forwarded to
+\code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}} (\code{ens_db}, \code{bfile}, and optionally \code{plink_bin}/
+\code{index_snp}). Ignored for other types.}
 }
 \value{
-A ggplot object. Returns \code{NULL} invisibly if the result status is
-not \code{"success"} or if the required data is unavailable.
+For \code{type = "pp_bar"}/\code{"regional"}, a ggplot object (or \code{NULL}
+invisibly if the result status is not \code{"success"} or the required data
+is unavailable). For \code{type = "locuszoom"}, \code{NULL} invisibly always --
+see \code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}}, which draws directly to the current
+graphics device rather than returning a re-renderable object.
 }
 \description{
 Creates visualisations for colocalization results. Requires the \code{ggplot2}
@@ -33,6 +40,16 @@ result <- run_coloc(
 )
 plot(result, type = "pp_bar")
 plot(result, type = "regional")
+
+# locuszoomr resolves a character ens_db via the search path, so the
+# annotation package must be attached, not just installed.
+library(EnsDb.Hsapiens.v75)
+plot(
+  result,
+  type = "locuszoom",
+  ens_db = "EnsDb.Hsapiens.v75",
+  bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+)
 }
 
 }

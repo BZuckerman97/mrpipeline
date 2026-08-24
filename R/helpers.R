@@ -119,6 +119,39 @@ compute_ld_matrix <- function(
   list(ld = ld, alleles = alleles)
 }
 
+#' LD (r2) of every SNP to a specified index SNP, via local reference panel
+#'
+#' Reuses [compute_ld_matrix()] -- no separate LD mechanism, no network
+#' calls, and consistent sign/allele handling with the rest of the package.
+#' [compute_ld_matrix()]'s matrix is signed (`--r`, not `--r2`) but squaring
+#' removes the sign, which is all a colocalization regional plot's LD-colour
+#' scale needs.
+#'
+#' @param snps Character vector of rsIDs.
+#' @param index_snp rsID of the SNP to compute LD against. Must be one of
+#'   `snps`.
+#' @param bfile Path to PLINK bfile prefix (without .bed/.bim/.fam).
+#' @param plink_bin Path to PLINK binary. If `NULL`, auto-detected via
+#'   [genetics.binaRies::get_plink_binary()].
+#' @param plink_threads Number of threads for PLINK. `NULL` = auto-detect.
+#' @param plink_memory Memory (MB) for PLINK. `NULL` = auto-detect.
+#'
+#' @return A data frame with columns `SNP` and `r2`.
+#'
+#' @keywords internal
+compute_ld_to_index <- function(
+  snps,
+  index_snp,
+  bfile,
+  plink_bin = NULL,
+  plink_threads = NULL,
+  plink_memory = NULL
+) {
+  m <- compute_ld_matrix(snps, bfile, plink_bin, plink_threads, plink_memory)
+  r <- m$ld[, index_snp]
+  data.frame(SNP = names(r), r2 = as.numeric(r)^2, stringsAsFactors = FALSE)
+}
+
 #' Clump instruments using LD reference
 #'
 #' Computes pseudo p-values (to ensure correct ranking by PLINK) and

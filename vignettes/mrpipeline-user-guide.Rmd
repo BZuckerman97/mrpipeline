@@ -294,6 +294,27 @@ outcome_forest_plot(
 )
 ```
 
+`table_forest_plot()` shows one row per outcome with an inline result/CI/
+p-value table alongside the plotted estimate, via the `forestplot` package
+(requires `forestplot`) rather than `ggplot2`. It returns a `forestplot`
+object -- render it yourself with `plot()`, so you control the output device
+(e.g. wrap the call in `pdf()`/`dev.off()` to save a file):
+
+```{r table-forest-plot, eval = FALSE}
+table_dat <- data.frame(
+  exposure = "Genetically-proxied NLRP3 inhibition",
+  outcome = c("Coronary heart disease", "Stroke", "Type 2 diabetes"),
+  n_snps = c(8, 8, 8),
+  estimate = c(0.92, 0.95, 1.03),
+  lower = c(0.85, 0.88, 0.94),
+  upper = c(0.99, 1.02, 1.13),
+  p_value = c(0.02, 0.15, 0.5)
+)
+
+fp <- table_forest_plot(table_dat, null_value = 1, xlab = "OR (95% CI)")
+plot(fp)
+```
+
 ## Colocalization
 
 ### Quick colocalization (ABF only)
@@ -366,12 +387,36 @@ result <- run_coloc(
 
 ### Plotting coloc results
 
-`plot()` for `coloc_result` objects supports two plot types (requires
-`ggplot2`):
+`plot()` for `coloc_result` objects supports three plot types:
 
 ```{r coloc-plot, eval = FALSE}
-plot(coloc_res, type = "pp_bar")    # bar chart of ABF posterior probabilities (default)
-plot(coloc_res, type = "regional")  # regional association plots
+plot(coloc_res, type = "pp_bar")    # bar chart of ABF posterior probabilities (default; requires ggplot2)
+plot(coloc_res, type = "regional")  # regional association plots (requires ggplot2)
+```
+
+`type = "locuszoom"` renders LD-coloured regional plots via the
+`locuszoomr` package (requires `locuszoomr` and `ensembldb`, plus an
+Ensembl annotation package matching your data's genome build, e.g.
+`EnsDb.Hsapiens.v75` for GRCh37 -- **attached** with `library()`, not just
+installed, since `locuszoomr::locus()` looks up a character `ens_db` on the
+search path). It needs a local LD reference panel (`bfile`) and an
+`ens_db` -- there is no genome-build field stored on `coloc_result`, so
+`ens_db` must be supplied explicitly and must match whatever build `bfile`
+and the coloc data actually use. Unlike the other two plot types, this one
+draws directly to the current graphics device (like a base R plot) and
+returns `NULL` -- open a device first if you want to save it:
+
+```{r coloc-plot-locuszoom, eval = FALSE}
+library(EnsDb.Hsapiens.v75)
+
+pdf("locuszoom_plot.pdf", width = 9, height = 8)
+plot(
+  coloc_res,
+  type = "locuszoom",
+  ens_db = "EnsDb.Hsapiens.v75",
+  bfile = "/path/to/ld_reference"
+)
+dev.off()
 ```
 
 ## Two-Stage Batch Workflow
