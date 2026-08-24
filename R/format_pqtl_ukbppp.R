@@ -79,9 +79,13 @@ format_pqtl_ukbppp <- function(
       other_allele = dplyr::all_of("ALLELE0"),
       pval = dplyr::all_of("LOG10P"),
       chr = dplyr::all_of("CHROM"),
-      n = dplyr::all_of("N"),
       pos = dplyr::all_of("GENPOS") # Is there a way of altering this dependent on whether you use a build37 or build38 data
     ) |>
+    # N deliberately left un-renamed here (unlike the other columns above) --
+    # it must stay optional for type = "outcome" (see below), so renaming it
+    # unconditionally via dplyr::all_of() would hard-error for outcome files
+    # that lack a sample-size column, exactly the case the outcome branch's
+    # NA_integer_ fallback exists to handle.
     dplyr::mutate(
       chr = dplyr::if_else(.data$chr == "23", "X", as.character(.data$chr))
     ) |> #change 23 to X if needed
@@ -166,9 +170,14 @@ format_pqtl_ukbppp <- function(
 
   # Outcome: return normalised data frame (same schema as format_gwas(type="outcome"))
   # so that run_mr() can pre-filter by rsids and then call format_data() internally.
+  # n is optional here -- rename N -> n if present, else default to NA_integer_
+  # (mirroring format_pqtl_decode()'s outcome branch).
   if (type == "outcome") {
     ukbppp <- ukbppp |>
       dplyr::rename(rsids = "rsid", se = "sebeta", eaf = "af_alt")
+    if ("N" %in% names(ukbppp) && !"n" %in% names(ukbppp)) {
+      ukbppp <- dplyr::rename(ukbppp, n = "N")
+    }
     if (!"n" %in% names(ukbppp)) {
       ukbppp$n <- NA_integer_
     }
@@ -176,6 +185,12 @@ format_pqtl_ukbppp <- function(
   }
 
   # Format data using TwoSampleMR::format_data()
+  # samplesize_col references the raw "N" column directly -- unlike the other
+  # columns, N is not renamed above (see comment there). format_data() does
+  # not hard-require the named samplesize_col to exist (it silently leaves
+  # samplesize.exposure unset if absent), matching format_pqtl_decode()'s
+  # exposure path, which points samplesize_col at its own un-renamed "N"
+  # the same way.
   result <- TwoSampleMR::format_data(
     ukbppp,
     type = "exposure",
@@ -189,7 +204,7 @@ format_pqtl_ukbppp <- function(
     other_allele_col = "other_allele",
     pval_col = "pval",
     chr_col = "chr",
-    samplesize_col = "n",
+    samplesize_col = "N",
     pos_col = "pos",
     log_pval = FALSE
   )

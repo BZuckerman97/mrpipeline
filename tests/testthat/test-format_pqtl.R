@@ -105,6 +105,47 @@ test_that("format_pqtl_decode drops SNPs absent from included_variants", {
   expect_equal(nrow(result$exposure), 3L)
 })
 
+test_that("format_pqtl_decode outcome type returns a plain data frame with format_gwas(outcome) schema", {
+  gwas <- make_decode_gwas()
+  inc <- make_decode_included(gwas)
+  result <- format_pqtl_decode(gwas, inc, pqtl_assay = "CD40", type = "outcome")
+  expect_s3_class(result, "data.frame")
+  # Not wrapped in list(exposure = ...) like the type = "exposure" return.
+  expect_false("exposure" %in% names(result))
+  expect_true(all(
+    c(
+      "rsids",
+      "chr",
+      "pos",
+      "beta",
+      "se",
+      "eaf",
+      "pval",
+      "n",
+      "effect_allele",
+      "other_allele",
+      "phenotype"
+    ) %in%
+      names(result)
+  ))
+  expect_equal(nrow(result), nrow(gwas))
+})
+
+test_that("format_pqtl_decode outcome type carries N through as n when present", {
+  gwas <- make_decode_gwas()
+  inc <- make_decode_included(gwas)
+  result <- format_pqtl_decode(gwas, inc, pqtl_assay = "CD40", type = "outcome")
+  expect_true(all(result$n == 35559L))
+})
+
+test_that("format_pqtl_decode outcome type defaults n to NA when N is absent", {
+  gwas <- make_decode_gwas()
+  gwas$N <- NULL
+  inc <- make_decode_included(gwas)
+  result <- format_pqtl_decode(gwas, inc, pqtl_assay = "CD40", type = "outcome")
+  expect_true(all(is.na(result$n)))
+})
+
 # -- format_pqtl_ukbppp -------------------------------------------------------
 
 test_that("format_pqtl_ukbppp returns a data frame", {
@@ -151,6 +192,60 @@ test_that("format_pqtl_ukbppp drops SNPs absent from rsid file", {
   rsids <- make_ukbppp_rsid(gwas)[1:3, ]
   result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6")
   expect_equal(nrow(result), 3L)
+})
+
+test_that("format_pqtl_ukbppp outcome type returns a data frame with format_gwas(outcome) schema", {
+  gwas <- make_ukbppp_gwas()
+  rsids <- make_ukbppp_rsid(gwas)
+  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "outcome")
+  expect_s3_class(result, "data.frame")
+  expect_true(all(
+    c(
+      "rsids",
+      "chr",
+      "pos",
+      "beta",
+      "se",
+      "eaf",
+      "pval",
+      "n",
+      "effect_allele",
+      "other_allele",
+      "phenotype"
+    ) %in%
+      names(result)
+  ))
+  expect_equal(nrow(result), nrow(gwas))
+})
+
+test_that("format_pqtl_ukbppp outcome type carries N through as n when present", {
+  gwas <- make_ukbppp_gwas()
+  rsids <- make_ukbppp_rsid(gwas)
+  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "outcome")
+  expect_true(all(result$n == 50000L))
+})
+
+test_that("format_pqtl_ukbppp outcome type defaults n to NA when N is absent, rather than erroring", {
+  # Regression test: N was previously renamed unconditionally via
+  # dplyr::rename(n = dplyr::all_of("N")) in preprocessing shared by both
+  # exposure and outcome, which hard-errored on a missing N column for
+  # *both* types -- silently defeating the outcome branch's own
+  # `if (!"n" %in% names(ukbppp)) ukbppp$n <- NA_integer_` fallback, which
+  # could never be reached.
+  gwas <- make_ukbppp_gwas()
+  gwas$N <- NULL
+  rsids <- make_ukbppp_rsid(gwas)
+  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "outcome")
+  expect_true(all(is.na(result$n)))
+})
+
+test_that("format_pqtl_ukbppp exposure type still works when N is absent", {
+  gwas <- make_ukbppp_gwas()
+  gwas$N <- NULL
+  rsids <- make_ukbppp_rsid(gwas)
+  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "exposure")
+  expect_s3_class(result, "data.frame")
+  expect_equal(nrow(result), nrow(gwas))
 })
 
 make_decode_linker <- function() {
