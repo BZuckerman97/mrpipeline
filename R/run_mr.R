@@ -101,7 +101,7 @@
 #' @examples
 #' \dontrun{
 #' # Cis-MR using bundled CD40/Sjogren's data
-#' bfile <- system.file("extdata", "ld_ref", package = "mrpipeline")
+#' bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 #' result <- run_mr(
 #'   exposure = cd40_exposure,
 #'   exposure_id = "CD40",

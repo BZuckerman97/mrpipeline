@@ -17,11 +17,12 @@
 #'
 #' @examples
 #' \dontrun{
+#' bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 #' result <- run_mr(
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
-#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline"),
+#'   bfile = bfile,
 #'   methods = c("ivw", "egger", "weighted_median", "loo")
 #' )
 #' plot(result, type = "scatter")
@@ -99,11 +100,12 @@ plot.mr_result <- function(
 #'
 #' @examples
 #' \dontrun{
+#' bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 #' result <- run_coloc(
 #'   exposure = cd40_exposure,
 #'   outcome = sjogren_outcome,
 #'   gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
-#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#'   bfile = bfile
 #' )
 #' plot(result, type = "pp_bar")
 #' plot(result, type = "regional")
@@ -115,7 +117,7 @@ plot.mr_result <- function(
 #'   result,
 #'   type = "locuszoom",
 #'   ens_db = "EnsDb.Hsapiens.v75",
-#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+#'   bfile = bfile
 #' )
 #' }
 #'
@@ -365,11 +367,12 @@ plot_coloc_locuszoom <- function(
 #'
 #' @examples
 #' \dontrun{
+#' bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 #' result <- run_mr(
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
-#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline"),
+#'   bfile = bfile,
 #'   methods = c("ivw", "ivw_fe", "egger", "weighted_median")
 #' )
 #'
@@ -536,11 +539,12 @@ forest_plot <- function(
 #'
 #' @examples
 #' \dontrun{
+#' bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 #' primary <- run_mr(
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
-#'   bfile = system.file("extdata", "ld_ref", package = "mrpipeline"),
+#'   bfile = bfile,
 #'   methods = c("ivw", "ivw_fe")
 #' )
 #'

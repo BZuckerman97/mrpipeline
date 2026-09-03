@@ -42,7 +42,7 @@ disease. Use these to explore the package without any external data.
 
 ```{r}
 # Bundled datasets: cd40_exposure (formatted exposure), sjogren_outcome (outcome)
-bfile <- system.file("extdata", "ld_ref", package = "mrpipeline")
+bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 
 # Run cis-MR
 mr_res <- run_mr(
