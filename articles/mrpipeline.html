@@ -91,7 +91,7 @@ Sjogren’s disease. Use these to explore the package without any external
 data.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Bundled datasets: cd40_exposure (formatted exposure), sjogren_outcome (outcome)</span></span>
-<span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span></span>
+<span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"\\.bed$"</span>, <span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref.bed"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Run cis-MR</span></span>
 <span><span class="va">mr_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>

@@ -134,11 +134,12 @@ A ggplot object.
 
 ``` r
 if (FALSE) { # \dontrun{
+bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 primary <- run_mr(
   exposure = cd40_exposure, exposure_id = "CD40",
   outcome = sjogren_outcome, outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
-  bfile = system.file("extdata", "ld_ref", package = "mrpipeline"),
+  bfile = bfile,
   methods = c("ivw", "ivw_fe")
 )
 

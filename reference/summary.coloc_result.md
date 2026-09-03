@@ -28,11 +28,12 @@ Invisibly returns `object`.
 
 ``` r
 if (FALSE) { # \dontrun{
+bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 result <- run_coloc(
   exposure = cd40_exposure,
   outcome = sjogren_outcome,
   gene_chr = "20", gene_start = 44746911, gene_end = 44758502,
-  bfile = system.file("extdata", "ld_ref", package = "mrpipeline")
+  bfile = bfile
 )
 summary(result)
 } # }
