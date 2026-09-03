@@ -5,7 +5,13 @@ UKBPPP_PQTL_FILE_NAME
 ## Usage
 
 ``` r
-ukbppp_pqtl_file_name(synapse_id, olink_linker_file, olink_dir, olink_rsid_dir)
+ukbppp_pqtl_file_name(
+  synapse_id,
+  olink_linker_file,
+  olink_dir,
+  olink_rsid_dir,
+  region_chr = NULL
+)
 ```
 
 ## Arguments
@@ -31,6 +37,16 @@ ukbppp_pqtl_file_name(synapse_id, olink_linker_file, olink_dir, olink_rsid_dir)
 
   String, directory of the olink rsid files
 
+- region_chr:
+
+  String or NULL. If supplied, overrides the protein's own gene
+  chromosome (from the linker file) when building both file paths. Use
+  this when reading the protein as an *outcome* at a locus other than
+  its own gene (e.g. reversed-role drug-target MR, where a fixed
+  exposure region is being looked up across many outcome proteins).
+  Default `NULL` preserves the original behaviour exactly (uses the
+  protein's own gene chromosome).
+
 ## Value
 
 a list of the 2 filepaths, one for the ukbppp_pqtl data and the other is
@@ -40,7 +56,7 @@ the corresponding rsID metadata file, as well as the name of the assay
 
 ``` r
 if (FALSE) { # \dontrun{
-# Assuming you have a linker file and the deCODE data directory
+# Assuming you have a linker file and the data directory
 synapse_id <- "syn12345678"
 olink_linker_file <- "path/to/your/olink_linker_file.csv"
 olink_dir <- "path/to/olink_dir"

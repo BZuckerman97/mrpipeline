@@ -63,22 +63,21 @@ You can set these per-call, via R options, or via environment variables:
 
 # Per-call (highest priority)
 result <- run_mr(
- exposure = exposure_data, exposure_id = "CD40",
- outcome = outcome_data, outcome_id = "SjD",
- bfile = "/path/to/ld_ref",
- plink_threads = 1,
- plink_memory = 2000
+  exposure = exposure_data, exposure_id = "CD40",
+  outcome = outcome_data, outcome_id = "SjD",
+  bfile = "/path/to/ld_ref",
+  plink_threads = 1,
+  plink_memory = 2000
 )
 
 # Via R options (apply to all subsequent calls in the session)
 options(
- mrpipeline.plink_threads = 1,
- mrpipeline.plink_memory = 2000
+  mrpipeline.plink_threads = 1,
+  mrpipeline.plink_memory = 2000
 )
 
-# Via environment variables (e.g. in .Renviron or a job script)
-# MRPIPELINE_PLINK_THREADS=1
-# MRPIPELINE_PLINK_MEMORY=2000
+# Via environment variables (e.g. in .Renviron or a job script) -- set
+# MRPIPELINE_PLINK_THREADS to 1 and MRPIPELINE_PLINK_MEMORY to 2000
 ```
 
 Priority order: explicit argument \> R option \> environment variable \>
@@ -96,6 +95,28 @@ PLINK auto-detect (`NULL`). The same parameters are available in
 ### Cis-MR with local LD reference (recommended)
 
 ### Sensitivity analyses
+
+Add `"heterogeneity"` and/or `"loo"` to `methods` to get Cochran’s Q
+([`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html))
+and leave-one-out
+([`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html))
+alongside the effect estimates:
+
+``` r
+
+result <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile,
+  methods = c("ivw", "egger", "weighted_median", "heterogeneity", "loo")
+)
+
+result$heterogeneity  # Q, Q_df, Q_pval per method (needs >= 2 instruments)
+result$loo            # per-SNP + pooled "All" estimates (needs >= 3 instruments)
+```
 
 ### LD-corrected IVW
 
@@ -201,8 +222,95 @@ diagnostic plots using TwoSampleMR plotting functions (requires
 ``` r
 
 plot(mr_res, type = "scatter") # scatter plot (default)
-plot(mr_res, type = "forest")  # forest plot
+plot(mr_res, type = "forest")  # per-SNP forest plot
 plot(mr_res, type = "funnel")  # funnel plot
+```
+
+`plot(mr_res, type = "forest")` shows one row per SNP. For a
+manuscript-style forest plot summarising *methods* (IVW, MR-Egger,
+weighted median, …) or *outcomes* (a primary analysis alongside
+positive/negative controls), use
+[`forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.md)
+and
+[`outcome_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/outcome_forest_plot.md)
+instead.
+
+### Forest plots across analyses
+
+[`forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.md)
+shows one row per method, for a single `mr_result` or for several
+sectioned together. Fixed effects is listed above random effects by
+default, and `"Inverse variance weighted"` is relabelled to
+`"IVW (random effects)"` for display:
+
+``` r
+
+forest_plot(mr_res)
+```
+
+Pass a named list to section several results into one figure – e.g. a
+primary analysis alongside positive and negative controls:
+
+``` r
+
+forest_plot(list(
+  Primary = mr_res,
+  "Positive control" = positive_control_res,
+  "Negative control" = negative_control_res
+))
+```
+
+[`outcome_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/outcome_forest_plot.md)
+instead shows one row per *outcome*, for one or both IVW model variants,
+optionally coloured and/or shaped by a grouping column you attach
+yourself (e.g. which instrument was used). Build the combined data frame
+from one or more results’ `$results`, then plot:
+
+``` r
+
+combined <- dplyr::bind_rows(
+  mr_res$results |> dplyr::mutate(subcategory = "Primary"),
+  positive_control_res$results |> dplyr::mutate(subcategory = "Positive control"),
+  negative_control_res$results |> dplyr::mutate(subcategory = "Negative control")
+) |>
+  dplyr::mutate(
+    instrument = dplyr::if_else(exposure == "CD40", "GWS instrument", "Functional instrument")
+  )
+
+outcome_forest_plot(
+  combined,
+  xlab = "OR (95% CI)",
+  method = c("Inverse variance weighted", "IVW (fixed effects)"), # both models
+  colour_by = "instrument",
+  shape_by = "method",
+  section_order = c("Primary", "Positive control", "Negative control")
+)
+```
+
+[`table_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/table_forest_plot.md)
+shows one row per outcome with an inline result/CI/ p-value table
+alongside the plotted estimate, via the `forestplot` package (requires
+`forestplot`) rather than `ggplot2`. It returns a `forestplot` object –
+render it yourself with
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html), so you control
+the output device (e.g. wrap the call in
+[`pdf()`](https://rdrr.io/r/grDevices/pdf.html)/[`dev.off()`](https://rdrr.io/r/grDevices/dev.html)
+to save a file):
+
+``` r
+
+table_dat <- data.frame(
+  exposure = "Genetically-proxied NLRP3 inhibition",
+  outcome = c("Coronary heart disease", "Stroke", "Type 2 diabetes"),
+  n_snps = c(8, 8, 8),
+  estimate = c(0.92, 0.95, 1.03),
+  lower = c(0.85, 0.88, 0.94),
+  upper = c(0.99, 1.02, 1.13),
+  p_value = c(0.02, 0.15, 0.5)
+)
+
+fp <- table_forest_plot(table_dat, null_value = 1, xlab = "OR (95% CI)")
+plot(fp)
 ```
 
 ## Colocalization
@@ -281,12 +389,41 @@ result <- run_coloc(
 ### Plotting coloc results
 
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) for
-`coloc_result` objects supports two plot types (requires `ggplot2`):
+`coloc_result` objects supports three plot types:
 
 ``` r
 
-plot(coloc_res, type = "pp_bar")    # bar chart of ABF posterior probabilities (default)
-plot(coloc_res, type = "regional")  # regional association plots
+plot(coloc_res, type = "pp_bar")    # bar chart of ABF posterior probabilities (default; requires ggplot2)
+plot(coloc_res, type = "regional")  # regional association plots (requires ggplot2)
+```
+
+`type = "locuszoom"` renders LD-coloured regional plots via the
+`locuszoomr` package (requires `locuszoomr` and `ensembldb`, plus an
+Ensembl annotation package matching your data’s genome build, e.g.
+`EnsDb.Hsapiens.v75` for GRCh37 – **attached** with
+[`library()`](https://rdrr.io/r/base/library.html), not just installed,
+since
+[`locuszoomr::locus()`](https://rdrr.io/pkg/locuszoomr/man/locus.html)
+looks up a character `ens_db` on the search path). It needs a local LD
+reference panel (`bfile`) and an `ens_db` – there is no genome-build
+field stored on `coloc_result`, so `ens_db` must be supplied explicitly
+and must match whatever build `bfile` and the coloc data actually use.
+Unlike the other two plot types, this one draws directly to the current
+graphics device (like a base R plot) and returns `NULL` – open a device
+first if you want to save it:
+
+``` r
+
+library(EnsDb.Hsapiens.v75)
+
+pdf("locuszoom_plot.pdf", width = 9, height = 8)
+plot(
+  coloc_res,
+  type = "locuszoom",
+  ens_db = "EnsDb.Hsapiens.v75",
+  bfile = "/path/to/ld_reference"
+)
+dev.off()
 ```
 
 ## Two-Stage Batch Workflow

@@ -11,7 +11,7 @@ Results are filtered to standard chromosomes (1–22, X, Y), deduplicated
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -73,10 +73,25 @@ Genes not found in Ensembl are dropped with a warning.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">get_gene_coords</span><span class="op">(</span><span class="st">"CD40"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 4</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   hgnc_symbol chromosome    start      end</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> CD40        20         46<span style="text-decoration: underline;">118</span>240 46<span style="text-decoration: underline;">130</span>378</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Ensembl site unresponsive, trying asia mirror</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Ensembl site unresponsive, trying useast mirror</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in .chooseEnsemblMirror(mirror = mirror, http_config = http_config):</span> Unable to query any Ensembl site</span>
 <span class="r-in"><span><span class="fu">get_gene_coords</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CD40"</span>, <span class="st">"APOE"</span><span class="op">)</span>, build <span class="op">=</span> <span class="st">"grch37"</span><span class="op">)</span></span></span>
 <span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in req_perform(request):</span> Failed to perform HTTP request.</span>
 <span class="r-err co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Caused by error in `curl::curl_fetch_memory()`:</span></span>
@@ -93,7 +108,7 @@ Genes not found in Ensembl are dropped with a warning.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

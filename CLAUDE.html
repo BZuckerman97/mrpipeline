@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,7 +43,7 @@
 <p><code>mrpipeline</code> is an R package for Mendelian randomisation (MR) and colocalization analysis, currently focused on proteomic GWAS data. However, the plan is to integrate eQTL, scQTL and other GWAS data.</p>
 <p><strong>Core exported functions:</strong></p>
 <ul><li>
-<code><a href="reference/run_mr.html">run_mr()</a></code> – Cis-MR, genome-wide MR, or manual-instrument MR with sensitivity methods</li>
+<code><a href="reference/run_mr.html">run_mr()</a></code> – Cis-MR, genome-wide MR, or manual-instrument MR with sensitivity methods.</li>
 <li>
 <code><a href="reference/run_coloc.html">run_coloc()</a></code> – Colocalization (coloc.abf, SuSiE, coloc.signals, colocPropTest)</li>
 <li>
@@ -54,6 +54,14 @@
 <code><a href="reference/format_single_cell_onek1k.html">format_single_cell_onek1k()</a></code> – Format OneK1K single-cell eQTL data</li>
 </ul><p><strong>Internal helpers</strong> (not exported, in <code>R/helpers.R</code>): <code><a href="reference/harmonise_and_filter.html">harmonise_and_filter()</a></code>, <code><a href="reference/compute_ld_matrix.html">compute_ld_matrix()</a></code>, <code><a href="reference/clump_instruments.html">clump_instruments()</a></code>, <code><a href="reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code>, <code><a href="reference/eaf_to_maf.html">eaf_to_maf()</a></code>, <code><a href="reference/resolve_sample_size.html">resolve_sample_size()</a></code></p>
 <p><strong>S3 classes:</strong> <code>mr_result</code> (from <code><a href="reference/run_mr.html">run_mr()</a></code>), <code>coloc_result</code> (from <code><a href="reference/run_coloc.html">run_coloc()</a></code>)</p>
+</div>
+<div class="section level2">
+<h2 id="run_mr-has-no-flip_beta-argument--do-not-reintroduce-one">
+<code>run_mr()</code> has no <code>flip_beta</code> argument – do not reintroduce one<a class="anchor" aria-label="anchor" href="#run_mr-has-no-flip_beta-argument--do-not-reintroduce-one"></a></h2>
+<p><code><a href="reference/run_mr.html">run_mr()</a></code> previously had a <code>flip_beta</code> argument that negated <code>beta.exposure</code> on the harmonised data before any method/sensitivity computation, so a downstream project could redefine “increase in exposure” (e.g. modelling a drug’s inhibition mechanism rather than a GWAS trait’s raw increasing direction). It has been <strong>removed</strong> (2026-08-01) and must not be reintroduced in any form – as an argument to <code><a href="reference/run_mr.html">run_mr()</a></code>, a wrapper around it, or an option threaded through from a caller.</p>
+<p>The design was judged unsafe: it only ever touched <code>beta.exposure</code>, and nothing about the function signature made that scope visible at the call site, which invites misuse by anyone who reaches for <code>flip_beta</code> expecting it to behave like a general allele/effect-direction reorientation (it never flipped <code>effect_allele.exposure</code>, <code>other_allele.exposure</code>, or <code>eaf.exposure</code>, nor <code>beta.outcome</code>). A shared library function is the wrong place for a transformation whose correctness depends entirely on the caller understanding exactly which columns it does and doesn’t touch.</p>
+<p><strong>If a project needs to redefine exposure direction, write a small <code>flipped_beta()</code>-style helper in that project’s own script</strong> (not in <code>mrpipeline</code>) that makes explicit, at the call site, exactly what is being transformed – typically negating <code>beta.exposure</code> on the harmonised/exposure data before it reaches <code><a href="reference/run_mr.html">run_mr()</a></code>, with a comment stating which columns are deliberately left untouched and why (<code>effect_allele</code>/<code>other_allele</code>/<code>eaf</code> should almost never change for a phenotype-direction flip; see the distinction between a phenotype transformation and a genuine allele-reorientation, which also requires negating <code>beta</code> and replacing <code>eaf</code> with <code>1 - eaf</code>). Keeping this in project-level code, next to the specific analysis that needs it, keeps the transformation visible and auditable instead of hidden behind a generic library flag.</p>
+<p>This must be documented consistently across every project’s <code>CLAUDE.md</code> in <code>MR_projects/</code> – see the root <code>CLAUDE.md</code>’s cross-project recipe for the canonical wording, and each project’s own <code>CLAUDE.md</code> for how (or whether) that project is affected.</p>
 </div>
 <div class="section level2">
 <h2 id="build-and-check-commands">Build and Check Commands<a class="anchor" aria-label="anchor" href="#build-and-check-commands"></a></h2>
@@ -91,7 +99,8 @@
 <h2 id="documentation-rule--always-regenerate-man-after-changing-function-signatures">Documentation Rule – ALWAYS regenerate man/ after changing function signatures<a class="anchor" aria-label="anchor" href="#documentation-rule--always-regenerate-man-after-changing-function-signatures"></a></h2>
 <p>Any time you add, remove, or rename a parameter in ANY function (exported or internal), you MUST regenerate the man/ files before committing. Failure to do this causes R CMD check to error on all CI platforms.</p>
 <p><strong>After every function signature change, remind the user to run:</strong></p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="ex">air</span> format .           <span class="co"># must be run before devtools::document()</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">document</span><span class="op">(</span><span class="op">)</span>   <span class="co"># must be run in an R session, not via Rscript</span></span></code></pre></div>
 <p>Then stage and commit the updated <code>man/*.Rd</code> files in the same commit as the code change. Never let a signature change and its .Rd update go in separate commits.</p>
 <p>If <code>devtools::document()</code> fails (e.g. missing dependency), patch the <code>.Rd</code> file manually: update the <code>\usage{}</code> block and add a <code>\item{}</code> in <code>\arguments{}</code>.</p>
@@ -100,9 +109,9 @@
 <h2 id="pr-checklist">PR Checklist<a class="anchor" aria-label="anchor" href="#pr-checklist"></a></h2>
 <p>Before opening any pull request:</p>
 <ol style="list-style-type: decimal"><li>
-<code>devtools::document()</code> – regenerate man/ files (run in R, not terminal)</li>
+<code>air format .</code> – auto-format R files (run before devtools::document())</li>
 <li>
-<code>air format .</code> – auto-format R files</li>
+<code>devtools::document()</code> – regenerate man/ files (run in R, not terminal)</li>
 <li>
 <code>lintr::lint_package()</code> – fix any lint warnings</li>
 <li>
@@ -155,7 +164,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

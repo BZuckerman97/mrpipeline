@@ -65,7 +65,9 @@ methods — accessible via `mr_res$results`, `mr_res$instruments`, etc.
 
 coloc_res <- run_coloc(
   exposure = cd40_exposure,
+  exposure_id = "CD40",
   outcome = sjogren_outcome,
+  outcome_id = "SjD",
   gene_chr = "20",
   gene_start = 44746911,
   gene_end = 44758502,

@@ -15,7 +15,7 @@ columns (e.g. SCALLOP MarkerName format: "CHR:POS:A1_A2").'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -64,8 +64,8 @@ columns (e.g. SCALLOP <code>MarkerName</code> format: <code>"CHR:POS:A1_A2"</cod
 <span>  marker_col <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  marker_sep <span class="op">=</span> <span class="st">":"</span>,</span>
 <span>  log10_pval <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  flip_beta <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  n <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  n <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  ref_frq <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -99,8 +99,12 @@ section). User entries are checked before the built-in list.</p></dd>
 
 <dt id="arg-bim-path">bim_path<a class="anchor" aria-label="anchor" href="#arg-bim-path"></a></dt>
 <dd><p>Character. Path to a PLINK bfile prefix (without <code>.bim</code>)
-used to recover rsIDs when the data lacks them. Required whenever the
-rsids column is absent.</p></dd>
+used to recover rsIDs when the data lacks them (joins by chr + pos), or
+to recover chr/pos when the data has rsIDs but no positional columns
+(joins by rsID) – see <em>rsID lookup from bim file</em> and <em>chr/pos lookup
+from bim file (reverse direction)</em>. Required whenever the rsids column
+is absent; optional but recommended when rsids are present without
+chr/pos and a coloc analysis is planned.</p></dd>
 
 
 <dt id="arg-marker-col">marker_col<a class="anchor" aria-label="anchor" href="#arg-marker-col"></a></dt>
@@ -119,15 +123,20 @@ When supplied, <code>chr</code> and <code>pos</code> are parsed from this column
 scale and is back-transformed via <code>10^-x</code>. Default <code>FALSE</code>.</p></dd>
 
 
-<dt id="arg-flip-beta">flip_beta<a class="anchor" aria-label="anchor" href="#arg-flip-beta"></a></dt>
-<dd><p>Logical. If <code>TRUE</code>, multiplies <code>beta</code> by <code>-1</code> - use when
-the source file encodes the inverse direction of the intended exposure
-(e.g. modelling NLRP3 inhibition rather than activation). Default <code>FALSE</code>.</p></dd>
-
-
 <dt id="arg-n">n<a class="anchor" aria-label="anchor" href="#arg-n"></a></dt>
 <dd><p>Integer. Explicit sample size. Added as the <code>n</code> column only when no
 sample-size column is already present in the data.</p></dd>
+
+
+<dt id="arg-ref-frq">ref_frq<a class="anchor" aria-label="anchor" href="#arg-ref-frq"></a></dt>
+<dd><p>Character. Path to a PLINK <code>.frq</code> file (produced by
+<code>plink --freq</code>, columns <code>CHR SNP A1 A2 MAF NCHROBS</code>). When supplied,
+patches <code>eaf</code> for any row where it is missing (creating the <code>eaf</code> column
+first if the data has none at all) by matching <code>rsids</code> against <code>SNP</code> and
+aligning <code>MAF</code>/<code>1-MAF</code> to <code>effect_allele</code>. Existing non-missing <code>eaf</code>
+values are never overwritten. Useful for pre-clumped instrument files
+that carry no allele-frequency column, where palindromic SNPs would
+otherwise be unresolvable (and typically dropped) during harmonisation.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -145,7 +154,7 @@ for <code><a href="run_mr.html">run_mr()</a></code>'s <code>exposure</code> argu
 
 
 <p>The function renames source columns to a fixed canonical schema by checking
-a built-in table of known aliases for each target column:</p><table class="table table"><tr><td>Canonical</td><td>Built-in aliases recognised automatically</td></tr><tr><td><code>rsids</code></td><td><code>rsid</code>, <code>rs_id</code>, <code>rsID</code>, <code>SNP</code></td></tr><tr><td><code>chr</code></td><td><code>chromosome</code>, <code>Chr</code>, <code>CHROM</code>, <code>#CHROM</code>, <code>CHR</code></td></tr><tr><td><code>pos</code></td><td><code>base_pair_location</code>, <code>PosB37</code>, <code>PosB38</code>, <code>BP</code>, <code>POS</code>, <code>position</code>, <code>GENPOS</code></td></tr><tr><td><code>beta</code></td><td><code>Beta</code>, <code>Effect</code>, <code>BETA</code></td></tr><tr><td><code>se</code></td><td><code>standard_error</code>, <code>StdErr</code>, <code>SE</code>, <code>sebeta</code></td></tr><tr><td><code>or</code></td><td><code>odds_ratio</code>, <code>OR</code></td></tr><tr><td><code>eaf</code></td><td><code>effect_allele_frequency</code>, <code>Freq1</code>, <code>EAFrq</code>, <code>A1FREQ</code>, <code>af_alt</code>, <code>EAF</code>, <code>FRQ</code></td></tr><tr><td><code>pval</code></td><td><code>p_value</code>, <code>P-value</code>, <code>P</code>, <code>Pval</code>, <code>p.value</code></td></tr><tr><td><code>n</code></td><td><code>N</code>, <code>TotalSampleSize</code>, <code>n_total</code></td></tr><tr><td><code>effect_allele</code></td><td><code>Allele1</code>, <code>EA</code>, <code>A1</code>, <code>ALLELE1</code>, <code>effectAllele</code>, <code>ALT</code></td></tr><tr><td><code>other_allele</code></td><td><code>Allele2</code>, <code>OA</code>, <code>A2</code>, <code>ALLELE0</code>, <code>otherAllele</code>, <code>REF</code></td></tr></table><p>Supply <code>col_map</code> <strong>only</strong> when your dataset uses a column name that does not
+a built-in table of known aliases for each target column:</p><table class="table table"><tr><td>Canonical</td><td>Built-in aliases recognised automatically</td></tr><tr><td><code>rsids</code></td><td><code>rsid</code>, <code>rs_id</code>, <code>rsID</code>, <code>SNP</code></td></tr><tr><td><code>chr</code></td><td><code>chromosome</code>, <code>Chr</code>, <code>CHROM</code>, <code>#CHROM</code>, <code>CHR</code></td></tr><tr><td><code>pos</code></td><td><code>base_pair_location</code>, <code>PosB37</code>, <code>PosB38</code>, <code>BP</code>, <code>POS</code>, <code>position</code>, <code>GENPOS</code></td></tr><tr><td><code>beta</code></td><td><code>Beta</code>, <code>Effect</code>, <code>BETA</code></td></tr><tr><td><code>se</code></td><td><code>standard_error</code>, <code>StdErr</code>, <code>SE</code>, <code>sebeta</code></td></tr><tr><td><code>or</code></td><td><code>odds_ratio</code>, <code>OR</code></td></tr><tr><td><code>zscore</code></td><td><code>zscore</code>, <code>Zscore</code>, <code>Z-score</code>, <code>Z_score</code></td></tr><tr><td><code>eaf</code></td><td><code>effect_allele_frequency</code>, <code>Freq1</code>, <code>EAFrq</code>, <code>A1FREQ</code>, <code>af_alt</code>, <code>EAF</code>, <code>FRQ</code></td></tr><tr><td><code>pval</code></td><td><code>p_value</code>, <code>P-value</code>, <code>P</code>, <code>Pval</code>, <code>p.value</code></td></tr><tr><td><code>n</code></td><td><code>N</code>, <code>TotalSampleSize</code>, <code>n_total</code></td></tr><tr><td><code>effect_allele</code></td><td><code>Allele1</code>, <code>EA</code>, <code>A1</code>, <code>ALLELE1</code>, <code>effectAllele</code>, <code>ALT</code></td></tr><tr><td><code>other_allele</code></td><td><code>Allele2</code>, <code>OA</code>, <code>A2</code>, <code>ALLELE0</code>, <code>otherAllele</code>, <code>REF</code></td></tr></table><p>Supply <code>col_map</code> <strong>only</strong> when your dataset uses a column name that does not
 appear in the table above – for example, if your p-value column is called
 <code>"PVALUE"</code>, add <code>col_map = list(pval = "PVALUE")</code>. Inspect <code><a href="https://rdrr.io/r/base/names.html" class="external-link">names()</a></code> of your
 loaded data to check. User-supplied aliases are checked before the built-in
@@ -156,14 +165,64 @@ list, so they take precedence in the event of ambiguity.</p>
 
 
 <p>Some GWAS files (particularly older EBI deposits) report effect sizes as odds
-ratios rather than log-odds. When <code>beta</code> is absent after column normalisation
-but an <code>or</code> column is present, the function automatically derives:</p><ul><li><p><code>beta = log(or)</code> (natural log; converts OR to the log-odds scale MR requires)</p></li>
+ratios rather than log-odds. When <code>beta</code> is absent – or present but entirely
+<code>NA</code> (some GWAS Catalog templates carry an empty <code>beta</code> column alongside a
+populated <code>odds_ratio</code> column, e.g. Ji 2016 PSC) – after column
+normalisation, and an <code>or</code> column is present, the function automatically
+derives:</p><ul><li><p><code>beta = log(or)</code> (natural log; converts OR to the log-odds scale MR requires)</p></li>
 <li><p><code>se = |beta| / qnorm(pval / 2)</code> (Z-score back-calculation from p-value)</p></li>
 </ul><p>The Z-score method requires <code>pval</code> to be present and is accurate when effect
 sizes are small (OR close to 1), which is typical for common-variant GWAS.
 An informative message is emitted whenever the conversion is applied.
 If your file has an OR column under a non-standard name, add it via
 <code>col_map = list(or = "MY_OR_COLUMN")</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="automatic-z-score-to-beta-se-conversion">Automatic Z-score to beta/se conversion<a class="anchor" aria-label="anchor" href="#automatic-z-score-to-beta-se-conversion"></a></h2>
+
+
+<p>Some GWAS files (typically METAL output) report only a Z-score rather than
+beta/se – e.g. Hysi 2020 refractive error, He strabismus, Cuellar-Partida
+2021 handedness. When <code>beta</code> is absent after column normalisation but a
+<code>zscore</code> column is present, the function derives it automatically:</p><ul><li><p>If <code>se</code> is already present: <code>beta = zscore * se</code>.</p></li>
+<li><p>Otherwise, <code>se</code> is first derived from allele frequency and sample size
+via the standard GWAS Z-score formula, then <code>beta = zscore * se</code>:
+<code>se = 1 / sqrt(2 * eaf * (1 - eaf) * (n + zscore^2))</code>. This path requires
+both <code>eaf</code> and <code>n</code> columns.</p></li>
+</ul><p>An informative message is emitted whenever the conversion is applied. If
+your file has a Z-score column under a non-standard name, add it via
+<code>col_map = list(zscore = "MY_Z_COLUMN")</code>; likewise use <code>col_map</code> for a
+non-standard sample-size column (e.g. METAL's <code>Weight</code>), via
+<code>col_map = list(n = "Weight")</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="automatic-se-derivation-from-beta-zscore">Automatic se derivation from beta + zscore<a class="anchor" aria-label="anchor" href="#automatic-se-derivation-from-beta-zscore"></a></h2>
+
+
+<p>Some GWAS files report a real <code>beta</code> and a <code>zscore</code> but no <code>se</code> column –
+e.g. the D-dimer Suhre GCST90100910 file, which publishes <code>Beta</code> + <code>Z</code>
+(its <code>z</code> column needs <code>col_map = list(zscore = "z")</code>, since a bare <code>"z"</code>
+is not in the built-in <code>zscore</code> alias table). When this happens, the
+function derives <code>se</code> as an exact algebraic inversion of <code>z = beta / se</code>:</p><ul><li><p><code>se = |beta / zscore|</code></p></li>
+</ul><p>This is preferred over the beta+p-value back-calculation below whenever a
+<code>zscore</code> column is available, since it does not depend on a (possibly
+rounded) p-value – the p-value method is undefined when <code>pval == 1</code>, a
+real risk for a true-null SNP. An informative message is emitted whenever
+this derivation is applied.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="automatic-se-derivation-from-beta-p-value">Automatic se derivation from beta + p-value<a class="anchor" aria-label="anchor" href="#automatic-se-derivation-from-beta-p-value"></a></h2>
+
+
+<p>Some GWAS files report a real <code>beta</code> and <code>pval</code> but no <code>se</code>, <code>or</code>, or
+<code>zscore</code> column at all – e.g. the deCODE haematinics files (Iron_TSAT,
+Iron_Ferritin). When this happens (and the OR/Z-score derivations above
+don't apply, since neither an <code>or</code> nor a <code>zscore</code> column is present), the
+function derives <code>se</code> directly via the same Z-score back-calculation used
+in the OR conversion above:</p><ul><li><p><code>se = |beta| / qnorm(pval / 2)</code></p></li>
+</ul><p>An informative message is emitted whenever this derivation is applied. If
+your file has <code>se</code> under a non-standard name, add it via
+<code>col_map = list(se = "MY_SE_COLUMN")</code> instead of relying on this fallback.</p>
     </div>
     <div class="section level2">
     <h2 id="rsid-lookup-from-bim-file">rsID lookup from bim file<a class="anchor" aria-label="anchor" href="#rsid-lookup-from-bim-file"></a></h2>
@@ -174,6 +233,22 @@ If your file has an OR column under a non-standard name, add it via
 file by chromosome and position to recover rsIDs. Rows without a bim match
 are dropped – they are absent from the reference panel and cannot be used
 in LD-based analyses. A message reports how many SNPs were retained.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="chr-pos-lookup-from-bim-file-reverse-direction-">chr/pos lookup from bim file (reverse direction)<a class="anchor" aria-label="anchor" href="#chr-pos-lookup-from-bim-file-reverse-direction-"></a></h2>
+
+
+<p>Some files report a real rsID but no positional columns at all (e.g. the
+Corbin &amp; Timpson 2020 cytokine GWASes, whose <code>MarkerName</code> column already
+contains rsIDs). When <code>rsids</code> is present but <code>chr</code>/<code>pos</code> are absent, and
+<code>bim_path</code> is supplied, the function instead inner-joins to the bim file
+<strong>by rsID</strong> to recover chromosome and position. This is the mirror image of
+the lookup above and is needed because <code><a href="run_coloc.html">run_coloc()</a></code> requires <code>chr</code>/<code>pos</code>
+to window data around a gene region, even though <code><a href="run_mr.html">run_mr()</a></code> does not need
+them. If <code>bim_path</code> is not supplied in this situation, <code>chr</code>/<code>pos</code> are
+simply left absent – <code>format_gwas()</code> does not require them for <code><a href="run_mr.html">run_mr()</a></code>,
+but a coloc analysis on that outcome will fail downstream until they are
+added (e.g. by re-running with <code>bim_path</code> set).</p>
     </div>
     <div class="section level2">
     <h2 id="marker-column-parsing">Marker column parsing<a class="anchor" aria-label="anchor" href="#marker-column-parsing"></a></h2>
@@ -210,12 +285,11 @@ the bim join.</p>
 <span class="r-in"><span>  col_map      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>pval <span class="op">=</span> <span class="st">"PVALUE"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Exposure GWAS -- flip beta to model NLRP3 activation not suppression</span></span></span>
+<span class="r-in"><span><span class="co"># Exposure GWAS, ready for run_mr()</span></span></span>
 <span class="r-in"><span><span class="va">exposure</span> <span class="op">&lt;-</span> <span class="fu">format_gwas</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  path         <span class="op">=</span> <span class="st">"NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv"</span>,</span></span>
 <span class="r-in"><span>  phenotype_id <span class="op">=</span> <span class="st">"NLRP3"</span>,</span></span>
-<span class="r-in"><span>  type         <span class="op">=</span> <span class="st">"exposure"</span>,</span></span>
-<span class="r-in"><span>  flip_beta    <span class="op">=</span> <span class="cn">TRUE</span></span></span>
+<span class="r-in"><span>  type         <span class="op">=</span> <span class="st">"exposure"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
@@ -230,7 +304,7 @@ the bim join.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

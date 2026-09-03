@@ -10,7 +10,7 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 
 - [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
   – Cis-MR, genome-wide MR, or manual-instrument MR with sensitivity
-  methods
+  methods.
 - [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
   – Colocalization (coloc.abf, SuSiE, coloc.signals, colocPropTest)
 - [`format_pqtl_decode()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_decode.md)
@@ -32,6 +32,48 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)),
 `coloc_result` (from
 [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md))
+
+## `run_mr()` has no `flip_beta` argument – do not reintroduce one
+
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+previously had a `flip_beta` argument that negated `beta.exposure` on
+the harmonised data before any method/sensitivity computation, so a
+downstream project could redefine “increase in exposure” (e.g. modelling
+a drug’s inhibition mechanism rather than a GWAS trait’s raw increasing
+direction). It has been **removed** (2026-08-01) and must not be
+reintroduced in any form – as an argument to
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md),
+a wrapper around it, or an option threaded through from a caller.
+
+The design was judged unsafe: it only ever touched `beta.exposure`, and
+nothing about the function signature made that scope visible at the call
+site, which invites misuse by anyone who reaches for `flip_beta`
+expecting it to behave like a general allele/effect-direction
+reorientation (it never flipped `effect_allele.exposure`,
+`other_allele.exposure`, or `eaf.exposure`, nor `beta.outcome`). A
+shared library function is the wrong place for a transformation whose
+correctness depends entirely on the caller understanding exactly which
+columns it does and doesn’t touch.
+
+**If a project needs to redefine exposure direction, write a small
+`flipped_beta()`-style helper in that project’s own script** (not in
+`mrpipeline`) that makes explicit, at the call site, exactly what is
+being transformed – typically negating `beta.exposure` on the
+harmonised/exposure data before it reaches
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md),
+with a comment stating which columns are deliberately left untouched and
+why (`effect_allele`/`other_allele`/`eaf` should almost never change for
+a phenotype-direction flip; see the distinction between a phenotype
+transformation and a genuine allele-reorientation, which also requires
+negating `beta` and replacing `eaf` with `1 - eaf`). Keeping this in
+project-level code, next to the specific analysis that needs it, keeps
+the transformation visible and auditable instead of hidden behind a
+generic library flag.
+
+This must be documented consistently across every project’s `CLAUDE.md`
+in `MR_projects/` – see the root `CLAUDE.md`’s cross-project recipe for
+the canonical wording, and each project’s own `CLAUDE.md` for how (or
+whether) that project is affected.
 
 ## Build and Check Commands
 
@@ -112,6 +154,10 @@ platforms.
 
 **After every function signature change, remind the user to run:**
 
+``` bash
+air format .           # must be run before devtools::document()
+```
+
 ``` r
 
 devtools::document()   # must be run in an R session, not via Rscript
@@ -129,9 +175,10 @@ If `devtools::document()` fails (e.g. missing dependency), patch the
 
 Before opening any pull request:
 
-1.  `devtools::document()` – regenerate man/ files (run in R, not
+1.  `air format .` – auto-format R files (run before
+    devtools::document())
+2.  `devtools::document()` – regenerate man/ files (run in R, not
     terminal)
-2.  `air format .` – auto-format R files
 3.  `lintr::lint_package()` – fix any lint warnings
 4.  [`pkgdown::build_site()`](https://pkgdown.r-lib.org/reference/build_site.html)
     – confirm site builds without errors

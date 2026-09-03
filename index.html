@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -72,35 +72,37 @@
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">mrpipeline</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Format exposure data (e.g. UKB-PPP pQTL)</span></span>
-<span><span class="va">exposure</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/format_pqtl_ukbppp.html">format_pqtl_ukbppp</a></span><span class="op">(</span><span class="va">cd40_sumstats</span>, exposure_id <span class="op">=</span> <span class="st">"CD40"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Look up gene coordinates</span></span>
-<span><span class="va">coords</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_gene_coords.html">get_gene_coords</a></span><span class="op">(</span><span class="st">"CD40"</span>, build <span class="op">=</span> <span class="st">"grch38"</span><span class="op">)</span></span>
+<span><span class="co"># mrpipeline ships with bundled test datasets for CD40 protein and Sjogren's</span></span>
+<span><span class="co"># disease -- cd40_exposure (formatted exposure) and sjogren_outcome (outcome)</span></span>
+<span><span class="co"># -- plus a minimal LD reference panel, so this runs without any external</span></span>
+<span><span class="co"># data.</span></span>
+<span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
+<span>  <span class="st">"\\.bed$"</span>, <span class="st">""</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref.bed"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Run cis-MR</span></span>
 <span><span class="va">mr_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">exposure</span>,</span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
 <span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
-<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    chromosome <span class="op">=</span> <span class="va">coords</span><span class="op">$</span><span class="va">chromosome</span>,</span>
-<span>    start <span class="op">=</span> <span class="va">coords</span><span class="op">$</span><span class="va">start</span>,</span>
-<span>    end <span class="op">=</span> <span class="va">coords</span><span class="op">$</span><span class="va">end</span></span>
-<span>  <span class="op">)</span></span>
+<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">mr_res</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Run colocalization</span></span>
 <span><span class="va">coloc_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">exposure</span>,</span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
-<span>  gene_chr <span class="op">=</span> <span class="va">coords</span><span class="op">$</span><span class="va">chromosome</span>,</span>
-<span>  gene_start <span class="op">=</span> <span class="va">coords</span><span class="op">$</span><span class="va">start</span>,</span>
-<span>  gene_end <span class="op">=</span> <span class="va">coords</span><span class="op">$</span><span class="va">end</span>,</span>
-<span>  bfile <span class="op">=</span> <span class="st">"path/to/ld_reference"</span></span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  gene_chr <span class="op">=</span> <span class="st">"20"</span>,</span>
+<span>  gene_start <span class="op">=</span> <span class="fl">44746911</span>,</span>
+<span>  gene_end <span class="op">=</span> <span class="fl">44758502</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">coloc_res</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">coloc_res</span><span class="op">)</span></span></code></pre></div>
@@ -157,7 +159,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

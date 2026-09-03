@@ -108,7 +108,13 @@ run_mr(
   `"weighted_median"` (weighted median), `"presso"` (MR-PRESSO),
   `"conmix"` (ContMix), `"steiger"` (Steiger filtering), `"pleiotropy"`
   (Egger intercept test; result stored in `$pleiotropy`, not
-  `$results`). You may also pass any method name from
+  `$results`), `"heterogeneity"` (Cochran's Q test via
+  [`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html);
+  result stored in `$heterogeneity`, not `$results`; requires \>= 2
+  instruments), `"loo"` (leave-one-out analysis via
+  [`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html);
+  result stored in `$loo`, not `$results`; requires \>= 3 instruments).
+  You may also pass any method name from
   `TwoSampleMR::mr_method_list()$obj` directly (e.g.
   `"mr_simple_median"`, `"mr_raps"`). Note: `"ivw_fe"` does not support
   `ld_correct = TRUE`.
@@ -150,8 +156,11 @@ run_mr(
 ## Value
 
 An `mr_result` object. Check `result$status` for `"success"` vs failure
-reasons. The `$timing` field contains a named numeric vector of elapsed
-seconds for each major step.
+reasons. The `$results` data frame includes `or`, `or_lci95`, and
+`or_uci95` columns (from
+[`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html))
+alongside the raw `b` and `se`. The `$timing` field contains a named
+numeric vector of elapsed seconds for each major step.
 
 ## Instrument selection modes
 
@@ -190,6 +199,13 @@ When `ld_correct = TRUE`, IVW and Egger use
 and
 [`MendelianRandomization::mr_egger()`](https://rdrr.io/pkg/MendelianRandomization/man/mr_egger.html)
 with `correl = TRUE`.
+
+When `"egger"` is in `methods` and there are \>= 3 instruments,
+[`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html)
+(the Egger intercept test) is always run automatically and its result
+stored in `$pleiotropy`. You do not need to add `"pleiotropy"` to
+`methods` separately. The `"pleiotropy"` shortcut remains available for
+running the intercept test without Egger.
 
 ## Examples
 

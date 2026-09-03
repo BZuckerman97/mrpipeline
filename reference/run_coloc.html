@@ -13,7 +13,7 @@ coloc_result S3 object."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,6 +80,7 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 <span>  susie_maxit <span class="op">=</span> <span class="fl">10000L</span>,</span>
 <span>  susie_repeat_until_convergence <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  exclude_regions <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  ref_frq <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -230,6 +231,14 @@ are dropped before harmonisation. For example, to exclude the MHC:
 <code>data.frame(chr = "6", start = 26e6, end = 34e6)</code>.</p></dd>
 
 
+<dt id="arg-ref-frq">ref_frq<a class="anchor" aria-label="anchor" href="#arg-ref-frq"></a></dt>
+<dd><p>Character. Path to a PLINK <code>.frq</code> file (produced by
+<code>plink --freq</code>) used to patch EAF for SNPs missing it in both the exposure
+and outcome. Columns expected: <code>SNP</code>, <code>A1</code>, <code>A2</code>, <code>MAF</code>. The A1 allele is
+matched against <code>effect_allele.outcome</code> (post-harmonisation) to orient the
+frequency correctly. <code>NULL</code> (default) disables the lookup.</p></dd>
+
+
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Logical. If <code>TRUE</code>, emit informational messages via
 <code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>. Warnings and errors are always emitted regardless.
@@ -251,11 +260,65 @@ elapsed seconds for each major step.</p>
 <li><p><code>"susie"</code> – SuSiE fine-mapping + colocalization via
 <code><a href="https://rdrr.io/pkg/coloc/man/runsusie.html" class="external-link">coloc::runsusie()</a></code> and <code><a href="https://rdrr.io/pkg/coloc/man/coloc.susie.html" class="external-link">coloc::coloc.susie()</a></code></p></li>
 <li><p><code>"signals"</code> – Multi-signal colocalization via
-<code><a href="https://rdrr.io/pkg/coloc/man/coloc.signals.html" class="external-link">coloc::coloc.signals()</a></code>. Requires <code>"susie"</code> to have run successfully.</p></li>
+<code><a href="https://rdrr.io/pkg/coloc/man/coloc.signals.html" class="external-link">coloc::coloc.signals()</a></code>, called with <code>method = "cond"</code> (LD-based
+conditioning) on the same <code>dataset_exp</code>/<code>dataset_out</code> objects used by
+<code>"abf"</code>. <code><a href="https://rdrr.io/pkg/coloc/man/coloc.signals.html" class="external-link">coloc::coloc.signals()</a></code> performs its own internal signal
+detection (<code>finemap.signals()</code>) and does not consume <code>"susie"</code>'s
+<code>runsusie()</code> output – despite the name, it's an independent multi-signal
+method, not a wrapper around SuSiE's credible sets. It is still gated on
+<code>"susie"</code> having been requested and having run successfully (skipped
+otherwise), for consistency with this function's <code>methods</code> design rather
+than because it needs SuSiE's output.</p></li>
 <li><p><code>"prop_test"</code> – Proportionality test via
 <code>colocPropTest::coloc.prop.test()</code>. Requires <code>"signals"</code> to have run
 successfully and the <code>colocPropTest</code> package to be installed.</p></li>
 </ul></div>
+    <div class="section level2">
+    <h2 id="maf-eaf-handling">MAF / EAF handling<a class="anchor" aria-label="anchor" href="#maf-eaf-handling"></a></h2>
+
+
+<p><code><a href="https://rdrr.io/pkg/coloc/man/coloc.abf.html" class="external-link">coloc::coloc.abf()</a></code> takes a single MAF per SNP, shared between the
+exposure and outcome datasets, and errors out for the <em>entire</em> dataset if
+even one SNP has a missing MAF. Some GWASes (e.g. the CRP exposure used in
+this pipeline) report no EAF column at all. To avoid losing every SNP over
+a single dataset's missing EAF, <code>run_coloc()</code> builds the MAF from
+<code>eaf.exposure</code>, falling back to <code>eaf.outcome</code> wherever the exposure value
+is missing (and vice versa). A <code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_warn()</a></code> is emitted whenever either
+side has missing EAF, so the fallback is visible in the warnings captured
+by <code>targets</code> metadata (<code>targets::tar_meta(fields = warnings)</code>) even though
+it doesn't print live during a <code>tar_make()</code> run. Any SNP missing EAF on
+<em>both</em> sides is dropped (with a warning) before colocalization, since there
+is no value left to fall back to.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="ld-matrix-orientation">LD matrix orientation<a class="anchor" aria-label="anchor" href="#ld-matrix-orientation"></a></h2>
+
+
+<p><code><a href="compute_ld_matrix.html">compute_ld_matrix()</a></code> (via <code><a href="https://mrcieu.github.io/ieugwasr/reference/ld_matrix.html" class="external-link">ieugwasr::ld_matrix()</a></code>, <code>--r square --keep-allele-order</code>) returns a <strong>signed</strong> correlation matrix whose sign
+is anchored to the reference panel's own, arbitrary A1 allele for each
+SNP – not to <code>effect_allele.exposure</code>/<code>effect_allele.outcome</code>. Roughly
+half of SNPs, at random, will have the panel's A1 differ from the
+harmonised effect allele. <code><a href="https://rdrr.io/pkg/coloc/man/coloc.abf.html" class="external-link">coloc::coloc.abf()</a></code> is unaffected by this: it
+never uses <code>LD</code>, and each SNP's Bayes factor depends only on <code>beta^2</code>,
+so a per-SNP sign flip changes nothing. <code><a href="https://rdrr.io/pkg/coloc/man/runsusie.html" class="external-link">coloc::runsusie()</a></code> (and the
+<code><a href="https://rdrr.io/pkg/susieR/man/susie_rss.html" class="external-link">susieR::susie_rss()</a></code> it wraps), however, fits a joint model across all
+SNPs from <code>LD</code> and <code>beta</code>/<code>varbeta</code> together – if even a subset of SNPs
+have a sign inconsistent with <code>LD</code>'s convention, the fit becomes
+internally incoherent, which is exactly what <code>susie_rss()</code>'s
+<code>check_prior</code> safety check (comparing the fitted prior variance against
+<code>100 * max(abs(z))^2</code>) is designed to catch, surfacing as the error
+<code>"the estimated prior variance is unreasonably large"</code>. If you ever see
+that error and <code>"abf"</code> succeeded on the same data, an LD-orientation bug
+– not LD-reference-panel quality – is the first thing to suspect.
+<code><a href="align_to_ld_matrix.html">align_to_ld_matrix()</a></code> corrects for this automatically: it classifies
+each SNP as matching, needing a sign flip, or unresolvable against the
+reference panel (also dropping palindromic SNPs with an EAF in the
+ambiguous 0.42-0.58 zone, which can't be resolved by allele identity
+alone), and returns a <code>ld_sign</code> vector multiplied into
+<code>dataset_exp$beta</code>/<code>dataset_out$beta</code> immediately before they're passed
+to <code><a href="https://rdrr.io/pkg/coloc/man/runsusie.html" class="external-link">coloc::runsusie()</a></code> – see that function's documentation for the full
+algorithm.</p>
+    </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="new_coloc_result.html">new_coloc_result()</a></code> for the S3 class structure,
@@ -286,7 +349,7 @@ successfully and the <code>colocPropTest</code> package to be installed.</p></li
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

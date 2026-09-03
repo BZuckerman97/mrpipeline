@@ -11,7 +11,7 @@ the exposure dataset before run_mr()"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,7 +53,8 @@ the exposure dataset before run_mr()</p>
 <span>  <span class="va">decode_proteomic_gwas_file_path</span>,</span>
 <span>  <span class="va">decode_included_variants_file_path</span>,</span>
 <span>  <span class="va">pqtl_assay</span>,</span>
-<span>  x_y_chr_file <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  x_y_chr_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"exposure"</span>, <span class="st">"outcome"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -80,11 +81,22 @@ data will be combined.</p></dd>
 <dd><p>String, optional file path to a file containing rsids for X and Y
 chromosomes. This file should be tab-separated with columns: Chromosome, Position, RSID.</p></dd>
 
+
+<dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
+<dd><p>Character, either <code>"exposure"</code> (default) or <code>"outcome"</code>.
+<code>"exposure"</code> runs the data through <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/format_data.html" class="external-link">TwoSampleMR::format_data()</a></code> and
+returns <code>list(exposure = &lt;formatted data frame&gt;)</code>. <code>"outcome"</code> skips
+<code>format_data()</code> and returns a plain data frame normalised to the same
+schema as <code>format_gwas(type = "outcome")</code>, so <code><a href="run_mr.html">run_mr()</a></code> can pre-filter
+by rsids before calling <code>format_data()</code> internally.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><ul><li><p><code>exposure</code>: Formatted exposure data frame (output of TwoSampleMR::format_data).</p></li>
-</ul></div>
+    <p>For <code>type = "exposure"</code>: a list with one element, <code>exposure</code>
+(formatted exposure data frame, output of TwoSampleMR::format_data()).
+For <code>type = "outcome"</code>: a plain data frame (not wrapped in a list).</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -108,7 +120,7 @@ chromosomes. This file should be tab-separated with columns: Chromosome, Positio
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

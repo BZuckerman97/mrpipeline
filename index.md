@@ -22,35 +22,37 @@ pak::pak("BZuckerman97/mrpipeline")
 
 library(mrpipeline)
 
-# Format exposure data (e.g. UKB-PPP pQTL)
-exposure <- format_pqtl_ukbppp(cd40_sumstats, exposure_id = "CD40")
-
-# Look up gene coordinates
-coords <- get_gene_coords("CD40", build = "grch38")
+# mrpipeline ships with bundled test datasets for CD40 protein and Sjogren's
+# disease -- cd40_exposure (formatted exposure) and sjogren_outcome (outcome)
+# -- plus a minimal LD reference panel, so this runs without any external
+# data.
+bfile <- sub(
+  "\\.bed$", "",
+  system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+)
 
 # Run cis-MR
 mr_res <- run_mr(
-  exposure = exposure,
+  exposure = cd40_exposure,
   exposure_id = "CD40",
   outcome = sjogren_outcome,
   outcome_id = "SjD",
-  instrument_region = list(
-    chromosome = coords$chromosome,
-    start = coords$start,
-    end = coords$end
-  )
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile
 )
 mr_res
 summary(mr_res)
 
 # Run colocalization
 coloc_res <- run_coloc(
-  exposure = exposure,
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
   outcome = sjogren_outcome,
-  gene_chr = coords$chromosome,
-  gene_start = coords$start,
-  gene_end = coords$end,
-  bfile = "path/to/ld_reference"
+  outcome_id = "SjD",
+  gene_chr = "20",
+  gene_start = 44746911,
+  gene_end = 44758502,
+  bfile = bfile
 )
 coloc_res
 summary(coloc_res)

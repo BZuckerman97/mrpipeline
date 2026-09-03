@@ -13,7 +13,7 @@ for use with the TwoSampleMR package."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,7 +52,14 @@ for use with the TwoSampleMR package.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">format_pqtl_ukbppp</span><span class="op">(</span><span class="va">ukbppp</span>, <span class="va">ukbppp_rsid</span>, <span class="va">pqtl_assay</span>, x_y_chr_file <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">format_pqtl_ukbppp</span><span class="op">(</span></span>
+<span>  <span class="va">ukbppp</span>,</span>
+<span>  <span class="va">ukbppp_rsid</span>,</span>
+<span>  <span class="va">pqtl_assay</span>,</span>
+<span>  x_y_chr_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  pos_build <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"b38"</span>, <span class="st">"b37"</span><span class="op">)</span>,</span>
+<span>  type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"exposure"</span>, <span class="st">"outcome"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -77,11 +84,30 @@ and Y chromosomes, or NULL. When a data frame is supplied, it is used
 directly (skipping <code>fread()</code>). When a string path is supplied, the file is
 read via <code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">data.table::fread()</a></code>.</p></dd>
 
+
+<dt id="arg-pos-build">pos_build<a class="anchor" aria-label="anchor" href="#arg-pos-build"></a></dt>
+<dd><p>Character, genome build to use for position matching against
+the rsid file. Either <code>"b38"</code> (GRCh38, uses <code>POS38</code> column; default) or
+<code>"b37"</code> (GRCh37, uses <code>POS19</code> column). Must match the build used in the
+UKB-PPP GWAS <code>GENPOS</code> column.</p></dd>
+
+
+<dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
+<dd><p>Character, either <code>"exposure"</code> (default) or <code>"outcome"</code>.
+<code>"exposure"</code> runs the data through <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/format_data.html" class="external-link">TwoSampleMR::format_data()</a></code>.
+<code>"outcome"</code> skips <code>format_data()</code> and returns a plain data frame
+normalised to the same schema as <code>format_gwas(type = "outcome")</code>, so
+<code><a href="run_mr.html">run_mr()</a></code> can pre-filter by rsids before calling <code>format_data()</code>
+internally.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with two elements:</p><ul><li><p><code>exposure</code>: Formatted exposure data frame (output of TwoSampleMR::format_data).</p></li>
-</ul></div>
+    <p>A plain data frame (not a list) in both cases: for
+<code>type = "exposure"</code>, the output of TwoSampleMR::format_data(); for
+<code>type = "outcome"</code>, data normalised to <code>format_gwas(type = "outcome")</code>'s
+schema.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
@@ -97,7 +123,7 @@ read via <code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="ex
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

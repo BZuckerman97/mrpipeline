@@ -22,35 +22,37 @@ pak::pak("BZuckerman97/mrpipeline")
 
 library(mrpipeline)
 
-# Format exposure data (e.g. UKB-PPP pQTL)
-exposure <- format_pqtl_ukbppp(cd40_sumstats, exposure_id = "CD40")
-
-# Look up gene coordinates
-coords <- get_gene_coords("CD40", build = "grch38")
+# mrpipeline ships with bundled test datasets for CD40 protein and Sjogren's
+# disease -- cd40_exposure (formatted exposure) and sjogren_outcome (outcome)
+# -- plus a minimal LD reference panel, so this runs without any external
+# data.
+bfile <- sub(
+  "\\.bed$", "",
+  system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+)
 
 # Run cis-MR
 mr_res <- run_mr(
-  exposure = exposure,
+  exposure = cd40_exposure,
   exposure_id = "CD40",
   outcome = sjogren_outcome,
   outcome_id = "SjD",
-  instrument_region = list(
-    chromosome = coords$chromosome,
-    start = coords$start,
-    end = coords$end
-  )
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile
 )
 mr_res
 summary(mr_res)
 
 # Run colocalization
 coloc_res <- run_coloc(
-  exposure = exposure,
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
   outcome = sjogren_outcome,
-  gene_chr = coords$chromosome,
-  gene_start = coords$start,
-  gene_end = coords$end,
-  bfile = "path/to/ld_reference"
+  outcome_id = "SjD",
+  gene_chr = "20",
+  gene_start = 44746911,
+  gene_end = 44758502,
+  bfile = bfile
 )
 coloc_res
 summary(coloc_res)
@@ -91,6 +93,18 @@ Run colocalization analysis and inspect results.
 - [`plot(`*`<coloc_result>`*`)`](https://github.com/BZuckerman97/mrpipeline/reference/plot.coloc_result.md)
   : Plot a coloc_result object
 
+## Plotting
+
+Plot MR results across multiple exposures/outcomes.
+
+- [`forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.md)
+  : Forest plot of MR methods for one or more results
+- [`outcome_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/outcome_forest_plot.md)
+  : Forest plot of MR outcomes, optionally coloured/shaped by a grouping
+  column
+- [`table_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/table_forest_plot.md)
+  : Table-style forest plot (forestplot package backend)
+
 ## Data Formatting
 
 Format GWAS summary statistics for use with mrpipeline.
@@ -103,7 +117,13 @@ Format GWAS summary statistics for use with mrpipeline.
 - [`format_pqtl_ukbppp()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_ukbppp.md)
   : Formats pQTL data from UKB-PPP for MR analysis.
 - [`format_single_cell_onek1k()`](https://github.com/BZuckerman97/mrpipeline/reference/format_single_cell_onek1k.md)
-  : Format single-cell RNA eQTL data for analysis
+  : Format single-cell RNA eQTL data from OneK1K for MR analysis
+- [`format_sceqtl_1m_scbloodnl()`](https://github.com/BZuckerman97/mrpipeline/reference/format_sceqtl_1m_scbloodnl.md)
+  : Format single-cell RNA eQTL data from 1M-scBloodNL for MR analysis
+- [`format_sceqtl_dice()`](https://github.com/BZuckerman97/mrpipeline/reference/format_sceqtl_dice.md)
+  : Format single-cell RNA eQTL data from DICE for MR analysis
+- [`format_sceqtl_dynamic_cseqtl()`](https://github.com/BZuckerman97/mrpipeline/reference/format_sceqtl_dynamic_cseqtl.md)
+  : Format single-cell RNA eQTL data from dynamic_cseqtl for MR analysis
 - [`decode_pqtl_file_name()`](https://github.com/BZuckerman97/mrpipeline/reference/decode_pqtl_file_name.md)
   : DECODE_PQTL_FILE_NAME
 - [`ukbppp_pqtl_file_name()`](https://github.com/BZuckerman97/mrpipeline/reference/ukbppp_pqtl_file_name.md)
@@ -115,6 +135,15 @@ Helper functions for analysis workflows.
 
 - [`get_gene_coords()`](https://github.com/BZuckerman97/mrpipeline/reference/get_gene_coords.md)
   : Look up gene coordinates from Ensembl via biomaRt
+
+## Example Data
+
+Bundled datasets used in examples and vignettes.
+
+- [`cd40_exposure`](https://github.com/BZuckerman97/mrpipeline/reference/cd40_exposure.md)
+  : CD40 exposure data (TwoSampleMR format)
+- [`sjogren_outcome`](https://github.com/BZuckerman97/mrpipeline/reference/sjogren_outcome.md)
+  : Sjogren's disease outcome data (standardised format)
 
 # Articles
 

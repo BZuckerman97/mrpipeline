@@ -19,10 +19,88 @@ filtering. The `status` field indicates success or failure:
 The `status_reason` field provides a human-readable explanation (e.g.
 `"No significant instruments in cis region for 'PCSK9'"`).
 
+#### `$results` data frame
+
+The `$results` data frame has one row per MR method and the following
+columns:
+
+| Column     | Description                                              |
+|------------|----------------------------------------------------------|
+| `exposure` | Exposure label (from `exposure_id`)                      |
+| `outcome`  | Outcome label (from `outcome_id`)                        |
+| `method`   | Method name                                              |
+| `nsnp`     | Number of instruments used                               |
+| `b`        | Effect estimate (log-OR scale for case-control outcomes) |
+| `se`       | Standard error of `b`                                    |
+| `pval`     | P-value                                                  |
+| `lo_ci`    | Lower 95% CI on the log-OR scale (`b - 1.96 * se`)       |
+| `up_ci`    | Upper 95% CI on the log-OR scale (`b + 1.96 * se`)       |
+| `or`       | Odds ratio (`exp(b)`)                                    |
+| `or_lci95` | Lower 95% CI for OR (`exp(lo_ci)`)                       |
+| `or_uci95` | Upper 95% CI for OR (`exp(up_ci)`)                       |
+
+The OR columns are always present (added by
+[`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html)
+in the results assembly step). For quantitative outcomes the OR columns
+are still computed but should be interpreted cautiously – they reflect
+exponentiated effect sizes, not true odds ratios.
+
+#### Egger intercept / pleiotropy test
+
+[`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html)
+is run automatically whenever `"egger"` is in `methods` and there are
+\>= 3 instruments. The result is stored in `$pleiotropy` as a data frame
+with columns `egger_intercept`, `se`, `pval`, `exposure`, and `outcome`.
+The `"pleiotropy"` shortcut in `methods` triggers the same test
+independently (i.e. without also running the Egger slope estimate).
+
+#### Heterogeneity test (Cochran’s Q)
+
+[`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html)
+runs when `"heterogeneity"` is in `methods` and there are \>= 2
+instruments; otherwise `methods_skipped["heterogeneity"]` records the
+reason. The result is stored in `$heterogeneity` as a data frame with
+one row per method (typically MR Egger and IVW), columns `Q`, `Q_df`,
+`Q_pval`, `exposure`, `outcome`.
+
+#### Leave-one-out analysis
+
+[`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html)
+runs when `"loo"` is in `methods` and there are \>= 3 instruments (below
+that, dropping one SNP just reproduces the remaining SNP’s Wald ratio,
+which isn’t informative); otherwise `methods_skipped["loo"]` records the
+reason. The result is stored in `$loo` as a data frame with one row per
+SNP plus a pooled `"All"` row, columns `SNP`, `b`, `se`, `p`,
+`exposure`, `outcome`.
+
+#### Flipping exposure direction – deliberately not provided
+
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+has no `flip_beta`/`exposure_label` argument, and none should be added.
+An earlier design (2026-07-29 to 2026-08-01) negated
+`harmonised$beta.exposure` once, immediately after harmonisation, so the
+flip propagated consistently into `$results`, `$instruments`, and
+`$loo`. It was removed because a shared-library flag that only ever
+touches `beta.exposure` – never
+`effect_allele.exposure`/`other_allele.exposure`/
+`eaf.exposure`/`beta.outcome` – hides that scope from the caller,
+inviting misuse. Projects that need to redefine exposure direction
+(e.g. modelling a drug’s inhibition mechanism) should write their own
+`flipped_beta()`-style helper in project-level code and apply it to the
+exposure/harmonised data before it reaches
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md).
+See the `mrpipeline`/root `CLAUDE.md` files for the full rationale.
+
+#### `print.mr_result()` and `summary.mr_result()`
+
 [`print.mr_result()`](https://github.com/BZuckerman97/mrpipeline/reference/print.mr_result.md)
-and
+shows a one-line summary using the first result row, including the OR
+and 95% CI (when available).
 [`summary.mr_result()`](https://github.com/BZuckerman97/mrpipeline/reference/summary.mr_result.md)
-display status information for non-success results.
+shows all methods with OR columns, F-statistics, Steiger result, the
+Egger intercept (when computed), the heterogeneity (Cochran’s Q) table
+(when computed), a leave-one-out row count (when computed), and skipped
+methods.
 
 ### `coloc_result`
 
@@ -73,16 +151,211 @@ in `R/plot.R`:
     [`TwoSampleMR::mr_forest_plot()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_forest_plot.html)
   - `"funnel"`:
     [`TwoSampleMR::mr_funnel_plot()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_funnel_plot.html)
-- `plot.coloc_result(x, type)` — custom ggplot2 plots:
+- `plot.coloc_result(x, type)` — custom ggplot2 plots, except
+  `"locuszoom"`:
   - `"pp_bar"` (default): bar chart of ABF posterior probabilities
     (H0–H4)
   - `"regional"`: side-by-side regional association plots (-log10(p) vs
     position) for exposure and outcome
+  - `"locuszoom"`: LD-coloured regional plots via the (`Suggests`-only)
+    `locuszoomr` package, dispatched to the internal
+    `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)`.
+    Unlike every other plot function in this file, this one does **not**
+    return a ggplot object (or any re-renderable object) –
+    `locuszoomr`’s `locus()`/`multi_layout()` draw directly to the
+    current graphics device as a side effect, like base/grid plotting
+    functions, and
+    [`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)
+    returns `NULL` invisibly regardless of success. Callers must open a
+    device ([`pdf()`](https://rdrr.io/r/grDevices/pdf.html),
+    [`png()`](https://rdrr.io/r/grDevices/png.html), …) before calling
+    and [`dev.off()`](https://rdrr.io/r/grDevices/dev.html) after, to
+    save the result. `ens_db`, if given as a string, must already be
+    **attached** via [`library()`](https://rdrr.io/r/base/library.html)
+    –
+    [`locuszoomr::locus()`](https://rdrr.io/pkg/locuszoomr/man/locus.html)
+    resolves it via `get(ens_db)` on the search path and errors if it’s
+    only installed, not attached. LD (r2) is computed against a single
+    index SNP (default: the SNP with the lowest `pval.exposure`,
+    matching
+    [`locuszoomr::locus()`](https://rdrr.io/pkg/locuszoomr/man/locus.html)’s
+    own default) via the internal helper
+    [`compute_ld_to_index()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_to_index.md)
+    (see below), which reuses
+    [`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
+    – no new LD mechanism or network calls. There is no genome-build
+    field stored on `coloc_result`, so the caller must supply `ens_db`
+    matching whatever build the data/`bfile` actually use
+    (e.g. `EnsDb.Hsapiens.v75` for GRCh37, `EnsDb.Hsapiens.v86` for
+    GRCh38) – no auto-detection.
 
-Both methods return `NULL` invisibly for non-success results with an
+Both S3 methods return `NULL` invisibly for non-success results with an
 informative message.
 
+### forest_plot(), outcome_forest_plot(), and table_forest_plot()
+
+`R/plot.R` also defines three plain exported functions (not S3 methods –
+none of
+[`forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.md)’s
+list-of-`mr_result` input,
+[`outcome_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/outcome_forest_plot.md)’s
+and
+[`table_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/table_forest_plot.md)’s
+caller-built data frame input fit `plot(x, ...)` dispatch):
+
+- `forest_plot(results, methods, relabel, ...)` – one row per *method*.
+  Filters and reorders each result’s `$results` to `methods`, binds them
+  (list order becomes section order when `results` is a named list),
+  then calls
+  [`TwoSampleMR::forest_plot_1_to_many()`](https://mrcieu.github.io/TwoSampleMR/reference/forest_plot_1_to_many.html)
+  with `TraitM = "method"`. Default `methods` puts
+  `"IVW (fixed effects)"` above `"Inverse variance weighted"`; the
+  `relabel` argument (default: rename `"Inverse variance weighted"` to
+  `"IVW (random effects)"`) is applied to the combined data’s `method`
+  column *after* filtering/ordering, so it never affects matching
+  against the raw labels
+  [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+  produced.
+- `outcome_forest_plot(mr_res, xlab, method, colour_by, shape_by, ...)`
+  – one row per *outcome*. Standalone `ggplot2` code rather than a
+  `forest_plot_1_to_many()` wrapper, because that function force-blanks
+  its `exposure` column internally and so cannot map colour or shape to
+  a grouping variable. `method` is a plain inclusion filter (not a
+  priority/fallback selector): pass one label for one model, or both to
+  get two rows for any outcome where both were computed.
+  `colour_by`/`shape_by` each map an arbitrary column in `mr_res` to
+  that aesthetic, so e.g. instrument type and model (fixed/random
+  effects) can be shown at once without colliding.
+
+Implementation note for anyone extending
+[`outcome_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/outcome_forest_plot.md):
+the mapping always includes `group = .data$method`, even when `method`
+isn’t mapped to colour or shape. This is what makes
+[`ggplot2::position_dodge()`](https://ggplot2.tidyverse.org/reference/position_dodge.html)
+separate two rows that share the same `outcome` (e.g. a fixed-effects
+and a random-effects estimate for the same outcome) instead of fully
+overplotting them – removing that `group` binding would silently break
+the dodge for callers who only map `colour_by`/`shape_by` to something
+other than `method`.
+
+- `table_forest_plot(dat, null_value, xlab, box_colour)` – one row per
+  outcome, rendered as an inline result/CI/p-value table alongside the
+  plotted estimate, via the (`Suggests`-only) `forestplot` package
+  rather than `ggplot2`. Ported from a project-level script
+  (`NLRP3/Lanyue_forestplot_script/build_cardiometabolic_forestplot.R`)
+  that was a deliberate one-off exception to
+  [`outcome_forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/outcome_forest_plot.md)’s
+  usual convention. Unlike that original script, this function never
+  opens its own graphics device (no internal
+  [`pdf()`](https://rdrr.io/r/grDevices/pdf.html)/[`dev.off()`](https://rdrr.io/r/grDevices/dev.html))
+  – it returns the `forestplot` object, matching how every other plot
+  function in this file behaves; the caller renders it via
+  [`plot()`](https://rdrr.io/r/graphics/plot.default.html)/[`print()`](https://rdrr.io/r/base/print.html)
+  and controls the output device.
+
 ## Exported Utility Functions
+
+### Single-cell RNA eQTL format functions
+
+Four functions format raw single-cell eQTL datasets into the TwoSampleMR
+exposure format expected by
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+and
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md).
+They live in `R/format_single_cell_onek1k.R` and
+`R/format_sc_RNA_eqtl.R`. All functions:
+
+- Produce a TwoSampleMR exposure data frame with `chr.exposure`,
+  `pos.exposure`, and `eaf.exposure` (where available) so that
+  [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+  can perform its window filter and MAF computation without requiring
+  extra arguments.
+- Use the phenotype label convention `GENE___cell_type` (triple
+  underscore), matching what
+  [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+  and downstream splitting code expect.
+- Accept a `cell_type` argument that, when `NULL`, is inferred from the
+  filename.
+
+#### `format_single_cell_onek1k()`
+
+Handles the OneK1K combined eQTL table (`esnp_table.tsv.gz` or
+per-cell-type files). Key column mapping:
+
+| Raw column | Role | Notes |
+|----|----|----|
+| `A2` | effect allele | Assessed allele; `A2_FREQ_ONEK1K` is its frequency |
+| `A1` | other allele |  |
+| `SPEARMANS_RHO` | beta | Used as a standardised effect size |
+| derived | se | `|rho| / qnorm(P_VALUE / 2, lower.tail = FALSE)` |
+| `CHR`, `POS` | chr, pos | Required by [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md) window filter |
+| `A2_FREQ_ONEK1K` | eaf | Required by [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md) MAF computation |
+
+When the file contains a `CELL_ID` column (multi-cell-type combined
+file), rows are filtered to the requested cell type. An optional
+`sample_size` argument stores `samplesize.exposure` for
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md).
+
+#### `format_sceqtl_1m_scbloodnl()`
+
+Handles per-cell-type files from the 1M-scBloodNL cohort
+(`*_expression_eQTLsFDR-ProbeLevel.txt.gz`). Beta and SE are both
+derived because the raw files report Z-scores rather than effect sizes:
+
+- `N_total = sum(DatasetsNrSamples split on ";")`
+- `se = 1 / sqrt(N_total)`
+- `beta = OverallZScore * se`
+- `other_allele` derived by splitting `SNPType` on “/” and taking the
+  allele that differs from `AlleleAssessed`
+
+Rows where the other allele cannot be determined (allele not found in
+`SNPType`) are dropped with an informational message. Filtering to cis
+eQTLs (`CisTrans == "cis"`) is applied by default via the `cis_only`
+argument. Note that EAF is not available in these files, so
+`eaf.exposure` will be absent from the output, which means
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+will need an explicit `exposure_n` argument and sample size cannot be
+inferred from the formatted data.
+
+#### `format_sceqtl_dice()`
+
+Handles per-cell-type VCF files from the DICE database. VCF
+meta-information lines (`##`) are skipped by the internal
+[`read_vcf_data()`](https://github.com/BZuckerman97/mrpipeline/reference/read_vcf_data.md)
+helper, which counts comment lines via a streaming connection before
+calling
+[`data.table::fread()`](https://rdrr.io/pkg/data.table/man/fread.html).
+The INFO field is parsed with regex to extract `Gene`, `GeneSymbol`,
+`Pvalue`, and `Beta`. SE derivation:
+`|Beta| / sqrt(qchisq(Pvalue, df = 1))`.
+
+Key filtering decisions: - Only biallelic SNPs (single nucleotide,
+A/C/G/T bases) are retained. - Palindromic SNPs (A/T and C/G) are
+**dropped** because DICE provides no allele frequency data to resolve
+strand ambiguity. - `ALT` is treated as the effect allele; `REF` as the
+other allele.
+
+No EAF or sample size is available in the DICE VCF format.
+
+#### `format_sceqtl_dynamic_cseqtl()`
+
+Handles per-cell-type pre-formatted files
+(`*_500kb_combined.MR.tsv.gz`). These files already contain standard
+columns (`SNP`, `beta`, `se`, `effect_allele`, `other_allele`, `pval`,
+`chr`, `pos`), so the function’s only job is to append the cell type to
+the gene name and call
+[`TwoSampleMR::format_data()`](https://mrcieu.github.io/TwoSampleMR/reference/format_data.html).
+No EAF or sample size is available.
+
+#### Internal helper: `read_vcf_data()`
+
+Lives in `R/format_sc_RNA_eqtl.R`, tagged `@keywords internal`. Opens a
+streaming connection to the file, counts `##` comment lines one at a
+time (memory-efficient), reads the `#CHROM` header line to extract
+column names, then calls
+[`data.table::fread()`](https://rdrr.io/pkg/data.table/man/fread.html)
+with `skip` and `col.names`. Works for both plain and gzip-compressed
+VCF files.
 
 ### `get_gene_coords()`
 
@@ -105,6 +378,15 @@ are not exported.
 ### `harmonise_and_filter()`
 
 ### `compute_ld_matrix()`
+
+### `compute_ld_to_index()`
+
+Reuses
+[`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
+and squares its signed correlation column for one chosen index SNP to
+get r2 – no separate LD mechanism. Backs
+[`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)’s
+LD colouring; not used anywhere else.
 
 ### `clump_instruments()`
 

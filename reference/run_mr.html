@@ -9,7 +9,7 @@ and optional sensitivity analyses. Returns an mr_result S3 object."></head><body
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -150,9 +150,14 @@ exclude the MHC region: <code>data.frame(chr = "6", start = 26e6, end = 34e6)</c
 <code>"egger"</code> (MR Egger), <code>"weighted_median"</code> (weighted median),
 <code>"presso"</code> (MR-PRESSO), <code>"conmix"</code> (ContMix), <code>"steiger"</code> (Steiger
 filtering), <code>"pleiotropy"</code> (Egger intercept test; result stored in
-<code>$pleiotropy</code>, not <code>$results</code>). You may also pass any method name from
-<code>TwoSampleMR::mr_method_list()$obj</code> directly (e.g. <code>"mr_simple_median"</code>,
-<code>"mr_raps"</code>). Note: <code>"ivw_fe"</code> does not support <code>ld_correct = TRUE</code>.</p></dd>
+<code>$pleiotropy</code>, not <code>$results</code>), <code>"heterogeneity"</code> (Cochran's Q test via
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code>; result stored in <code>$heterogeneity</code>,
+not <code>$results</code>; requires &gt;= 2 instruments), <code>"loo"</code> (leave-one-out
+analysis via <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code>; result stored in <code>$loo</code>,
+not <code>$results</code>; requires &gt;= 3 instruments). You may also pass any
+method name from <code>TwoSampleMR::mr_method_list()$obj</code> directly (e.g.
+<code>"mr_simple_median"</code>, <code>"mr_raps"</code>). Note: <code>"ivw_fe"</code> does not support
+<code>ld_correct = TRUE</code>.</p></dd>
 
 
 <dt id="arg-ld-correct">ld_correct<a class="anchor" aria-label="anchor" href="#arg-ld-correct"></a></dt>
@@ -193,8 +198,10 @@ Default <code>TRUE</code>.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An <code>mr_result</code> object. Check <code>result$status</code> for <code>"success"</code> vs
-failure reasons. The <code>$timing</code> field contains a named numeric vector of
-elapsed seconds for each major step.</p>
+failure reasons. The <code>$results</code> data frame includes <code>or</code>, <code>or_lci95</code>, and
+<code>or_uci95</code> columns (from <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code>) alongside
+the raw <code>b</code> and <code>se</code>. The <code>$timing</code> field contains a named numeric
+vector of elapsed seconds for each major step.</p>
     </div>
     <div class="section level2">
     <h2 id="instrument-selection-modes">Instrument selection modes<a class="anchor" aria-label="anchor" href="#instrument-selection-modes"></a></h2>
@@ -222,6 +229,11 @@ are attempted; Egger, weighted median, and PRESSO require &gt;= 3 SNPs</p></li>
 <p>When <code>ld_correct = TRUE</code>, IVW and Egger use
 <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_ivw.html" class="external-link">MendelianRandomization::mr_ivw()</a></code> and <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_egger.html" class="external-link">MendelianRandomization::mr_egger()</a></code>
 with <code>correl = TRUE</code>.</p>
+<p>When <code>"egger"</code> is in <code>methods</code> and there are &gt;= 3 instruments,
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code> (the Egger intercept test) is always
+run automatically and its result stored in <code>$pleiotropy</code>. You do not need
+to add <code>"pleiotropy"</code> to <code>methods</code> separately. The <code>"pleiotropy"</code> shortcut
+remains available for running the intercept test without Egger.</p>
     </div>
 
     <div class="section level2">
@@ -253,7 +265,7 @@ with <code>correl = TRUE</code>.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

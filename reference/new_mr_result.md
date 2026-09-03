@@ -11,6 +11,8 @@ new_mr_result(
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
   pleiotropy = NULL,
+  heterogeneity = NULL,
+  loo = NULL,
   methods_skipped = character(),
   ld_matrix = NULL,
   params = list(),
@@ -24,7 +26,9 @@ new_mr_result(
 
 - results:
 
-  Data frame with columns: exposure, outcome, method, nsnp, b, se, pval.
+  Data frame with columns: exposure, outcome, method, nsnp, b, se, pval,
+  or, or_lci95, or_uci95 (and lo_ci, up_ci from
+  [`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html)).
 
 - instruments:
 
@@ -45,6 +49,18 @@ new_mr_result(
 
   Output of
   [`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html),
+  or `NULL`.
+
+- heterogeneity:
+
+  Output of
+  [`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html)
+  (Cochran's Q per method), or `NULL`.
+
+- loo:
+
+  Output of
+  [`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html),
   or `NULL`.
 
 - methods_skipped:

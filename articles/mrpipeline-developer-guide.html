@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,8 +78,7 @@
 <h3 id="mr_result">
 <code>mr_result</code><a class="anchor" aria-label="anchor" href="#mr_result"></a>
 </h3>
-<!-- TODO: full structure documentation (results, instruments, f_stats, steiger, methods_skipped, ld_matrix, params) -->
-<!-- TODO: print.mr_result() and summary.mr_result() -->
+<!-- TODO: full structure documentation (instruments, f_stats, steiger, methods_skipped, ld_matrix, params) -->
 <p>Every <code><a href="../reference/run_mr.html">run_mr()</a></code> call returns an <code>mr_result</code>
 object — even when no instruments survive filtering. The
 <code>status</code> field indicates success or failure:</p>
@@ -96,8 +95,144 @@ variants</li>
 <p>The <code>status_reason</code> field provides a human-readable
 explanation (e.g.
 <code>"No significant instruments in cis region for 'PCSK9'"</code>).</p>
-<p><code><a href="../reference/print.mr_result.html">print.mr_result()</a></code> and <code><a href="../reference/summary.mr_result.html">summary.mr_result()</a></code>
-display status information for non-success results.</p>
+<div class="section level4">
+<h4 id="results-data-frame">
+<code>$results</code> data frame<a class="anchor" aria-label="anchor" href="#results-data-frame"></a>
+</h4>
+<p>The <code>$results</code> data frame has one row per MR method and
+the following columns:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Column</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>exposure</code></td>
+<td>Exposure label (from <code>exposure_id</code>)</td>
+</tr>
+<tr class="even">
+<td><code>outcome</code></td>
+<td>Outcome label (from <code>outcome_id</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>method</code></td>
+<td>Method name</td>
+</tr>
+<tr class="even">
+<td><code>nsnp</code></td>
+<td>Number of instruments used</td>
+</tr>
+<tr class="odd">
+<td><code>b</code></td>
+<td>Effect estimate (log-OR scale for case-control outcomes)</td>
+</tr>
+<tr class="even">
+<td><code>se</code></td>
+<td>Standard error of <code>b</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>pval</code></td>
+<td>P-value</td>
+</tr>
+<tr class="even">
+<td><code>lo_ci</code></td>
+<td>Lower 95% CI on the log-OR scale (<code>b - 1.96 * se</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>up_ci</code></td>
+<td>Upper 95% CI on the log-OR scale (<code>b + 1.96 * se</code>)</td>
+</tr>
+<tr class="even">
+<td><code>or</code></td>
+<td>Odds ratio (<code>exp(b)</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>or_lci95</code></td>
+<td>Lower 95% CI for OR (<code>exp(lo_ci)</code>)</td>
+</tr>
+<tr class="even">
+<td><code>or_uci95</code></td>
+<td>Upper 95% CI for OR (<code>exp(up_ci)</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>The OR columns are always present (added by
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code> in the results assembly
+step). For quantitative outcomes the OR columns are still computed but
+should be interpreted cautiously – they reflect exponentiated effect
+sizes, not true odds ratios.</p>
+</div>
+<div class="section level4">
+<h4 id="egger-intercept-pleiotropy-test">Egger intercept / pleiotropy test<a class="anchor" aria-label="anchor" href="#egger-intercept-pleiotropy-test"></a>
+</h4>
+<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code> is run automatically
+whenever <code>"egger"</code> is in <code>methods</code> and there are
+&gt;= 3 instruments. The result is stored in <code>$pleiotropy</code> as
+a data frame with columns <code>egger_intercept</code>, <code>se</code>,
+<code>pval</code>, <code>exposure</code>, and <code>outcome</code>. The
+<code>"pleiotropy"</code> shortcut in <code>methods</code> triggers the
+same test independently (i.e. without also running the Egger slope
+estimate).</p>
+</div>
+<div class="section level4">
+<h4 id="heterogeneity-test-cochrans-q">Heterogeneity test (Cochran’s Q)<a class="anchor" aria-label="anchor" href="#heterogeneity-test-cochrans-q"></a>
+</h4>
+<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code> runs when
+<code>"heterogeneity"</code> is in <code>methods</code> and there are
+&gt;= 2 instruments; otherwise
+<code>methods_skipped["heterogeneity"]</code> records the reason. The
+result is stored in <code>$heterogeneity</code> as a data frame with one
+row per method (typically MR Egger and IVW), columns <code>Q</code>,
+<code>Q_df</code>, <code>Q_pval</code>, <code>exposure</code>,
+<code>outcome</code>.</p>
+</div>
+<div class="section level4">
+<h4 id="leave-one-out-analysis">Leave-one-out analysis<a class="anchor" aria-label="anchor" href="#leave-one-out-analysis"></a>
+</h4>
+<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code> runs when
+<code>"loo"</code> is in <code>methods</code> and there are &gt;= 3
+instruments (below that, dropping one SNP just reproduces the remaining
+SNP’s Wald ratio, which isn’t informative); otherwise
+<code>methods_skipped["loo"]</code> records the reason. The result is
+stored in <code>$loo</code> as a data frame with one row per SNP plus a
+pooled <code>"All"</code> row, columns <code>SNP</code>, <code>b</code>,
+<code>se</code>, <code>p</code>, <code>exposure</code>,
+<code>outcome</code>.</p>
+</div>
+<div class="section level4">
+<h4 id="flipping-exposure-direction-deliberately-not-provided">Flipping exposure direction – deliberately not provided<a class="anchor" aria-label="anchor" href="#flipping-exposure-direction-deliberately-not-provided"></a>
+</h4>
+<p><code><a href="../reference/run_mr.html">run_mr()</a></code> has no
+<code>flip_beta</code>/<code>exposure_label</code> argument, and none
+should be added. An earlier design (2026-07-29 to 2026-08-01) negated
+<code>harmonised$beta.exposure</code> once, immediately after
+harmonisation, so the flip propagated consistently into
+<code>$results</code>, <code>$instruments</code>, and <code>$loo</code>.
+It was removed because a shared-library flag that only ever touches
+<code>beta.exposure</code> – never
+<code>effect_allele.exposure</code>/<code>other_allele.exposure</code>/
+<code>eaf.exposure</code>/<code>beta.outcome</code> – hides that scope
+from the caller, inviting misuse. Projects that need to redefine
+exposure direction (e.g. modelling a drug’s inhibition mechanism) should
+write their own <code>flipped_beta()</code>-style helper in
+project-level code and apply it to the exposure/harmonised data before
+it reaches <code><a href="../reference/run_mr.html">run_mr()</a></code>. See the <code>mrpipeline</code>/root
+<code>CLAUDE.md</code> files for the full rationale.</p>
+</div>
+<div class="section level4">
+<h4 id="print-mr_result-and-summary-mr_result">
+<code>print.mr_result()</code> and
+<code>summary.mr_result()</code><a class="anchor" aria-label="anchor" href="#print-mr_result-and-summary-mr_result"></a>
+</h4>
+<p><code><a href="../reference/print.mr_result.html">print.mr_result()</a></code> shows a one-line summary using the
+first result row, including the OR and 95% CI (when available).
+<code><a href="../reference/summary.mr_result.html">summary.mr_result()</a></code> shows all methods with OR columns,
+F-statistics, Steiger result, the Egger intercept (when computed), the
+heterogeneity (Cochran’s Q) table (when computed), a leave-one-out row
+count (when computed), and skipped methods.</p>
+</div>
 </div>
 <div class="section level3">
 <h3 id="coloc_result">
@@ -175,7 +310,8 @@ functions:
 </ul>
 </li>
 <li>
-<code>plot.coloc_result(x, type)</code> — custom ggplot2 plots:
+<code>plot.coloc_result(x, type)</code> — custom ggplot2 plots,
+except <code>"locuszoom"</code>:
 <ul>
 <li>
 <code>"pp_bar"</code> (default): bar chart of ABF posterior
@@ -183,16 +319,256 @@ probabilities (H0–H4)</li>
 <li>
 <code>"regional"</code>: side-by-side regional association plots
 (-log10(p) vs position) for exposure and outcome</li>
+<li>
+<code>"locuszoom"</code>: LD-coloured regional plots via the
+(<code>Suggests</code>-only) <code>locuszoomr</code> package, dispatched
+to the internal
+<code>plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)</code>.
+Unlike every other plot function in this file, this one does
+<strong>not</strong> return a ggplot object (or any re-renderable
+object) – <code>locuszoomr</code>’s
+<code>locus()</code>/<code>multi_layout()</code> draw directly to the
+current graphics device as a side effect, like base/grid plotting
+functions, and <code><a href="../reference/plot_coloc_locuszoom.html">plot_coloc_locuszoom()</a></code> returns
+<code>NULL</code> invisibly regardless of success. Callers must open a
+device (<code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code>, <code><a href="https://rdrr.io/r/grDevices/png.html" class="external-link">png()</a></code>, …) before calling and
+<code><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off()</a></code> after, to save the result. <code>ens_db</code>,
+if given as a string, must already be <strong>attached</strong> via
+<code><a href="https://rdrr.io/r/base/library.html" class="external-link">library()</a></code> – <code><a href="https://rdrr.io/pkg/locuszoomr/man/locus.html" class="external-link">locuszoomr::locus()</a></code> resolves it
+via <code>get(ens_db)</code> on the search path and errors if it’s only
+installed, not attached. LD (r2) is computed against a single index SNP
+(default: the SNP with the lowest <code>pval.exposure</code>, matching
+<code><a href="https://rdrr.io/pkg/locuszoomr/man/locus.html" class="external-link">locuszoomr::locus()</a></code>’s own default) via the internal helper
+<code><a href="../reference/compute_ld_to_index.html">compute_ld_to_index()</a></code> (see below), which reuses
+<code><a href="../reference/compute_ld_matrix.html">compute_ld_matrix()</a></code> – no new LD mechanism or network calls.
+There is no genome-build field stored on <code>coloc_result</code>, so
+the caller must supply <code>ens_db</code> matching whatever build the
+data/<code>bfile</code> actually use
+(e.g. <code>EnsDb.Hsapiens.v75</code> for GRCh37,
+<code>EnsDb.Hsapiens.v86</code> for GRCh38) – no auto-detection.</li>
 </ul>
 </li>
 </ul>
-<p>Both methods return <code>NULL</code> invisibly for non-success
+<p>Both S3 methods return <code>NULL</code> invisibly for non-success
 results with an informative message.</p>
+</div>
+<div class="section level3">
+<h3 id="forest_plot-outcome_forest_plot-and-table_forest_plot">forest_plot(), outcome_forest_plot(), and table_forest_plot()<a class="anchor" aria-label="anchor" href="#forest_plot-outcome_forest_plot-and-table_forest_plot"></a>
+</h3>
+<p><code>R/plot.R</code> also defines three plain exported functions
+(not S3 methods – none of <code><a href="../reference/forest_plot.html">forest_plot()</a></code>’s
+list-of-<code>mr_result</code> input,
+<code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()</a></code>’s and
+<code><a href="../reference/table_forest_plot.html">table_forest_plot()</a></code>’s caller-built data frame input fit
+<code>plot(x, ...)</code> dispatch):</p>
+<ul>
+<li>
+<code>forest_plot(results, methods, relabel, ...)</code> – one row
+per <em>method</em>. Filters and reorders each result’s
+<code>$results</code> to <code>methods</code>, binds them (list order
+becomes section order when <code>results</code> is a named list), then
+calls <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/forest_plot_1_to_many.html" class="external-link">TwoSampleMR::forest_plot_1_to_many()</a></code> with
+<code>TraitM = "method"</code>. Default <code>methods</code> puts
+<code>"IVW (fixed effects)"</code> above
+<code>"Inverse variance weighted"</code>; the <code>relabel</code>
+argument (default: rename <code>"Inverse variance weighted"</code> to
+<code>"IVW (random effects)"</code>) is applied to the combined data’s
+<code>method</code> column <em>after</em> filtering/ordering, so it
+never affects matching against the raw labels <code><a href="../reference/run_mr.html">run_mr()</a></code>
+produced.</li>
+<li>
+<code>outcome_forest_plot(mr_res, xlab, method, colour_by, shape_by, ...)</code>
+– one row per <em>outcome</em>. Standalone <code>ggplot2</code> code
+rather than a <code>forest_plot_1_to_many()</code> wrapper, because that
+function force-blanks its <code>exposure</code> column internally and so
+cannot map colour or shape to a grouping variable. <code>method</code>
+is a plain inclusion filter (not a priority/fallback selector): pass one
+label for one model, or both to get two rows for any outcome where both
+were computed. <code>colour_by</code>/<code>shape_by</code> each map an
+arbitrary column in <code>mr_res</code> to that aesthetic, so e.g.
+instrument type and model (fixed/random effects) can be shown at once
+without colliding.</li>
+</ul>
+<p>Implementation note for anyone extending
+<code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()</a></code>: the mapping always includes
+<code>group = .data$method</code>, even when <code>method</code> isn’t
+mapped to colour or shape. This is what makes
+<code><a href="https://ggplot2.tidyverse.org/reference/position_dodge.html" class="external-link">ggplot2::position_dodge()</a></code> separate two rows that share the
+same <code>outcome</code> (e.g. a fixed-effects and a random-effects
+estimate for the same outcome) instead of fully overplotting them –
+removing that <code>group</code> binding would silently break the dodge
+for callers who only map <code>colour_by</code>/<code>shape_by</code> to
+something other than <code>method</code>.</p>
+<ul>
+<li>
+<code>table_forest_plot(dat, null_value, xlab, box_colour)</code> –
+one row per outcome, rendered as an inline result/CI/p-value table
+alongside the plotted estimate, via the (<code>Suggests</code>-only)
+<code>forestplot</code> package rather than <code>ggplot2</code>. Ported
+from a project-level script
+(<code>NLRP3/Lanyue_forestplot_script/build_cardiometabolic_forestplot.R</code>)
+that was a deliberate one-off exception to
+<code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()</a></code>’s usual convention. Unlike that
+original script, this function never opens its own graphics device (no
+internal <code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code>/<code><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off()</a></code>) – it returns the
+<code>forestplot</code> object, matching how every other plot function
+in this file behaves; the caller renders it via
+<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>/<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> and controls the output
+device.</li>
+</ul>
 </div>
 </div>
 <div class="section level2">
 <h2 id="exported-utility-functions">Exported Utility Functions<a class="anchor" aria-label="anchor" href="#exported-utility-functions"></a>
 </h2>
+<div class="section level3">
+<h3 id="single-cell-rna-eqtl-format-functions">Single-cell RNA eQTL format functions<a class="anchor" aria-label="anchor" href="#single-cell-rna-eqtl-format-functions"></a>
+</h3>
+<p>Four functions format raw single-cell eQTL datasets into the
+TwoSampleMR exposure format expected by <code><a href="../reference/run_mr.html">run_mr()</a></code> and
+<code><a href="../reference/run_coloc.html">run_coloc()</a></code>. They live in
+<code>R/format_single_cell_onek1k.R</code> and
+<code>R/format_sc_RNA_eqtl.R</code>. All functions:</p>
+<ul>
+<li>Produce a TwoSampleMR exposure data frame with
+<code>chr.exposure</code>, <code>pos.exposure</code>, and
+<code>eaf.exposure</code> (where available) so that
+<code><a href="../reference/run_coloc.html">run_coloc()</a></code> can perform its window filter and MAF
+computation without requiring extra arguments.</li>
+<li>Use the phenotype label convention <code>GENE___cell_type</code>
+(triple underscore), matching what <code><a href="../reference/run_mr.html">run_mr()</a></code> and downstream
+splitting code expect.</li>
+<li>Accept a <code>cell_type</code> argument that, when
+<code>NULL</code>, is inferred from the filename.</li>
+</ul>
+<div class="section level4">
+<h4 id="format_single_cell_onek1k">
+<code>format_single_cell_onek1k()</code><a class="anchor" aria-label="anchor" href="#format_single_cell_onek1k"></a>
+</h4>
+<p>Handles the OneK1K combined eQTL table
+(<code>esnp_table.tsv.gz</code> or per-cell-type files). Key column
+mapping:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Raw column</th>
+<th>Role</th>
+<th>Notes</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>A2</code></td>
+<td>effect allele</td>
+<td>Assessed allele; <code>A2_FREQ_ONEK1K</code> is its frequency</td>
+</tr>
+<tr class="even">
+<td><code>A1</code></td>
+<td>other allele</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>SPEARMANS_RHO</code></td>
+<td>beta</td>
+<td>Used as a standardised effect size</td>
+</tr>
+<tr class="even">
+<td>derived</td>
+<td>se</td>
+<td><code>|rho| / qnorm(P_VALUE / 2, lower.tail = FALSE)</code></td>
+</tr>
+<tr class="odd">
+<td>
+<code>CHR</code>, <code>POS</code>
+</td>
+<td>chr, pos</td>
+<td>Required by <code><a href="../reference/run_coloc.html">run_coloc()</a></code> window filter</td>
+</tr>
+<tr class="even">
+<td><code>A2_FREQ_ONEK1K</code></td>
+<td>eaf</td>
+<td>Required by <code><a href="../reference/run_coloc.html">run_coloc()</a></code> MAF computation</td>
+</tr>
+</tbody>
+</table>
+<p>When the file contains a <code>CELL_ID</code> column (multi-cell-type
+combined file), rows are filtered to the requested cell type. An
+optional <code>sample_size</code> argument stores
+<code>samplesize.exposure</code> for <code><a href="../reference/run_coloc.html">run_coloc()</a></code>.</p>
+</div>
+<div class="section level4">
+<h4 id="format_sceqtl_1m_scbloodnl">
+<code>format_sceqtl_1m_scbloodnl()</code><a class="anchor" aria-label="anchor" href="#format_sceqtl_1m_scbloodnl"></a>
+</h4>
+<p>Handles per-cell-type files from the 1M-scBloodNL cohort
+(<code>*_expression_eQTLsFDR-ProbeLevel.txt.gz</code>). Beta and SE are
+both derived because the raw files report Z-scores rather than effect
+sizes:</p>
+<ul>
+<li><code>N_total = sum(DatasetsNrSamples split on ";")</code></li>
+<li><code>se = 1 / sqrt(N_total)</code></li>
+<li><code>beta = OverallZScore * se</code></li>
+<li>
+<code>other_allele</code> derived by splitting <code>SNPType</code>
+on “/” and taking the allele that differs from
+<code>AlleleAssessed</code>
+</li>
+</ul>
+<p>Rows where the other allele cannot be determined (allele not found in
+<code>SNPType</code>) are dropped with an informational message.
+Filtering to cis eQTLs (<code>CisTrans == "cis"</code>) is applied by
+default via the <code>cis_only</code> argument. Note that EAF is not
+available in these files, so <code>eaf.exposure</code> will be absent
+from the output, which means <code><a href="../reference/run_coloc.html">run_coloc()</a></code> will need an
+explicit <code>exposure_n</code> argument and sample size cannot be
+inferred from the formatted data.</p>
+</div>
+<div class="section level4">
+<h4 id="format_sceqtl_dice">
+<code>format_sceqtl_dice()</code><a class="anchor" aria-label="anchor" href="#format_sceqtl_dice"></a>
+</h4>
+<p>Handles per-cell-type VCF files from the DICE database. VCF
+meta-information lines (<code>##</code>) are skipped by the internal
+<code><a href="../reference/read_vcf_data.html">read_vcf_data()</a></code> helper, which counts comment lines via a
+streaming connection before calling <code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">data.table::fread()</a></code>.
+The INFO field is parsed with regex to extract <code>Gene</code>,
+<code>GeneSymbol</code>, <code>Pvalue</code>, and <code>Beta</code>. SE
+derivation: <code>|Beta| / sqrt(qchisq(Pvalue, df = 1))</code>.</p>
+<p>Key filtering decisions: - Only biallelic SNPs (single nucleotide,
+A/C/G/T bases) are retained. - Palindromic SNPs (A/T and C/G) are
+<strong>dropped</strong> because DICE provides no allele frequency data
+to resolve strand ambiguity. - <code>ALT</code> is treated as the effect
+allele; <code>REF</code> as the other allele.</p>
+<p>No EAF or sample size is available in the DICE VCF format.</p>
+</div>
+<div class="section level4">
+<h4 id="format_sceqtl_dynamic_cseqtl">
+<code>format_sceqtl_dynamic_cseqtl()</code><a class="anchor" aria-label="anchor" href="#format_sceqtl_dynamic_cseqtl"></a>
+</h4>
+<p>Handles per-cell-type pre-formatted files
+(<code>*_500kb_combined.MR.tsv.gz</code>). These files already contain
+standard columns (<code>SNP</code>, <code>beta</code>, <code>se</code>,
+<code>effect_allele</code>, <code>other_allele</code>,
+<code>pval</code>, <code>chr</code>, <code>pos</code>), so the
+function’s only job is to append the cell type to the gene name and call
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/format_data.html" class="external-link">TwoSampleMR::format_data()</a></code>. No EAF or sample size is
+available.</p>
+</div>
+<div class="section level4">
+<h4 id="internal-helper-read_vcf_data">Internal helper: <code>read_vcf_data()</code><a class="anchor" aria-label="anchor" href="#internal-helper-read_vcf_data"></a>
+</h4>
+<p>Lives in <code>R/format_sc_RNA_eqtl.R</code>, tagged
+<code>@keywords internal</code>. Opens a streaming connection to the
+file, counts <code>##</code> comment lines one at a time
+(memory-efficient), reads the <code>#CHROM</code> header line to extract
+column names, then calls <code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">data.table::fread()</a></code> with
+<code>skip</code> and <code>col.names</code>. Works for both plain and
+gzip-compressed VCF files.</p>
+</div>
+</div>
 <div class="section level3">
 <h3 id="get_gene_coords">
 <code>get_gene_coords()</code><a class="anchor" aria-label="anchor" href="#get_gene_coords"></a>
@@ -226,6 +602,15 @@ autosomes</li>
 <code>compute_ld_matrix()</code><a class="anchor" aria-label="anchor" href="#compute_ld_matrix"></a>
 </h3>
 <!-- TODO: document purpose, inputs, outputs, why bfile is always required -->
+</div>
+<div class="section level3">
+<h3 id="compute_ld_to_index">
+<code>compute_ld_to_index()</code><a class="anchor" aria-label="anchor" href="#compute_ld_to_index"></a>
+</h3>
+<p>Reuses <code><a href="../reference/compute_ld_matrix.html">compute_ld_matrix()</a></code> and squares its signed
+correlation column for one chosen index SNP to get r2 – no separate LD
+mechanism. Backs <code><a href="../reference/plot_coloc_locuszoom.html">plot_coloc_locuszoom()</a></code>’s LD colouring; not
+used anywhere else.</p>
 </div>
 <div class="section level3">
 <h3 id="clump_instruments">
@@ -453,7 +838,7 @@ warnings</li>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -110,6 +110,36 @@
         </dt>
         <dd>Plot a coloc_result object</dd>
       </dl></div><div class="section level2">
+      <h2 id="plotting">Plotting<a class="anchor" aria-label="anchor" href="#plotting"></a></h2>
+
+      <div class="section-desc"><p>Plot MR results across multiple exposures/outcomes.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="forest_plot.html">forest_plot()</a></code>
+
+        </dt>
+        <dd>Forest plot of MR methods for one or more results</dd>
+
+        <dt>
+
+          <code><a href="outcome_forest_plot.html">outcome_forest_plot()</a></code>
+
+        </dt>
+        <dd>Forest plot of MR outcomes, optionally coloured/shaped by a grouping column</dd>
+
+        <dt>
+
+          <code><a href="table_forest_plot.html">table_forest_plot()</a></code>
+
+        </dt>
+        <dd>Table-style forest plot (forestplot package backend)</dd>
+      </dl></div><div class="section level2">
       <h2 id="data-formatting">Data Formatting<a class="anchor" aria-label="anchor" href="#data-formatting"></a></h2>
 
       <div class="section-desc"><p>Format GWAS summary statistics for use with mrpipeline.</p></div>
@@ -145,7 +175,28 @@
           <code><a href="format_single_cell_onek1k.html">format_single_cell_onek1k()</a></code>
 
         </dt>
-        <dd>Format single-cell RNA eQTL data for analysis</dd>
+        <dd>Format single-cell RNA eQTL data from OneK1K for MR analysis</dd>
+
+        <dt>
+
+          <code><a href="format_sceqtl_1m_scbloodnl.html">format_sceqtl_1m_scbloodnl()</a></code>
+
+        </dt>
+        <dd>Format single-cell RNA eQTL data from 1M-scBloodNL for MR analysis</dd>
+
+        <dt>
+
+          <code><a href="format_sceqtl_dice.html">format_sceqtl_dice()</a></code>
+
+        </dt>
+        <dd>Format single-cell RNA eQTL data from DICE for MR analysis</dd>
+
+        <dt>
+
+          <code><a href="format_sceqtl_dynamic_cseqtl.html">format_sceqtl_dynamic_cseqtl()</a></code>
+
+        </dt>
+        <dd>Format single-cell RNA eQTL data from dynamic_cseqtl for MR analysis</dd>
 
         <dt>
 
@@ -176,6 +227,29 @@
 
         </dt>
         <dd>Look up gene coordinates from Ensembl via biomaRt</dd>
+      </dl></div><div class="section level2">
+      <h2 id="example-data">Example Data<a class="anchor" aria-label="anchor" href="#example-data"></a></h2>
+
+      <div class="section-desc"><p>Bundled datasets used in examples and vignettes.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="cd40_exposure.html">cd40_exposure</a></code>
+
+        </dt>
+        <dd>CD40 exposure data (TwoSampleMR format)</dd>
+
+        <dt>
+
+          <code><a href="sjogren_outcome.html">sjogren_outcome</a></code>
+
+        </dt>
+        <dd>Sjogren's disease outcome data (standardised format)</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
@@ -186,7 +260,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

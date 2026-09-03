@@ -21,8 +21,8 @@ format_gwas(
   marker_col = NULL,
   marker_sep = ":",
   log10_pval = FALSE,
-  flip_beta = FALSE,
-  n = NULL
+  n = NULL,
+  ref_frq = NULL
 )
 ```
 
@@ -60,8 +60,12 @@ format_gwas(
 - bim_path:
 
   Character. Path to a PLINK bfile prefix (without `.bim`) used to
-  recover rsIDs when the data lacks them. Required whenever the rsids
-  column is absent.
+  recover rsIDs when the data lacks them (joins by chr + pos), or to
+  recover chr/pos when the data has rsIDs but no positional columns
+  (joins by rsID) – see *rsID lookup from bim file* and *chr/pos lookup
+  from bim file (reverse direction)*. Required whenever the rsids column
+  is absent; optional but recommended when rsids are present without
+  chr/pos and a coloc analysis is planned.
 
 - marker_col:
 
@@ -78,16 +82,22 @@ format_gwas(
   Logical. If `TRUE`, the p-value column is in `-log10` scale and is
   back-transformed via `10^-x`. Default `FALSE`.
 
-- flip_beta:
-
-  Logical. If `TRUE`, multiplies `beta` by `-1` - use when the source
-  file encodes the inverse direction of the intended exposure (e.g.
-  modelling NLRP3 inhibition rather than activation). Default `FALSE`.
-
 - n:
 
   Integer. Explicit sample size. Added as the `n` column only when no
   sample-size column is already present in the data.
+
+- ref_frq:
+
+  Character. Path to a PLINK `.frq` file (produced by `plink --freq`,
+  columns `CHR SNP A1 A2 MAF NCHROBS`). When supplied, patches `eaf` for
+  any row where it is missing (creating the `eaf` column first if the
+  data has none at all) by matching `rsids` against `SNP` and aligning
+  `MAF`/`1-MAF` to `effect_allele`. Existing non-missing `eaf` values
+  are never overwritten. Useful for pre-clumped instrument files that
+  carry no allele-frequency column, where palindromic SNPs would
+  otherwise be unresolvable (and typically dropped) during
+  harmonisation.
 
 ## Value
 
@@ -115,6 +125,7 @@ checking a built-in table of known aliases for each target column:
 | `beta` | `Beta`, `Effect`, `BETA` |
 | `se` | `standard_error`, `StdErr`, `SE`, `sebeta` |
 | `or` | `odds_ratio`, `OR` |
+| `zscore` | `zscore`, `Zscore`, `Z-score`, `Z_score` |
 | `eaf` | `effect_allele_frequency`, `Freq1`, `EAFrq`, `A1FREQ`, `af_alt`, `EAF`, `FRQ` |
 | `pval` | `p_value`, `P-value`, `P`, `Pval`, `p.value` |
 | `n` | `N`, `TotalSampleSize`, `n_total` |
@@ -131,9 +142,11 @@ they take precedence in the event of ambiguity.
 ## Automatic odds-ratio to log-odds conversion
 
 Some GWAS files (particularly older EBI deposits) report effect sizes as
-odds ratios rather than log-odds. When `beta` is absent after column
-normalisation but an `or` column is present, the function automatically
-derives:
+odds ratios rather than log-odds. When `beta` is absent – or present but
+entirely `NA` (some GWAS Catalog templates carry an empty `beta` column
+alongside a populated `odds_ratio` column, e.g. Ji 2016 PSC) – after
+column normalisation, and an `or` column is present, the function
+automatically derives:
 
 - `beta = log(or)` (natural log; converts OR to the log-odds scale MR
   requires)
@@ -147,6 +160,60 @@ common-variant GWAS. An informative message is emitted whenever the
 conversion is applied. If your file has an OR column under a
 non-standard name, add it via `col_map = list(or = "MY_OR_COLUMN")`.
 
+## Automatic Z-score to beta/se conversion
+
+Some GWAS files (typically METAL output) report only a Z-score rather
+than beta/se – e.g. Hysi 2020 refractive error, He strabismus,
+Cuellar-Partida 2021 handedness. When `beta` is absent after column
+normalisation but a `zscore` column is present, the function derives it
+automatically:
+
+- If `se` is already present: `beta = zscore * se`.
+
+- Otherwise, `se` is first derived from allele frequency and sample size
+  via the standard GWAS Z-score formula, then `beta = zscore * se`:
+  `se = 1 / sqrt(2 * eaf * (1 - eaf) * (n + zscore^2))`. This path
+  requires both `eaf` and `n` columns.
+
+An informative message is emitted whenever the conversion is applied. If
+your file has a Z-score column under a non-standard name, add it via
+`col_map = list(zscore = "MY_Z_COLUMN")`; likewise use `col_map` for a
+non-standard sample-size column (e.g. METAL's `Weight`), via
+`col_map = list(n = "Weight")`.
+
+## Automatic se derivation from beta + zscore
+
+Some GWAS files report a real `beta` and a `zscore` but no `se` column –
+e.g. the D-dimer Suhre GCST90100910 file, which publishes `Beta` + `Z`
+(its `z` column needs `col_map = list(zscore = "z")`, since a bare `"z"`
+is not in the built-in `zscore` alias table). When this happens, the
+function derives `se` as an exact algebraic inversion of
+`z = beta / se`:
+
+- `se = |beta / zscore|`
+
+This is preferred over the beta+p-value back-calculation below whenever
+a `zscore` column is available, since it does not depend on a (possibly
+rounded) p-value – the p-value method is undefined when `pval == 1`, a
+real risk for a true-null SNP. An informative message is emitted
+whenever this derivation is applied.
+
+## Automatic se derivation from beta + p-value
+
+Some GWAS files report a real `beta` and `pval` but no `se`, `or`, or
+`zscore` column at all – e.g. the deCODE haematinics files (Iron_TSAT,
+Iron_Ferritin). When this happens (and the OR/Z-score derivations above
+don't apply, since neither an `or` nor a `zscore` column is present),
+the function derives `se` directly via the same Z-score back-calculation
+used in the OR conversion above:
+
+- `se = |beta| / qnorm(pval / 2)`
+
+An informative message is emitted whenever this derivation is applied.
+If your file has `se` under a non-standard name, add it via
+`col_map = list(se = "MY_SE_COLUMN")` instead of relying on this
+fallback.
+
 ## rsID lookup from bim file
 
 When `rsids` is absent (or all `NA`) after column normalisation, and
@@ -155,6 +222,24 @@ bim file by chromosome and position to recover rsIDs. Rows without a bim
 match are dropped – they are absent from the reference panel and cannot
 be used in LD-based analyses. A message reports how many SNPs were
 retained.
+
+## chr/pos lookup from bim file (reverse direction)
+
+Some files report a real rsID but no positional columns at all (e.g. the
+Corbin & Timpson 2020 cytokine GWASes, whose `MarkerName` column already
+contains rsIDs). When `rsids` is present but `chr`/`pos` are absent, and
+`bim_path` is supplied, the function instead inner-joins to the bim file
+**by rsID** to recover chromosome and position. This is the mirror image
+of the lookup above and is needed because
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+requires `chr`/`pos` to window data around a gene region, even though
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+does not need them. If `bim_path` is not supplied in this situation,
+`chr`/`pos` are simply left absent – `format_gwas()` does not require
+them for
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md),
+but a coloc analysis on that outcome will fail downstream until they are
+added (e.g. by re-running with `bim_path` set).
 
 ## Marker column parsing
 
@@ -189,12 +274,11 @@ ebi_il18 <- format_gwas(
   col_map      = list(pval = "PVALUE")
 )
 
-# Exposure GWAS -- flip beta to model NLRP3 activation not suppression
+# Exposure GWAS, ready for run_mr()
 exposure <- format_gwas(
   path         = "NLRP3/Output/NLRP3_CRP_IVs_300kb.tsv",
   phenotype_id = "NLRP3",
-  type         = "exposure",
-  flip_beta    = TRUE
+  type         = "exposure"
 )
 } # }
 ```

@@ -12,7 +12,8 @@ format_pqtl_decode(
   decode_proteomic_gwas_file_path,
   decode_included_variants_file_path,
   pqtl_assay,
-  x_y_chr_file = NULL
+  x_y_chr_file = NULL,
+  type = c("exposure", "outcome")
 )
 ```
 
@@ -40,12 +41,22 @@ format_pqtl_decode(
   chromosomes. This file should be tab-separated with columns:
   Chromosome, Position, RSID.
 
+- type:
+
+  Character, either `"exposure"` (default) or `"outcome"`. `"exposure"`
+  runs the data through
+  [`TwoSampleMR::format_data()`](https://mrcieu.github.io/TwoSampleMR/reference/format_data.html)
+  and returns `list(exposure = <formatted data frame>)`. `"outcome"`
+  skips `format_data()` and returns a plain data frame normalised to the
+  same schema as `format_gwas(type = "outcome")`, so
+  [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+  can pre-filter by rsids before calling `format_data()` internally.
+
 ## Value
 
-A list with two elements:
-
-- `exposure`: Formatted exposure data frame (output of
-  TwoSampleMR::format_data).
+For `type = "exposure"`: a list with one element, `exposure` (formatted
+exposure data frame, output of TwoSampleMR::format_data()). For
+`type = "outcome"`: a plain data frame (not wrapped in a list).
 
 ## Examples
 

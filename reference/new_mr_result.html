@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,8 @@
 <span>  f_stats <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>per_snp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span>, mean <span class="op">=</span> <span class="cn">NA_real_</span>, min <span class="op">=</span> <span class="cn">NA_real_</span><span class="op">)</span>,</span>
 <span>  steiger <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  pleiotropy <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  heterogeneity <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  loo <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  methods_skipped <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  ld_matrix <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
@@ -64,7 +66,8 @@
 
 <dl><dt id="arg-results">results<a class="anchor" aria-label="anchor" href="#arg-results"></a></dt>
 <dd><p>Data frame with columns: exposure, outcome, method, nsnp,
-b, se, pval.</p></dd>
+b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code>).</p></dd>
 
 
 <dt id="arg-instruments">instruments<a class="anchor" aria-label="anchor" href="#arg-instruments"></a></dt>
@@ -82,6 +85,15 @@ b, se, pval.</p></dd>
 
 <dt id="arg-pleiotropy">pleiotropy<a class="anchor" aria-label="anchor" href="#arg-pleiotropy"></a></dt>
 <dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code>, or <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-heterogeneity">heterogeneity<a class="anchor" aria-label="anchor" href="#arg-heterogeneity"></a></dt>
+<dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code> (Cochran's
+Q per method), or <code>NULL</code>.</p></dd>
+
+
+<dt id="arg-loo">loo<a class="anchor" aria-label="anchor" href="#arg-loo"></a></dt>
+<dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code>, or <code>NULL</code>.</p></dd>
 
 
 <dt id="arg-methods-skipped">methods_skipped<a class="anchor" aria-label="anchor" href="#arg-methods-skipped"></a></dt>
@@ -126,7 +138,7 @@ major step inside <code><a href="run_mr.html">run_mr()</a></code>. Empty by defa
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>

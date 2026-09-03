@@ -12,11 +12,11 @@
 
 Zuckerman B, Warwick A (2026). *mrpipeline: Functions to set up a
 pipeline for performing Mendelian randomization*. R package version
-0.4.1.
+0.5.0.
 
     @Manual{,
       title = {mrpipeline: Functions to set up a pipeline for performing Mendelian randomization},
       author = {Benjamin Zuckerman and Alasdair Warwick},
       year = {2026},
-      note = {R package version 0.4.1},
+      note = {R package version 0.5.0},
     }
