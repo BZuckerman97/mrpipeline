@@ -1,7 +1,6 @@
-# Tests for R/format_single_cell_eqtl.R:
-# read_vcf_data() (internal), format_single_cell_onek1k(),
-# format_sceqtl_1m_scbloodnl(), format_sceqtl_dice(),
-# format_sceqtl_dynamic_cseqtl()
+# Tests for R/format_single_cell_eqtl.R: the internal read_vcf_data() helper,
+# plus the exported format_single_cell_onek1k(), format_sceqtl_1m_scbloodnl(),
+# format_sceqtl_dice(), and format_sceqtl_dynamic_cseqtl() formatters.
 
 skip_if_not_installed("TwoSampleMR")
 

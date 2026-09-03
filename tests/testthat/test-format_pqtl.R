@@ -197,7 +197,12 @@ test_that("format_pqtl_ukbppp drops SNPs absent from rsid file", {
 test_that("format_pqtl_ukbppp outcome type returns a data frame with format_gwas(outcome) schema", {
   gwas <- make_ukbppp_gwas()
   rsids <- make_ukbppp_rsid(gwas)
-  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "outcome")
+  result <- format_pqtl_ukbppp(
+    gwas,
+    rsids,
+    pqtl_assay = "IL6",
+    type = "outcome"
+  )
   expect_s3_class(result, "data.frame")
   expect_true(all(
     c(
@@ -221,7 +226,12 @@ test_that("format_pqtl_ukbppp outcome type returns a data frame with format_gwas
 test_that("format_pqtl_ukbppp outcome type carries N through as n when present", {
   gwas <- make_ukbppp_gwas()
   rsids <- make_ukbppp_rsid(gwas)
-  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "outcome")
+  result <- format_pqtl_ukbppp(
+    gwas,
+    rsids,
+    pqtl_assay = "IL6",
+    type = "outcome"
+  )
   expect_true(all(result$n == 50000L))
 })
 
@@ -235,7 +245,12 @@ test_that("format_pqtl_ukbppp outcome type defaults n to NA when N is absent, ra
   gwas <- make_ukbppp_gwas()
   gwas$N <- NULL
   rsids <- make_ukbppp_rsid(gwas)
-  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "outcome")
+  result <- format_pqtl_ukbppp(
+    gwas,
+    rsids,
+    pqtl_assay = "IL6",
+    type = "outcome"
+  )
   expect_true(all(is.na(result$n)))
 })
 
@@ -243,7 +258,12 @@ test_that("format_pqtl_ukbppp exposure type still works when N is absent", {
   gwas <- make_ukbppp_gwas()
   gwas$N <- NULL
   rsids <- make_ukbppp_rsid(gwas)
-  result <- format_pqtl_ukbppp(gwas, rsids, pqtl_assay = "IL6", type = "exposure")
+  result <- format_pqtl_ukbppp(
+    gwas,
+    rsids,
+    pqtl_assay = "IL6",
+    type = "exposure"
+  )
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), nrow(gwas))
 })

@@ -317,7 +317,11 @@ plot_coloc_locuszoom <- function(
   # functions, multi_layout() draws directly to the current graphics device
   # as a side effect and returns NULL -- it is not a re-renderable object
   # like a ggplot; wrap in pdf()/png()/dev.off() (or similar) to save it.
-  invisible(locuszoomr::multi_layout(list(loc_exp, loc_out), nrow = 2, ncol = 1))
+  invisible(locuszoomr::multi_layout(
+    list(loc_exp, loc_out),
+    nrow = 2,
+    ncol = 1
+  ))
 }
 
 #' Forest plot of MR methods for one or more results

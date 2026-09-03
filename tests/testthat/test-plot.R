@@ -128,7 +128,12 @@ test_that("plot.coloc_result locuszoom requires locuszoomr and ensembldb", {
   )
 
   expect_error(
-    plot(res, type = "locuszoom", ens_db = "EnsDb.Hsapiens.v75", bfile = "unused"),
+    plot(
+      res,
+      type = "locuszoom",
+      ens_db = "EnsDb.Hsapiens.v75",
+      bfile = "unused"
+    ),
     "locuszoomr.*ensembldb|ensembldb.*locuszoomr"
   )
 })
@@ -180,7 +185,12 @@ test_that("plot.coloc_result locuszoom renders with locuszoomr/ensembldb install
   # (a non-trivial file), not just that the call completed without error.
   out_file <- tempfile(fileext = ".png")
   grDevices::png(out_file, width = 800, height = 800)
-  p <- plot(res, type = "locuszoom", ens_db = "EnsDb.Hsapiens.v75", bfile = bfile)
+  p <- plot(
+    res,
+    type = "locuszoom",
+    ens_db = "EnsDb.Hsapiens.v75",
+    bfile = bfile
+  )
   grDevices::dev.off()
 
   expect_null(p)

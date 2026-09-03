@@ -492,13 +492,12 @@ format_sceqtl_dice <- function(
   }
 
   # Drop palindromic SNPs (no EAF available to resolve strand ambiguity)
+  is_palindromic <- (dt$REF == "A" & dt$ALT == "T") |
+    (dt$REF == "T" & dt$ALT == "A") |
+    (dt$REF == "C" & dt$ALT == "G") |
+    (dt$REF == "G" & dt$ALT == "C")
   dt <- dt |>
-    dplyr::filter(
-      !((.data$REF == "A" & .data$ALT == "T") |
-        (.data$REF == "T" & .data$ALT == "A") |
-        (.data$REF == "C" & .data$ALT == "G") |
-        (.data$REF == "G" & .data$ALT == "C"))
-    )
+    dplyr::filter(!is_palindromic)
 
   if (nrow(dt) == 0L) {
     cli::cli_abort("No non-palindromic variants remain.")

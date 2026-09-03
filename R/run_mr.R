@@ -227,9 +227,10 @@ run_mr <- function(
   } else if (!is.null(instrument_region)) {
     # Cis-MR mode
     if (verbose) {
-      cli::cli_inform(
-        "Cis-MR mode: chr{instrument_region$chromosome}:{instrument_region$start}-{instrument_region$end} (+/- {window}bp)."
-      )
+      cli::cli_inform(paste0(
+        "Cis-MR mode: chr{instrument_region$chromosome}:",
+        "{instrument_region$start}-{instrument_region$end} (+/- {window}bp)."
+      ))
     }
 
     exposure_iv <- exposure |>
@@ -369,15 +370,15 @@ run_mr <- function(
   if (!is.null(exclude_regions) && "chr.exposure" %in% colnames(exposure_iv)) {
     in_excluded <- rep(FALSE, nrow(exposure_iv))
     for (i in seq_len(nrow(exclude_regions))) {
-      in_excluded <- in_excluded |
-        (as.character(exposure_iv$chr.exposure) ==
-          as.character(exclude_regions$chr[i]) &
-          exposure_iv$pos.exposure >= exclude_regions$start[i] &
-          exposure_iv$pos.exposure <= exclude_regions$end[i])
+      chr_match <- as.character(exposure_iv$chr.exposure) ==
+        as.character(exclude_regions$chr[i])
+      pos_in_region <- exposure_iv$pos.exposure >= exclude_regions$start[i] &
+        exposure_iv$pos.exposure <= exclude_regions$end[i]
+      in_excluded <- in_excluded | (chr_match & pos_in_region)
     }
 
     if (any(in_excluded)) {
-      n_removed <- sum(in_excluded)
+      n_removed <- sum(in_excluded) # nolint: object_usage_linter.
       exposure_iv <- exposure_iv[!in_excluded, ]
       if (verbose) {
         cli::cli_inform(

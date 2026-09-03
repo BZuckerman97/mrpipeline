@@ -214,7 +214,7 @@ format_gwas <- function(
   ref_frq = NULL
 ) {
   type <- match.arg(type)
-  path_label <- if (is.character(path)) path else "<data frame>"
+  path_label <- if (is.character(path)) path else "<data frame>" # nolint: object_usage_linter.
 
   # -- Read data ----------------------------------------------------------------
   if (is.character(path)) {
@@ -355,15 +355,16 @@ format_gwas <- function(
   if ("rsids" %in% names(dat)) {
     compound <- grepl("^rs[0-9]+:", dat[["rsids"]])
     if (any(compound, na.rm = TRUE)) {
-      n_compound <- sum(compound, na.rm = TRUE)
+      n_compound <- sum(compound, na.rm = TRUE) # nolint: object_usage_linter.
       dat[["rsids"]][compound] <- sub(
         "^(rs[0-9]+):.*$",
         "\\1",
         dat[["rsids"]][compound]
       )
-      cli::cli_inform(
-        "{.val {phenotype_id}}: cleaned {n_compound} compound \"rsID:allele:allele\" value{?s} in the rsids column to bare rsIDs."
-      )
+      cli::cli_inform(paste0(
+        "{.val {phenotype_id}}: cleaned {n_compound} compound ",
+        "\"rsID:allele:allele\" value{?s} in the rsids column to bare rsIDs."
+      ))
     }
   }
 
@@ -420,7 +421,7 @@ format_gwas <- function(
       pos = as.integer(.data$pos)
     )
 
-    n_before <- nrow(dat)
+    n_before <- nrow(dat) # nolint: object_usage_linter.
     dat <- dplyr::inner_join(dat, bim, by = c("chr", "pos"))
     n_after <- nrow(dat)
 
@@ -528,9 +529,10 @@ format_gwas <- function(
           )
           dat$eaf[rows_need] <- eaf_ref
         }
-        cli::cli_inform(
-          "{.val {phenotype_id}}: patched EAF for {sum(found)} of {sum(needs_eaf)} SNP{?s} missing it, from {.path {ref_frq}}."
-        )
+        cli::cli_inform(paste0(
+          "{.val {phenotype_id}}: patched EAF for {sum(found)} of ",
+          "{sum(needs_eaf)} SNP{?s} missing it, from {.path {ref_frq}}."
+        ))
       }
     }
   }
@@ -650,8 +652,14 @@ format_gwas <- function(
     if (!"pval" %in% names(dat)) {
       cli::cli_abort(
         c(
-          "{.val {phenotype_id}}: cannot derive {.val se} -- no se/or/zscore column, and no pval to back-calculate from.",
-          "i" = "Supply an se column via {.arg col_map}, or a p-value column so se can be derived: se = |beta| / qnorm(pval / 2)."
+          paste0(
+            "{.val {phenotype_id}}: cannot derive {.val se} -- no se/or/",
+            "zscore column, and no pval to back-calculate from."
+          ),
+          "i" = paste0(
+            "Supply an se column via {.arg col_map}, or a p-value column ",
+            "so se can be derived: se = |beta| / qnorm(pval / 2)."
+          )
         )
       )
     }

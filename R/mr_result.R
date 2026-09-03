@@ -84,7 +84,7 @@ new_mr_result <- function(
 #' @export
 print.mr_result <- function(x, ...) {
   if (x$status != "success") {
-    reason <- x$status_reason %||% "unknown reason"
+    reason <- x$status_reason %||% "unknown reason" # nolint: object_usage_linter.
     cli::cli_inform("mr_result: {x$status} \u2014 {reason}")
     return(invisible(x))
   }
@@ -96,10 +96,14 @@ print.mr_result <- function(x, ...) {
 
   # Use first result row as primary estimate
 
+  # object_usage_linter false positives below: every variable here is used
+  # via cli's glue-style "{var}" string interpolation, which lintr's static
+  # analysis cannot trace.
   primary <- x$results[1, ]
-  nsnp <- primary$nsnp
-  mean_f <- x$f_stats$mean
+  nsnp <- primary$nsnp # nolint: object_usage_linter.
+  mean_f <- x$f_stats$mean # nolint: object_usage_linter.
 
+  # nolint next: object_usage_linter.
   or_str <- if ("or" %in% names(primary) && !is.na(primary$or)) {
     paste0(
       ", OR = ",
@@ -116,7 +120,10 @@ print.mr_result <- function(x, ...) {
 
   cli::cli_inform(c(
     "{primary$exposure} -> {primary$outcome}",
-    "i" = "{primary$method}: b = {round(primary$b, 4)}, se = {round(primary$se, 4)}, p = {signif(primary$pval, 3)}{or_str}",
+    "i" = paste0(
+      "{primary$method}: b = {round(primary$b, 4)}, ",
+      "se = {round(primary$se, 4)}, p = {signif(primary$pval, 3)}{or_str}"
+    ),
     "i" = "{nsnp} SNP{?s}, mean F = {round(mean_f, 1)}"
   ))
 
@@ -151,7 +158,7 @@ summary.mr_result <- function(object, ...) {
   )
 
   if (object$status != "success") {
-    reason <- object$status_reason %||% "unknown reason"
+    reason <- object$status_reason %||% "unknown reason" # nolint: object_usage_linter.
     cli::cli_alert_warning("Status: {object$status} \u2014 {reason}")
     return(invisible(object))
   }
@@ -165,6 +172,7 @@ summary.mr_result <- function(object, ...) {
   cli::cli_h2("Method estimates")
   res <- object$results
   for (i in seq_len(nrow(res))) {
+    # nolint next: object_usage_linter.
     or_str <- if ("or" %in% names(res) && !is.na(res$or[i])) {
       paste0(
         ", OR = ",
@@ -179,7 +187,11 @@ summary.mr_result <- function(object, ...) {
       ""
     }
     cli::cli_bullets(c(
-      "*" = "{res$method[i]}: b = {round(res$b[i], 4)}, se = {round(res$se[i], 4)}, p = {signif(res$pval[i], 3)}{or_str} ({res$nsnp[i]} SNPs)"
+      "*" = paste0(
+        "{res$method[i]}: b = {round(res$b[i], 4)}, ",
+        "se = {round(res$se[i], 4)}, p = {signif(res$pval[i], 3)}{or_str} ",
+        "({res$nsnp[i]} SNPs)"
+      )
     ))
   }
 
@@ -202,7 +214,7 @@ summary.mr_result <- function(object, ...) {
 
   # Pleiotropy test
   if (!is.null(object$pleiotropy)) {
-    pt <- object$pleiotropy
+    pt <- object$pleiotropy # nolint: object_usage_linter.
     cli::cli_h2("Pleiotropy test (Egger intercept)")
     cli::cli_bullets(c(
       "*" = "Intercept: {round(pt$egger_intercept, 4)}",
@@ -226,7 +238,10 @@ summary.mr_result <- function(object, ...) {
   if (!is.null(object$loo)) {
     cli::cli_h2("Leave-one-out analysis")
     cli::cli_bullets(c(
-      "*" = "{nrow(object$loo)} row{?s} (per-SNP estimates plus the pooled 'All' row); see {.code $loo} for the full table."
+      "*" = paste0(
+        "{nrow(object$loo)} row{?s} (per-SNP estimates plus the pooled ",
+        "'All' row); see {.code $loo} for the full table."
+      )
     ))
   }
 

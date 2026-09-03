@@ -307,8 +307,12 @@ align_to_ld_matrix <- function(harmonised_data, ld_matrix, verbose = TRUE) {
 
   ea <- toupper(data_out$effect_allele.exposure)
   oa <- toupper(data_out$other_allele.exposure)
-  ld_a1 <- toupper(al$ld_a1)
-  ld_a2 <- toupper(al$ld_a2)
+  # object_usage_linter false positives below: ld_a1/ld_a2 are used inside
+  # dplyr::case_when()'s formula RHS/LHS, and n_match/n_flip/n_drop via cli's
+  # glue-style "{var}" interpolation -- neither is traceable by lintr's
+  # static analysis.
+  ld_a1 <- toupper(al$ld_a1) # nolint: object_usage_linter.
+  ld_a2 <- toupper(al$ld_a2) # nolint: object_usage_linter.
 
   orientation <- dplyr::case_when(
     ea == ld_a1 & oa == ld_a2 ~ "match",
@@ -328,14 +332,15 @@ align_to_ld_matrix <- function(harmonised_data, ld_matrix, verbose = TRUE) {
 
   orientation[palindromic & ambiguous_eaf] <- "drop"
 
-  n_match <- sum(orientation == "match")
-  n_flip <- sum(orientation == "flip")
-  n_drop <- sum(orientation == "drop")
+  n_match <- sum(orientation == "match") # nolint: object_usage_linter.
+  n_flip <- sum(orientation == "flip") # nolint: object_usage_linter.
+  n_drop <- sum(orientation == "drop") # nolint: object_usage_linter.
 
   if (verbose) {
-    cli::cli_inform(
-      "LD alignment: {n_match} matched, {n_flip} flipped, {n_drop} dropped (allele mismatch or ambiguous palindromic SNP vs. reference panel)."
-    )
+    cli::cli_inform(paste0(
+      "LD alignment: {n_match} matched, {n_flip} flipped, {n_drop} dropped ",
+      "(allele mismatch or ambiguous palindromic SNP vs. reference panel)."
+    ))
   }
 
   keep <- orientation != "drop"

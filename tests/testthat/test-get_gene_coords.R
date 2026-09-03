@@ -3,7 +3,9 @@
 
 skip_if_not_installed("biomaRt")
 
-# Helper: fake getBM output
+# Helper: fake getBM output, deliberately named after the real
+# biomaRt::getBM() it mocks, for a clear 1:1 match with local_mocked_bindings().
+# nolint next: object_name_linter.
 fake_getBM <- function(attributes, filters, values, mart) {
   genes <- data.frame(
     hgnc_symbol = c("CD40", "CD40", "APOE", "FAKEGENE"),

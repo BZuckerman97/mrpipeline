@@ -35,7 +35,11 @@
 #'
 #' @export
 format_pqtl_decode <- function(
+  # Public API parameter names; renaming would be a breaking change across
+  # every downstream MR_projects caller.
+  # nolint next: object_length_linter.
   decode_proteomic_gwas_file_path,
+  # nolint next: object_length_linter.
   decode_included_variants_file_path,
   pqtl_assay,
   x_y_chr_file = NULL,
@@ -168,7 +172,7 @@ format_pqtl_decode <- function(
   # Remove the "exposure." prefix from column names to match run_mr.R expectations
   colnames(result) <- sub("^exposure\\.", "", colnames(result))
 
-  return(list(exposure = result)) # Return as a list as per roxygen docs
+  list(exposure = result) # Returned as a list per roxygen docs
 }
 
 

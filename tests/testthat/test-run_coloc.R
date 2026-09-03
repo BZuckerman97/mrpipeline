@@ -622,6 +622,8 @@ test_that("run_coloc runs susie + signals end-to-end despite LD-panel allele mis
   n_snp <- length(test_snps)
 
   ld_list <- compute_ld_matrix(test_snps, bfile)
+  # Mirrors susieR::susie_rss()'s own R (LD matrix) argument name.
+  # nolint next: object_name_linter.
   R <- ld_list$ld[test_snps, test_snps]
 
   set.seed(1)

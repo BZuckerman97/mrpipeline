@@ -72,14 +72,19 @@ format_pqtl_ukbppp <- function(
   ukbppp <- ukbppp |>
     dplyr::mutate(phenotype = pqtl_assay) |>
     dplyr::rename(
-      beta = dplyr::all_of("BETA"), # using all_of to prevent errors if column is missing
+      # all_of() (rather than a bare name) avoids an error if a column is
+      # missing.
+      beta = dplyr::all_of("BETA"),
       sebeta = dplyr::all_of("SE"),
       af_alt = dplyr::all_of("A1FREQ"),
       effect_allele = dplyr::all_of("ALLELE1"),
       other_allele = dplyr::all_of("ALLELE0"),
       pval = dplyr::all_of("LOG10P"),
       chr = dplyr::all_of("CHROM"),
-      pos = dplyr::all_of("GENPOS") # Is there a way of altering this dependent on whether you use a build37 or build38 data
+      # GENPOS is UKB-PPP's raw column name regardless of genome build --
+      # pos_build only affects which rsid-file column (POS38/POS19) it's
+      # matched against below, not this rename.
+      pos = dplyr::all_of("GENPOS")
     ) |>
     # N deliberately left un-renamed here (unlike the other columns above) --
     # it must stay optional for type = "outcome" (see below), so renaming it
@@ -102,7 +107,7 @@ format_pqtl_ukbppp <- function(
     dplyr::mutate(chr_rsid_file = sub(":.*", "", .data$ID))
 
   # Match by ID or create it
-  if ("ID" %in% colnames(ukbppp) & "ID" %in% colnames(ukbppp_rsid)) {
+  if ("ID" %in% colnames(ukbppp) && "ID" %in% colnames(ukbppp_rsid)) {
     ukbppp <- dplyr::inner_join(ukbppp, ukbppp_rsid, by = "ID")
   } else {
     ukbppp <- ukbppp |>
@@ -209,7 +214,7 @@ format_pqtl_ukbppp <- function(
     log_pval = FALSE
   )
 
-  return(result)
+  result
 }
 
 #' UKBPPP_PQTL_FILE_NAME

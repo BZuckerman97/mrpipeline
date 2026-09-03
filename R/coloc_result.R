@@ -81,6 +81,10 @@ new_coloc_result <- function(
 #'
 #' @export
 print.coloc_result <- function(x, ...) {
+  # object_usage_linter false positives below: each variable is used via cli's
+  # glue-style "{var}" string interpolation, which lintr's static analysis
+  # cannot trace.
+  # nolint next: object_usage_linter.
   label <- if (!is.null(x$exposure_id) && !is.null(x$outcome_id)) {
     paste0("[", x$exposure_id, " -> ", x$outcome_id, "]")
   } else {
@@ -88,7 +92,7 @@ print.coloc_result <- function(x, ...) {
   }
 
   if (x$status != "success") {
-    reason <- x$status_reason %||% "unknown reason"
+    reason <- x$status_reason %||% "unknown reason" # nolint: object_usage_linter.
     cli::cli_inform("coloc_result{label}: {x$status} -- {reason}")
     return(invisible(x))
   }
@@ -100,6 +104,7 @@ print.coloc_result <- function(x, ...) {
     pp_h4 <- x$coloc_abf$summary["PP.H4.abf"]
     pp_h3 <- x$coloc_abf$summary["PP.H3.abf"]
     denom <- pp_h3 + pp_h4
+    # nolint next: object_usage_linter.
     ratio_str <- if (!is.na(denom) && denom >= 1e-6) {
       paste0(" | PP4/(PP3+PP4) = ", round(pp_h4 / denom, 3))
     } else {
@@ -120,7 +125,7 @@ print.coloc_result <- function(x, ...) {
       } else {
         ""
       }
-      n_pairs <- nrow(susie_summary)
+      n_pairs <- nrow(susie_summary) # nolint: object_usage_linter.
       parts <- c(
         parts,
         "SuSiE max PP.H4 = {round(max_h4, 3)}{ratio_str} ({n_pairs} credible set pair{?s})"
@@ -168,7 +173,7 @@ summary.coloc_result <- function(object, ...) {
   }
 
   if (object$status != "success") {
-    reason <- object$status_reason %||% "unknown reason"
+    reason <- object$status_reason %||% "unknown reason" # nolint: object_usage_linter.
     cli::cli_alert_warning("Status: {object$status} -- {reason}")
     return(invisible(object))
   }
@@ -180,6 +185,7 @@ summary.coloc_result <- function(object, ...) {
     cli::cli_h2("coloc.abf")
     s <- object$coloc_abf$summary
     denom_abf <- s["PP.H3.abf"] + s["PP.H4.abf"]
+    # nolint next: object_usage_linter.
     ratio_abf <- if (!is.na(denom_abf) && denom_abf >= 1e-6) {
       round(s["PP.H4.abf"] / denom_abf, 4)
     } else {

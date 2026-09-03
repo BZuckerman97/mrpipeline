@@ -173,7 +173,11 @@ run_coloc <- function(
   outcome_type = c("quant", "cc"),
   exposure_s = NULL,
   outcome_s = NULL,
+  # Mirrors coloc::coloc.abf()'s own sdY argument name -- renaming would
+  # both break the public API and obscure the pass-through to coloc.
+  # nolint next: object_name_linter.
   exposure_sdY = 1,
+  # nolint next: object_name_linter.
   outcome_sdY = 1,
   bfile,
   plink_bin = NULL,
@@ -321,14 +325,14 @@ run_coloc <- function(
   if (!is.null(exclude_regions)) {
     in_excl_exp <- rep(FALSE, nrow(exposure_filt))
     for (i in seq_len(nrow(exclude_regions))) {
-      in_excl_exp <- in_excl_exp |
-        (as.character(exposure_filt$chr.exposure) ==
-          as.character(exclude_regions$chr[i]) &
-          exposure_filt$pos.exposure >= exclude_regions$start[i] &
-          exposure_filt$pos.exposure <= exclude_regions$end[i])
+      chr_match <- as.character(exposure_filt$chr.exposure) ==
+        as.character(exclude_regions$chr[i])
+      pos_in_region <- exposure_filt$pos.exposure >= exclude_regions$start[i] &
+        exposure_filt$pos.exposure <= exclude_regions$end[i]
+      in_excl_exp <- in_excl_exp | (chr_match & pos_in_region)
     }
     if (any(in_excl_exp)) {
-      n_removed <- sum(in_excl_exp)
+      n_removed <- sum(in_excl_exp) # nolint: object_usage_linter.
       exposure_filt <- exposure_filt[!in_excl_exp, ]
       if (verbose) {
         cli::cli_inform(
@@ -361,11 +365,11 @@ run_coloc <- function(
 
     in_excl_out <- rep(FALSE, nrow(outcome_in_window))
     for (i in seq_len(nrow(exclude_regions))) {
-      in_excl_out <- in_excl_out |
-        (as.character(outcome_in_window$chr) ==
-          as.character(exclude_regions$chr[i]) &
-          outcome_in_window$pos >= exclude_regions$start[i] &
-          outcome_in_window$pos <= exclude_regions$end[i])
+      chr_match <- as.character(outcome_in_window$chr) ==
+        as.character(exclude_regions$chr[i])
+      pos_in_region <- outcome_in_window$pos >= exclude_regions$start[i] &
+        outcome_in_window$pos <= exclude_regions$end[i]
+      in_excl_out <- in_excl_out | (chr_match & pos_in_region)
     }
     if (any(in_excl_out)) {
       outcome_in_window <- outcome_in_window[!in_excl_out, ]
@@ -532,7 +536,7 @@ run_coloc <- function(
           1 - frq_matched$MAF
         )
         harmonised$eaf.outcome[rows_need[found]] <- eaf_ref
-        n_patched <- sum(found)
+        n_patched <- sum(found) # nolint: object_usage_linter.
         cli::cli_inform(
           "Patched EAF from reference panel for {n_patched} SNP{?s} missing in both exposure and outcome."
         )
@@ -550,14 +554,18 @@ run_coloc <- function(
   n_both_missing <- sum(is.na(eaf_combined))
 
   if (n_exp_missing > 0) {
-    cli::cli_warn(
-      "{n_exp_missing}/{nrow(harmonised)} SNP(s) missing exposure EAF for {.val {exposure_id}}; MAF for these will be taken from the outcome ({.val {outcome_id}}) instead."
-    )
+    cli::cli_warn(paste0(
+      "{n_exp_missing}/{nrow(harmonised)} SNP(s) missing exposure EAF for ",
+      "{.val {exposure_id}}; MAF for these will be taken from the outcome ",
+      "({.val {outcome_id}}) instead."
+    ))
   }
   if (n_out_missing > 0) {
-    cli::cli_warn(
-      "{n_out_missing}/{nrow(harmonised)} SNP(s) missing outcome EAF for {.val {outcome_id}}; MAF for these will be taken from the exposure ({.val {exposure_id}}) instead."
-    )
+    cli::cli_warn(paste0(
+      "{n_out_missing}/{nrow(harmonised)} SNP(s) missing outcome EAF for ",
+      "{.val {outcome_id}}; MAF for these will be taken from the exposure ",
+      "({.val {exposure_id}}) instead."
+    ))
   }
   if (n_both_missing > 0) {
     cli::cli_warn(
@@ -570,9 +578,10 @@ run_coloc <- function(
     ld_mat <- ld_mat[harmonised$SNP, harmonised$SNP, drop = FALSE]
 
     if (nrow(harmonised) < 3) {
-      cli::cli_warn(
-        "Only {nrow(harmonised)} SNP(s) remain after dropping those missing EAF in both exposure and outcome (need >= 3)."
-      )
+      cli::cli_warn(paste0(
+        "Only {nrow(harmonised)} SNP(s) remain after dropping those ",
+        "missing EAF in both exposure and outcome (need >= 3)."
+      ))
       return(new_coloc_result(
         exposure_id = exposure_id,
         outcome_id = outcome_id,
@@ -687,6 +696,7 @@ run_coloc <- function(
         }
 
         cs_res <- if (ncs_exp == 0L || ncs_out == 0L) {
+          # nolint next: object_usage_linter.
           empty <- c(
             if (ncs_exp == 0L) "exposure",
             if (ncs_out == 0L) "outcome"
