@@ -4,18 +4,45 @@
 \alias{harmonise_and_filter}
 \title{Harmonise exposure and outcome data, filter, and deduplicate}
 \usage{
-harmonise_and_filter(exposure, outcome)
+harmonise_and_filter(
+  exposure,
+  outcome,
+  allele_check = c("error", "warn", "none"),
+  check = TRUE,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{exposure}{Data frame of formatted exposure data.}
 
 \item{outcome}{Data frame of formatted outcome data.}
+
+\item{allele_check}{One of \code{"error"} (default), \code{"warn"} or \code{"none"}.
+Passed to \code{\link[=check_allele_orientation]{check_allele_orientation()}}.}
+
+\item{check}{Logical. If \code{FALSE}, skip the allele orientation check
+entirely (nothing is recorded). Used by \code{\link[=run_mr]{run_mr()}}, which has already
+checked its instruments together with a sample of shared SNPs via
+\code{\link[=check_allele_orientation_gwas]{check_allele_orientation_gwas()}}. Default \code{TRUE}.}
+
+\item{verbose}{Logical. Passed to \code{\link[=check_allele_orientation]{check_allele_orientation()}}. Default
+\code{FALSE}.}
 }
 \value{
 A data frame of harmonised data, filtered and deduplicated.
 }
 \description{
-Wraps \code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}}, filters to \code{mr_keep == TRUE},
-and removes duplicate SNPs (keeping the first occurrence).
+Wraps \code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}}, runs the allele orientation check
+(\code{\link[=check_allele_orientation]{check_allele_orientation()}}) on the raw harmonised output, filters to
+\code{mr_keep == TRUE}, and removes duplicate SNPs (keeping the first
+occurrence).
+}
+\details{
+The allele orientation check runs \emph{before} the \code{mr_keep} filter so that
+SNPs dropped later (e.g. for a missing \code{beta}/\code{se}) still contribute their
+allele frequencies to the verdict, and it runs on every call -- including
+a zero-row harmonisation -- so the record returned by
+\code{\link[=last_allele_check]{last_allele_check()}} always describes the most recent exposure/outcome
+pair rather than a stale one.
 }
 \keyword{internal}

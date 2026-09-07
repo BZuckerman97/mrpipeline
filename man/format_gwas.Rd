@@ -108,6 +108,57 @@ loaded data to check. User-supplied aliases are checked before the built-in
 list, so they take precedence in the event of ambiguity.
 }
 
+\section{What does A1 mean?}{
+
+\code{A1}/\code{A2} are ambiguous across the field, and the alias table can only
+pick one reading:\tabular{lllll}{
+   Convention \tab \code{A1} \tab \code{A2} \tab \code{BETA} / \code{FRQ} refer to \tab Built-in mapping \cr
+   PLINK, regenie, METAL, most GWAS Catalog deposits \tab effect (coded, tested) allele \tab other allele \tab \code{A1} \tab correct \cr
+   EPACTS, RAREMETAL, VCF-derived tables (e.g. IAMDGC AMD) \tab REF \tab ALT \tab \code{A2} \tab \strong{swapped: every beta inverted} \cr
+}
+
+
+A file of the second kind is not malformed and nothing looks wrong after
+formatting: harmonisation aligns alleles by letter, so the output is
+internally consistent and every MR estimate is simply inverted (GitHub
+issue #18). Before formatting a file whose allele columns are called
+\code{A1}/\code{A2} -- or whose documentation does not say which allele the effect
+refers to -- establish the convention:
+\enumerate{
+\item \strong{Read the README or header.} regenie's \code{ALLELE1}/\code{A1FREQ}, METAL's
+\code{Allele1}/\code{Freq1} and GWAS Catalog \code{effect_allele} are explicit; a
+VCF-style \code{REF}/\code{ALT} pair means the effect is per ALT.
+\item \strong{Rule out a minor allele frequency.} A MAF never exceeds 0.5. If the
+frequency column exceeds 0.5 in a sizeable fraction of rows it tracks
+one fixed allele, and you can ask which one.
+\item \strong{Look up two or three variants.} Compare the frequency column with a
+known population frequency (gnomAD, Ensembl, or \code{plink --freq} on your
+LD panel) to see whether it describes \code{A1} or \code{A2}, and check a variant
+with a well-established effect direction for the trait -- for AMD, CFH
+rs1061170 (C is the risk allele, OR about 2.5) settles at once whether
+\code{BETA} is per \code{A1} or \code{A2}. This generalises to any trait.
+}
+
+If \code{A1} turns out to be REF, swap the mapping; user aliases take
+precedence over the built-in table:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{format_gwas(
+  path,
+  phenotype_id = "AMD",
+  col_map = list(effect_allele = "A2", other_allele = "A1")
+)
+}\if{html}{\out{</div>}}
+
+As a safety net, \code{\link[=run_mr]{run_mr()}} and \code{\link[=run_coloc]{run_coloc()}} run an allele orientation
+check at harmonisation (\code{allele_check} argument; full record from
+\code{\link[=last_allele_check]{last_allele_check()}}): when the outcome's allele frequencies are
+systematically the \emph{complement} of the exposure's across non-palindromic
+SNPs, one of the two datasets has swapped alleles. The check cannot tell
+which dataset, needs at least 10 informative SNPs, and does not replace
+reading the header. Validating a supplied \code{eaf} against a \code{ref_frq} panel
+at ingestion is a planned extension.
+}
+
 \section{Automatic odds-ratio to log-odds conversion}{
 
 Some GWAS files (particularly older EBI deposits) report effect sizes as odds

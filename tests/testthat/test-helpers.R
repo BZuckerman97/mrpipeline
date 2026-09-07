@@ -114,6 +114,301 @@ test_that("harmonise_and_filter returns filtered deduplicated data", {
   expect_true(all(result$mr_keep))
 })
 
+# --- check_allele_orientation / last_allele_check ----------------------------
+# Fixtures: make_allele_fixture() / make_allele_gwas_fixture() in
+# helper-allele-fixture.R. Under the bug, every non-palindromic outcome beta
+# is sign-inverted and eaf.outcome becomes the complement of eaf.exposure,
+# while palindromic SNPs look untouched -- see the "palindromic" test below.
+
+test_that("allele check errors by default on a swapped-allele outcome", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+
+  expect_error(
+    suppressMessages(harmonise_and_filter(f$exposure, f$bug)),
+    class = "mrpipeline_allele_check_error"
+  )
+  # Message is actionable: counts, an offender, and the fix
+  expect_error(
+    suppressMessages(harmonise_and_filter(f$exposure, f$bug)),
+    "between \"exp\" and \"out\": 10/10"
+  )
+  expect_error(
+    suppressMessages(harmonise_and_filter(f$exposure, f$bug)),
+    "rs[0-9]+ \\([ACGT]\\): eaf.exposure = "
+  )
+  expect_error(
+    suppressMessages(harmonise_and_filter(f$exposure, f$bug)),
+    "col_map"
+  )
+
+  rec <- last_allele_check()
+  expect_equal(rec$status, "fail")
+  expect_equal(rec$n, 10L)
+  expect_equal(rec$n_complementary, 10L)
+  expect_equal(rec$prop, 1)
+  expect_equal(rec$exposure, "exp")
+  expect_equal(rec$outcome, "out")
+  expect_equal(rec$id.exposure, "exp1")
+  expect_equal(rec$id.outcome, "out1")
+  expect_true(is.na(rec$n_sampled))
+  expect_equal(nrow(rec$variants), 12L)
+  expect_equal(sum(rec$variants$palindromic), 2L)
+  expect_true(all(rec$variants$informative == !rec$variants$palindromic))
+  expect_true(all(is.na(rec$variants$complementary[rec$variants$palindromic])))
+})
+
+test_that("palindromic betas are unchanged by the bug, so the check must ignore them", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+
+  ok <- suppressMessages(harmonise_and_filter(
+    f$exposure,
+    f$ok,
+    allele_check = "none"
+  ))
+  bug <- suppressMessages(harmonise_and_filter(
+    f$exposure,
+    f$bug,
+    allele_check = "none"
+  ))
+  bug <- bug[match(ok$SNP, bug$SNP), ]
+  pal <- ok$palindromic
+
+  expect_equal(sum(pal), 2L)
+  # Palindromic: strand resolved from the mis-assigned frequency, errors cancel
+  expect_equal(bug$beta.outcome[pal], ok$beta.outcome[pal])
+  expect_equal(bug$eaf.outcome[pal], ok$eaf.outcome[pal])
+  # Non-palindromic: every beta sign-inverted, eaf.outcome the complement
+  expect_equal(bug$beta.outcome[!pal], -ok$beta.outcome[!pal])
+  expect_equal(bug$eaf.outcome[!pal], 1 - ok$eaf.outcome[!pal])
+})
+
+test_that("allele check passes on genuine EAF scatter and records a pass", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture(noise_sd = 0.08)
+
+  expect_no_condition(
+    res <- suppressMessages(harmonise_and_filter(f$exposure, f$ok))
+  )
+  expect_equal(nrow(res), 12L)
+
+  rec <- last_allele_check()
+  expect_equal(rec$status, "pass")
+  expect_equal(rec$n, 10L)
+  expect_lt(rec$prop, 0.7)
+})
+
+test_that("allele_check = 'none' reproduces plain harmonisation exactly", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+
+  expect_no_condition(
+    res <- suppressMessages(
+      harmonise_and_filter(f$exposure, f$bug, allele_check = "none")
+    )
+  )
+  plain <- suppressMessages(TwoSampleMR::harmonise_data(f$exposure, f$bug)) |>
+    dplyr::filter(.data$mr_keep == TRUE) |>
+    dplyr::filter(!duplicated(.data$SNP))
+  expect_identical(res, plain)
+
+  # The record is still stored so the verdict can be inspected after opting out
+  rec <- last_allele_check()
+  expect_equal(rec$status, "fail")
+  expect_equal(rec$allele_check, "none")
+})
+
+test_that("allele_check = 'warn' warns with its class and still returns data", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+
+  expect_warning(
+    res <- suppressMessages(
+      harmonise_and_filter(f$exposure, f$bug, allele_check = "warn")
+    ),
+    class = "mrpipeline_allele_check_warning"
+  )
+  expect_equal(nrow(res), 12L)
+  expect_equal(last_allele_check()$status, "fail")
+})
+
+test_that("allele check is skipped below 10 informative SNPs", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+  # Drop one non-palindromic SNP: 9 informative + 2 palindromic
+  keep <- f$exposure$SNP != "rs10"
+
+  expect_no_condition(
+    res <- suppressMessages(
+      harmonise_and_filter(f$exposure[keep, ], f$bug[keep, ])
+    )
+  )
+  expect_equal(nrow(res), 11L)
+
+  rec <- last_allele_check()
+  expect_equal(rec$status, "skipped")
+  expect_equal(rec$n, 9L)
+  expect_equal(rec$n_complementary, 9L)
+})
+
+test_that("verbose = TRUE reports pass and skipped verdicts", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+
+  expect_message(
+    suppressMessages(
+      harmonise_and_filter(f$exposure, f$ok, verbose = TRUE),
+      classes = "simpleMessage"
+    ),
+    "check passed"
+  )
+  keep <- f$exposure$SNP != "rs10"
+  expect_message(
+    suppressMessages(
+      harmonise_and_filter(f$exposure[keep, ], f$ok[keep, ], verbose = TRUE),
+      classes = "simpleMessage"
+    ),
+    "check skipped"
+  )
+})
+
+test_that("last_allele_check returns NULL before any check and the record after", {
+  skip_if_not_installed("TwoSampleMR")
+  old <- the$last_allele_check
+  on.exit(the$last_allele_check <- old)
+  the$last_allele_check <- NULL
+
+  expect_message(
+    expect_null(last_allele_check()),
+    "No allele orientation check"
+  )
+
+  f <- make_allele_fixture()
+  suppressMessages(harmonise_and_filter(f$exposure, f$ok))
+  expect_equal(last_allele_check()$status, "pass")
+
+  suppressMessages(harmonise_and_filter(
+    f$exposure,
+    f$bug,
+    allele_check = "none"
+  ))
+  expect_equal(last_allele_check()$status, "fail")
+})
+
+test_that("allele check is skipped when allele frequencies are all missing", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+  # The shape TwoSampleMR::format_data() produces when a file has no EAF:
+  # columns present, all NA
+  f$exposure$eaf.exposure <- NA_real_
+  f$bug$eaf.outcome <- NA_real_
+
+  expect_no_condition(
+    res <- suppressMessages(harmonise_and_filter(f$exposure, f$bug))
+  )
+  expect_equal(nrow(res), 10L) # palindromic SNPs dropped without EAF
+
+  rec <- last_allele_check()
+  expect_equal(rec$status, "skipped")
+  expect_equal(rec$n, 0L)
+  expect_equal(nrow(rec$variants), 0L)
+})
+
+test_that("check_allele_orientation handles hand-built frames directly", {
+  # No TwoSampleMR needed: operates on any frame with the harmonised columns
+  harmonised <- data.frame(
+    SNP = c(paste0("rs", 1:12), "rs1"),
+    eaf.exposure = c(rep(0.2, 12), 0.2),
+    eaf.outcome = c(rep(0.8, 10), 0.5, 0.8, 0.8),
+    effect_allele.exposure = "A",
+    other_allele.exposure = "G",
+    palindromic = FALSE,
+    remove = c(rep(FALSE, 11), TRUE, FALSE),
+    id.exposure = "e",
+    id.outcome = "o",
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    check_allele_orientation(harmonised),
+    class = "mrpipeline_allele_check_error"
+  )
+  rec <- last_allele_check()
+  # rs12 excluded (remove == TRUE), duplicate rs1 counted once, rs11 is a tie
+  expect_equal(nrow(rec$variants), 12L)
+  expect_equal(rec$n, 11L)
+  expect_equal(rec$n_complementary, 10L)
+  expect_false(rec$variants$complementary[rec$variants$SNP == "rs11"])
+  expect_true(is.na(rec$variants$complementary[rec$variants$SNP == "rs12"]))
+
+  # Missing columns -> skipped, never an error
+  expect_no_condition(check_allele_orientation(data.frame(SNP = "rs1")))
+  expect_equal(last_allele_check()$status, "skipped")
+  expect_no_condition(check_allele_orientation(data.frame()))
+  expect_equal(last_allele_check()$status, "skipped")
+
+  # Invalid mode is rejected
+  expect_error(
+    check_allele_orientation(harmonised, allele_check = "bogus"),
+    "allele_check"
+  )
+})
+
+test_that("check_allele_orientation_gwas checks instruments plus shared SNPs", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_gwas_fixture()
+
+  expect_error(
+    check_allele_orientation_gwas(f$exposure, f$bug, f$instruments),
+    class = "mrpipeline_allele_check_error"
+  )
+  rec <- last_allele_check()
+  expect_equal(rec$status, "fail")
+  expect_equal(rec$n_sampled, 37L)
+  expect_equal(rec$n, 40L)
+  expect_equal(rec$n_complementary, 40L)
+
+  expect_no_condition(
+    check_allele_orientation_gwas(f$exposure, f$ok, f$instruments)
+  )
+  expect_equal(last_allele_check()$status, "pass")
+  expect_equal(last_allele_check()$n_complementary, 0L)
+
+  # n_sample caps the number of non-instrument SNPs added
+  expect_no_condition(
+    check_allele_orientation_gwas(
+      f$exposure,
+      f$bug,
+      f$instruments,
+      n_sample = 5L
+    )
+  )
+  rec <- last_allele_check()
+  expect_equal(rec$n_sampled, 5L)
+  expect_equal(rec$n, 8L)
+  expect_equal(rec$status, "skipped")
+
+  # Outcome without EAF, or with nothing in common -> skipped
+  out_no_eaf <- f$bug
+  out_no_eaf$eaf <- NULL
+  expect_no_condition(
+    check_allele_orientation_gwas(f$exposure, out_no_eaf, f$instruments)
+  )
+  expect_equal(last_allele_check()$status, "skipped")
+
+  out_disjoint <- f$bug
+  out_disjoint$rsids <- paste0("rs", 100 + seq_len(nrow(out_disjoint)))
+  expect_no_condition(
+    check_allele_orientation_gwas(f$exposure, out_disjoint, f$instruments)
+  )
+  expect_equal(last_allele_check()$status, "skipped")
+  expect_no_condition(
+    check_allele_orientation_gwas(f$exposure, data.frame(), f$instruments)
+  )
+  expect_equal(last_allele_check()$status, "skipped")
+})
+
 # --- align_to_ld_matrix ------------------------------------------------------
 # ld_matrix() is the list returned by compute_ld_matrix(): list(ld, alleles).
 # alleles$ld_a1 is the allele the LD matrix's sign is anchored to.

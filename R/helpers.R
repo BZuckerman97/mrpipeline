@@ -21,21 +21,55 @@ plink_option <- function(param) {
 
 #' Harmonise exposure and outcome data, filter, and deduplicate
 #'
-#' Wraps [TwoSampleMR::harmonise_data()], filters to `mr_keep == TRUE`,
-#' and removes duplicate SNPs (keeping the first occurrence).
+#' Wraps [TwoSampleMR::harmonise_data()], runs the allele orientation check
+#' ([check_allele_orientation()]) on the raw harmonised output, filters to
+#' `mr_keep == TRUE`, and removes duplicate SNPs (keeping the first
+#' occurrence).
+#'
+#' The allele orientation check runs *before* the `mr_keep` filter so that
+#' SNPs dropped later (e.g. for a missing `beta`/`se`) still contribute their
+#' allele frequencies to the verdict, and it runs on every call -- including
+#' a zero-row harmonisation -- so the record returned by
+#' [last_allele_check()] always describes the most recent exposure/outcome
+#' pair rather than a stale one.
 #'
 #' @param exposure Data frame of formatted exposure data.
 #' @param outcome Data frame of formatted outcome data.
+#' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
+#'   Passed to [check_allele_orientation()].
+#' @param check Logical. If `FALSE`, skip the allele orientation check
+#'   entirely (nothing is recorded). Used by [run_mr()], which has already
+#'   checked its instruments together with a sample of shared SNPs via
+#'   [check_allele_orientation_gwas()]. Default `TRUE`.
+#' @param verbose Logical. Passed to [check_allele_orientation()]. Default
+#'   `FALSE`.
 #'
 #' @return A data frame of harmonised data, filtered and deduplicated.
 #'
 #' @importFrom rlang .data
 #' @keywords internal
-harmonise_and_filter <- function(exposure, outcome) {
+harmonise_and_filter <- function(
+  exposure,
+  outcome,
+  allele_check = c("error", "warn", "none"),
+  check = TRUE,
+  verbose = FALSE
+) {
+  allele_check <- rlang::arg_match(allele_check)
+
   harmonised <- TwoSampleMR::harmonise_data(
     exposure_dat = exposure,
     outcome_dat = outcome
   )
+
+  if (check) {
+    check_allele_orientation(
+      harmonised,
+      allele_check = allele_check,
+      verbose = verbose,
+      call = rlang::caller_env()
+    )
+  }
 
   # Guard: return 0-row frame if harmonisation produced no usable output
   # (e.g. no SNP overlap, or all SNPs removed as palindromic). This lets
@@ -50,6 +84,377 @@ harmonise_and_filter <- function(exposure, outcome) {
     dplyr::filter(!duplicated(.data$SNP))
 
   harmonised
+}
+
+#' Detect swapped effect/other alleles from harmonised allele frequencies
+#'
+#' Some GWAS files label their allele columns `A1`/`A2` meaning REF/ALT, with
+#' `BETA` and the frequency column oriented to `A2` (EPACTS/RAREMETAL style),
+#' whereas [format_gwas()] -- like PLINK, regenie and METAL -- reads `A1` as
+#' the effect allele. Feeding such a file in swaps effect and other allele
+#' for every variant and silently inverts every beta (GitHub issue #18). This
+#' check detects that at harmonisation time, the only point where two
+#' datasets coexist, so no external reference panel is needed.
+#'
+#' @section How the verdict is reached:
+#' [TwoSampleMR::harmonise_data()] aligns non-palindromic variants purely by
+#' allele letters, negating `beta.outcome` and replacing `eaf.outcome` with
+#' `1 - eaf.outcome` whenever the outcome's effect allele is the exposure's
+#' other allele. When one dataset's allele labels are swapped, that alignment
+#' is applied to *every* variant, so after harmonisation `eaf.outcome` ends
+#' up describing the other allele: `eaf.outcome ~ 1 - eaf.exposure` across
+#' the set. Genuine cohort differences (e.g. ancestry) produce *scatter*
+#' around `eaf.exposure`; this bug produces systematic *complementarity*.
+#'
+#' The statistic is therefore: among *informative* variants -- both EAFs
+#' present, `palindromic == FALSE`, `remove == FALSE`, one row per SNP --
+#' the proportion whose `eaf.exposure` is closer to `1 - eaf.outcome` than
+#' to `eaf.outcome` (ties, e.g. `eaf.outcome == 0.5`, count as *not*
+#' complementary). The check fails when that proportion exceeds `threshold`
+#' and at least `min_n` informative variants were available; with fewer it
+#' is `"skipped"`. Variants with EAF near 0.5 are equally likely to fall
+#' either side, so they can only dilute the proportion towards 0.5 -- they
+#' cannot cause a spurious failure, only mask a real one, which the 0.70
+#' threshold tolerates.
+#'
+#' @section Why palindromic variants are excluded:
+#' For A/T and C/G variants the strand cannot be resolved from letters, so
+#' `harmonise_data()` resolves it *from the allele frequencies*: after the
+#' letter-based swap it flips again if `eaf.exposure` and `eaf.outcome` sit
+#' on opposite sides of 0.5. When the effect allele and the frequency are
+#' both mis-assigned those two flips cancel, so a palindromic variant's
+#' `eaf.outcome` always looks consistent and its harmonised beta can be
+#' *identical* to the correct value even though every non-palindromic beta
+#' in the same set is inverted. Including them would only dilute the
+#' statistic; and once the check fails, every palindromic strand call in that
+#' pair is unreliable regardless of what its beta looks like.
+#'
+#' @section What the check cannot tell you:
+#' The comparison is symmetric: a failure means the two datasets disagree,
+#' not which one is wrong. Break the tie with an independent frequency
+#' reference (`plink --freq` on the LD panel; see `ref_frq` in
+#' [format_gwas()]), a variant with a well-established effect direction, or
+#' provenance (a dataset that has harmonised cleanly against others is not
+#' the suspect).
+#'
+#' @param harmonised Raw output of [TwoSampleMR::harmonise_data()] (before
+#'   any `mr_keep` filtering). Needs columns `SNP`, `eaf.exposure`,
+#'   `eaf.outcome`, `effect_allele.exposure`, `other_allele.exposure`,
+#'   `palindromic` and `remove`; otherwise the check is skipped.
+#' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
+#'   Controls what happens on failure; the diagnostic record is stored in
+#'   every mode.
+#' @param threshold Proportion of informative variants that must be
+#'   complementary for the check to fail. Default `0.70`.
+#' @param min_n Minimum number of informative variants required to reach a
+#'   verdict. Default `10L`.
+#' @param n_sampled Integer. Number of non-instrument SNPs that
+#'   [check_allele_orientation_gwas()] added to the harmonised set, for the
+#'   record only. `NA` (default) when the check ran on a harmonisation that
+#'   was not sampled.
+#' @param verbose Logical. If `TRUE`, report a passing or skipped verdict via
+#'   [cli::cli_inform()]. Default `FALSE`.
+#' @param call Environment. The calling frame reported in the condition.
+#'   Default [rlang::caller_env()].
+#'
+#' @return The diagnostic record (see [last_allele_check()] for its
+#'   structure), invisibly. The same record is stored so that
+#'   [last_allele_check()] can return it -- this matters on the error path,
+#'   where the return value is otherwise lost.
+#'
+#' @keywords internal
+check_allele_orientation <- function(
+  harmonised,
+  allele_check = c("error", "warn", "none"),
+  threshold = 0.70,
+  min_n = 10L,
+  n_sampled = NA_integer_,
+  verbose = FALSE,
+  call = rlang::caller_env()
+) {
+  allele_check <- rlang::arg_match(allele_check)
+
+  col_or_na <- function(col) {
+    if (col %in% names(harmonised)) unique(harmonised[[col]]) else NA_character_
+  }
+  # TwoSampleMR's id.* columns are random hashes for format_gwas() output;
+  # the exposure/outcome name columns carry the phenotype ids users know.
+  name_exp <- col_or_na("exposure") # nolint: object_usage_linter.
+  name_out <- col_or_na("outcome") # nolint: object_usage_linter.
+
+  record <- function(status, variants, n = 0L, n_comp = 0L, prop = NA_real_) {
+    the$last_allele_check <- list(
+      status = status,
+      n = as.integer(n),
+      n_complementary = as.integer(n_comp),
+      prop = prop,
+      threshold = threshold,
+      min_n = as.integer(min_n),
+      allele_check = allele_check,
+      exposure = name_exp,
+      outcome = name_out,
+      id.exposure = col_or_na("id.exposure"),
+      id.outcome = col_or_na("id.outcome"),
+      n_sampled = as.integer(n_sampled),
+      variants = variants
+    )
+    invisible(the$last_allele_check)
+  }
+
+  empty_variants <- data.frame(
+    SNP = character(),
+    effect_allele = character(),
+    other_allele = character(),
+    eaf.exposure = numeric(),
+    eaf.outcome = numeric(),
+    eaf.outcome_flipped = numeric(),
+    palindromic = logical(),
+    remove = logical(),
+    informative = logical(),
+    score = numeric(),
+    complementary = logical(),
+    stringsAsFactors = FALSE
+  )
+
+  needed <- c(
+    "SNP",
+    "eaf.exposure",
+    "eaf.outcome",
+    "effect_allele.exposure",
+    "other_allele.exposure",
+    "palindromic",
+    "remove"
+  )
+
+  if (nrow(harmonised) == 0 || !all(needed %in% names(harmonised))) {
+    if (verbose) {
+      cli::cli_inform(
+        "Allele orientation check skipped: no harmonised variants with allele frequencies."
+      )
+    }
+    return(record("skipped", empty_variants))
+  }
+
+  variants <- harmonised |>
+    dplyr::filter(!is.na(.data$eaf.exposure), !is.na(.data$eaf.outcome)) |>
+    dplyr::filter(!duplicated(.data$SNP)) |>
+    dplyr::transmute(
+      SNP = .data$SNP,
+      effect_allele = .data$effect_allele.exposure,
+      other_allele = .data$other_allele.exposure,
+      eaf.exposure = as.numeric(.data$eaf.exposure),
+      eaf.outcome = as.numeric(.data$eaf.outcome),
+      eaf.outcome_flipped = 1 - .data$eaf.outcome,
+      palindromic = !is.na(.data$palindromic) & .data$palindromic,
+      remove = !is.na(.data$remove) & .data$remove,
+      informative = !.data$palindromic & !.data$remove,
+      # Positive => eaf.exposure is closer to the complement of eaf.outcome
+      # than to eaf.outcome itself. Only meaningful for informative rows.
+      score = abs(.data$eaf.exposure - .data$eaf.outcome) -
+        abs(.data$eaf.exposure - .data$eaf.outcome_flipped),
+      complementary = dplyr::if_else(.data$informative, .data$score > 0, NA)
+    ) |>
+    as.data.frame(stringsAsFactors = FALSE)
+
+  n <- sum(variants$informative)
+  n_comp <- sum(variants$complementary, na.rm = TRUE)
+  prop <- if (n > 0) n_comp / n else NA_real_
+
+  if (n < min_n) {
+    if (verbose) {
+      cli::cli_inform(
+        "Allele orientation check skipped: only {n} informative non-palindromic SNP{?s} (need {min_n})."
+      )
+    }
+    return(record("skipped", variants, n, n_comp, prop))
+  }
+
+  status <- if (prop > threshold) "fail" else "pass"
+  rec <- record(status, variants, n, n_comp, prop)
+
+  if (status == "pass") {
+    if (verbose) {
+      cli::cli_inform(
+        "Allele orientation check passed: {n_comp}/{n} non-palindromic SNPs complementary."
+      )
+    }
+    return(invisible(rec))
+  }
+  if (allele_check == "none") {
+    return(invisible(rec))
+  }
+
+  offenders <- variants |>
+    dplyr::filter(!is.na(.data$complementary), .data$complementary) |>
+    dplyr::arrange(dplyr::desc(.data$score))
+  offenders <- offenders[seq_len(min(5L, nrow(offenders))), , drop = FALSE]
+  offender_lines <- sprintf(
+    "%s (%s): eaf.exposure = %.3f, eaf.outcome = %.3f, 1 - eaf.outcome = %.3f",
+    offenders$SNP,
+    offenders$effect_allele,
+    offenders$eaf.exposure,
+    offenders$eaf.outcome,
+    offenders$eaf.outcome_flipped
+  )
+  pct <- round(100 * prop) # nolint: object_usage_linter.
+
+  msg <- c(
+    paste0(
+      "Possible effect/other allele mis-assignment between ",
+      "{.val {name_exp}} and {.val {name_out}}: {n_comp}/{n} ({pct}%) ",
+      "non-palindromic SNPs have {.field eaf.exposure} closer to ",
+      "{.code 1 - eaf.outcome} than to {.field eaf.outcome}."
+    ),
+    "i" = paste0(
+      "This usually means one of the two datasets labels A1/A2 as REF/ALT ",
+      "rather than effect/other (see {.code ?format_gwas}, section ",
+      "{.emph What does A1 mean?}), so effect and other alleles are swapped ",
+      "and every beta is sign-inverted."
+    ),
+    "i" = "Worst offenders (effect allele in brackets):",
+    rlang::set_names(offender_lines, rep(" ", length(offender_lines))),
+    "!" = paste0(
+      "Palindromic SNPs in this pair were strand-aligned from these ",
+      "mis-assigned frequencies, so their alignment is unreliable even where ",
+      "the beta looks unchanged."
+    ),
+    "!" = paste0(
+      "The check cannot tell WHICH dataset is wrong. Compare each dataset's ",
+      "eaf to an independent panel ({.code plink --freq} on the LD ",
+      "reference; see {.arg ref_frq} in {.fn format_gwas}), check a variant ",
+      "with a well-established effect direction, or suspect the dataset that ",
+      "has not harmonised cleanly elsewhere."
+    ),
+    ">" = paste0(
+      "Fix: re-run {.fn format_gwas} on the offending dataset with ",
+      "{.code col_map = list(effect_allele = \"A2\", other_allele = \"A1\")} ",
+      "and re-run the analysis."
+    ),
+    "i" = paste0(
+      "Inspect the full record with {.fn last_allele_check}. Downgrade with ",
+      "{.code allele_check = \"warn\"} or disable with ",
+      "{.code allele_check = \"none\"}."
+    )
+  )
+
+  if (allele_check == "error") {
+    cli::cli_abort(msg, class = "mrpipeline_allele_check_error", call = call)
+  }
+  cli::cli_warn(msg, class = "mrpipeline_allele_check_warning", call = call)
+  invisible(rec)
+}
+
+#' Allele orientation check on instruments plus a sample of shared SNPs
+#'
+#' [run_mr()]'s instrument set is often too small for
+#' [check_allele_orientation()] to reach a verdict (a cis-MR may have three
+#' instruments; the check needs ten informative non-palindromic SNPs). But
+#' `run_mr()` holds the *full* exposure and outcome GWAS before it narrows
+#' the outcome to instrument rsIDs, so this helper harmonises the
+#' instruments together with up to `n_sample` additional SNPs shared by the
+#' two datasets and runs the verdict on that larger set. The extra SNPs are
+#' taken at evenly spaced positions through the sorted shared rsIDs --
+#' deterministic, so results are reproducible and the caller's RNG state is
+#' untouched, and effectively random with respect to genomic position.
+#'
+#' Cost is dominated by the rsID intersection (about 0.5 s for a 200k-SNP
+#' exposure against a 10M-row outcome); formatting and harmonising ~1000
+#' SNPs takes a few milliseconds.
+#'
+#' The check is skipped (with a `"skipped"` record) when the exposure lacks
+#' `SNP`/`eaf.exposure` or the outcome lacks the [format_gwas()] outcome
+#' columns, or when nothing overlaps.
+#'
+#' @param exposure Data frame of TwoSampleMR-formatted exposure data (the
+#'   full dataset passed to `run_mr()`, not just the instruments).
+#' @param outcome Data frame in [format_gwas()] outcome format (`rsids`,
+#'   `effect_allele`, `other_allele`, `beta`, `se`, `eaf`, ...).
+#' @param instrument_snps Character vector of instrument rsIDs to always
+#'   include in the check set.
+#' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
+#' @param n_sample Integer. Maximum number of non-instrument shared SNPs to
+#'   add. Default `1000L`.
+#' @param verbose Logical. Passed to [check_allele_orientation()].
+#' @param call Environment reported in the condition. Default
+#'   [rlang::caller_env()].
+#'
+#' @return The diagnostic record, invisibly (see [last_allele_check()]).
+#'
+#' @keywords internal
+check_allele_orientation_gwas <- function(
+  exposure,
+  outcome,
+  instrument_snps,
+  allele_check = c("error", "warn", "none"),
+  n_sample = 1000L,
+  verbose = FALSE,
+  call = rlang::caller_env()
+) {
+  allele_check <- rlang::arg_match(allele_check)
+
+  skipped <- function() {
+    check_allele_orientation(
+      data.frame(),
+      allele_check = allele_check,
+      verbose = verbose,
+      call = call
+    )
+  }
+
+  needed_exp <- c("SNP", "eaf.exposure")
+  needed_out <- c("rsids", "effect_allele", "other_allele", "beta", "se", "eaf")
+  if (
+    !all(needed_exp %in% names(exposure)) ||
+      !all(needed_out %in% names(outcome))
+  ) {
+    return(skipped())
+  }
+
+  shared <- setdiff(intersect(exposure$SNP, outcome$rsids), instrument_snps)
+  shared <- shared[!is.na(shared)]
+  if (length(shared) > n_sample) {
+    shared <- sort(shared)[round(seq(1, length(shared), length.out = n_sample))]
+  }
+  check_snps <- unique(c(instrument_snps, shared))
+
+  exposure_sub <- exposure[exposure$SNP %in% check_snps, , drop = FALSE]
+  outcome_sub <- outcome[outcome$rsids %in% check_snps, , drop = FALSE]
+  if (nrow(exposure_sub) == 0 || nrow(outcome_sub) == 0) {
+    return(skipped())
+  }
+
+  # Sampled SNPs are only used for this check, so format_data()'s warnings
+  # about rows missing beta/se (excluded from "the MR tests") are noise here.
+  outcome_data <- suppressWarnings(suppressMessages(TwoSampleMR::format_data(
+    outcome_sub,
+    type = "outcome",
+    phenotype_col = "phenotype",
+    header = TRUE,
+    snp_col = "rsids",
+    effect_allele_col = "effect_allele",
+    other_allele_col = "other_allele",
+    eaf_col = "eaf",
+    beta_col = "beta",
+    se_col = "se",
+    samplesize_col = "n",
+    pval_col = "pval",
+    pos_col = "pos",
+    chr_col = "chr",
+    log_pval = FALSE
+  )))
+
+  harmonised <- suppressMessages(TwoSampleMR::harmonise_data(
+    exposure_dat = exposure_sub,
+    outcome_dat = outcome_data
+  ))
+
+  check_allele_orientation(
+    harmonised,
+    allele_check = allele_check,
+    n_sampled = length(shared),
+    verbose = verbose,
+    call = call
+  )
 }
 
 #' Compute LD correlation matrix from a local reference panel

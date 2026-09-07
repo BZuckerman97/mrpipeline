@@ -131,6 +131,16 @@
 #'   SNPs in both the exposure and outcome that fall within any listed region
 #'   are dropped before harmonisation. For example, to exclude the MHC:
 #'   `data.frame(chr = "6", start = 26e6, end = 34e6)`.
+#' @param allele_check Character. What to do when the allele orientation
+#'   check finds that effect/other alleles look swapped between exposure and
+#'   outcome -- the signature of a GWAS file whose `A1`/`A2` mean REF/ALT,
+#'   which silently inverts every beta (see [format_gwas()], section *What
+#'   does A1 mean?*). `"error"` (default) aborts, `"warn"` warns and
+#'   continues, `"none"` runs the analysis regardless. The check runs on
+#'   every harmonised SNP in the colocalization window and is skipped when
+#'   fewer than 10 informative non-palindromic SNPs carry both allele
+#'   frequencies. The full record is available afterwards from
+#'   [last_allele_check()] in every mode.
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
@@ -192,6 +202,7 @@ run_coloc <- function(
   susie_repeat_until_convergence = FALSE,
   exclude_regions = NULL,
   ref_frq = NULL,
+  allele_check = c("error", "warn", "none"),
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -202,6 +213,7 @@ run_coloc <- function(
 
   exposure_type <- rlang::arg_match(exposure_type)
   outcome_type <- rlang::arg_match(outcome_type)
+  allele_check <- rlang::arg_match(allele_check)
   methods <- match.arg(
     methods,
     choices = c("abf", "susie", "signals", "prop_test"),
@@ -246,7 +258,8 @@ run_coloc <- function(
     susie_maxit = susie_maxit,
     susie_repeat_until_convergence = susie_repeat_until_convergence,
     exclude_regions = exclude_regions,
-    ref_frq = ref_frq
+    ref_frq = ref_frq,
+    allele_check = allele_check
   )
 
   timing <- numeric(0)
@@ -406,7 +419,12 @@ run_coloc <- function(
 
   t0 <- proc.time()[["elapsed"]]
 
-  harmonised <- harmonise_and_filter(exposure_filt, outcome_data)
+  harmonised <- harmonise_and_filter(
+    exposure_filt,
+    outcome_data,
+    allele_check = allele_check,
+    verbose = verbose
+  )
 
   timing[["harmonisation"]] <- proc.time()[["elapsed"]] - t0
 
