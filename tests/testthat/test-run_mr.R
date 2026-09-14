@@ -618,35 +618,26 @@ test_that("run_mr skips heterogeneity and loo with 1 instrument", {
 test_that("run_mr detects a swapped-allele outcome even with 3 instruments", {
   skip_if_not_installed("TwoSampleMR")
   f <- make_allele_gwas_fixture()
-
-  expect_error(
+  run <- function(outcome, ...) {
     suppressMessages(run_mr(
       exposure = f$exposure,
       exposure_id = "exp",
-      outcome = f$bug,
+      outcome = outcome,
       outcome_id = "out",
       instruments = f$instruments,
       methods = "ivw",
-      verbose = FALSE
-    )),
-    class = "mrpipeline_allele_check_error"
-  )
+      verbose = FALSE,
+      ...
+    ))
+  }
+
+  expect_error(run(f$bug), class = "mrpipeline_allele_check_error")
   rec <- last_allele_check()
   expect_equal(rec$status, "fail")
-  expect_equal(rec$n_sampled, 37L)
+  expect_equal(rec$n_sampled, 37L) # the sampled path, not just the 3 instruments
 
   # Correctly labelled outcome runs and records a pass
-  suppressMessages(
-    result <- run_mr(
-      exposure = f$exposure,
-      exposure_id = "exp",
-      outcome = f$ok,
-      outcome_id = "out",
-      instruments = f$instruments,
-      methods = "ivw",
-      verbose = FALSE
-    )
-  )
+  result <- run(f$ok)
   expect_s3_class(result, "mr_result")
   expect_equal(result$status, "success")
   expect_equal(nrow(result$instruments), 3L)
@@ -656,18 +647,7 @@ test_that("run_mr detects a swapped-allele outcome even with 3 instruments", {
 
   # "warn" carries on and records the mode
   expect_warning(
-    suppressMessages(
-      result <- run_mr(
-        exposure = f$exposure,
-        exposure_id = "exp",
-        outcome = f$bug,
-        outcome_id = "out",
-        instruments = f$instruments,
-        methods = "ivw",
-        allele_check = "warn",
-        verbose = FALSE
-      )
-    ),
+    result <- run(f$bug, allele_check = "warn"),
     class = "mrpipeline_allele_check_warning"
   )
   expect_equal(result$status, "success")

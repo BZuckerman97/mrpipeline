@@ -6,11 +6,15 @@
 # outcome; `bug` is the same data with the effect/other allele columns
 # swapped and beta/eaf untouched -- exactly what the mis-read file produces.
 
+# Harmonise with TwoSampleMR's progress messages silenced.
+hf <- function(...) suppressMessages(harmonise_and_filter(...))
+
 # 12 SNPs in TwoSampleMR outcome format: 10 non-palindromic, plus rs11 (C/G,
 # eaf 0.05) and rs12 (A/T, eaf 0.20), palindromic with unambiguous
-# frequencies. `noise_sd` controls how much outcome EAF scatters around the
-# exposure EAF (0.02 = same population; 0.08 = cross-ancestry-like scatter).
-make_allele_fixture <- function(noise_sd = 0.02, seed = 42) {
+# frequencies. `noise_sd` scales a fixed +/- pattern added to the outcome EAF
+# (0.02 = same population; 0.08 = cross-ancestry-like scatter) -- fixed rather
+# than random so the fixture is reproducible without touching the RNG.
+make_allele_fixture <- function(noise_sd = 0.02) {
   snps <- paste0("rs", 1:12)
   ea <- c("A", "C", "G", "T", "A", "C", "G", "T", "A", "C", "C", "A")
   oa <- c("G", "T", "A", "C", "C", "A", "T", "G", "G", "T", "G", "T")
@@ -44,10 +48,8 @@ make_allele_fixture <- function(noise_sd = 0.02, seed = 42) {
     stringsAsFactors = FALSE
   )
 
-  eaf_out <- withr::with_seed(
-    seed,
-    pmin(pmax(eaf + stats::rnorm(length(eaf), 0, noise_sd), 0.01), 0.99)
-  )
+  noise <- noise_sd * rep(c(0.5, -1, 1.5, -0.3, 0.8, -1.2), 2)
+  eaf_out <- pmin(pmax(eaf + noise, 0.01), 0.99)
 
   outcome_ok <- data.frame(
     SNP = snps,
