@@ -183,7 +183,7 @@ check_allele_orientation <- function(
   name_out <- col_or_na("outcome") # nolint: object_usage_linter.
 
   record <- function(status, variants, n = 0L, n_comp = 0L, prop = NA_real_) {
-    the$last_allele_check <- list(
+    .mrpipeline_env$last_allele_check <- list(
       status = status,
       n = as.integer(n),
       n_complementary = as.integer(n_comp),
@@ -198,7 +198,7 @@ check_allele_orientation <- function(
       n_sampled = as.integer(n_sampled),
       variants = variants
     )
-    invisible(the$last_allele_check)
+    invisible(.mrpipeline_env$last_allele_check)
   }
 
   empty_variants <- data.frame(

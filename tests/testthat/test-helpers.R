@@ -246,9 +246,9 @@ test_that("verbose = TRUE reports pass and skipped verdicts", {
 })
 
 test_that("last_allele_check returns NULL with a message before any check", {
-  old <- the$last_allele_check
-  on.exit(the$last_allele_check <- old)
-  the$last_allele_check <- NULL
+  old <- .mrpipeline_env$last_allele_check
+  on.exit(.mrpipeline_env$last_allele_check <- old)
+  .mrpipeline_env$last_allele_check <- NULL
 
   expect_message(
     expect_null(last_allele_check()),

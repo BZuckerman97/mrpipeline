@@ -322,10 +322,11 @@ frequencies (palindromic and `remove` rows included but flagged, with a
 attributes so the summary fields survive `dplyr` verbs and `[`, and no S3
 class or print method is needed.
 
-The storage is a package-level environment, `the <- new.env(parent =
-emptyenv())` in `R/mrpipeline-package.R`. The namespace is locked on load but
-bindings inside that environment are not, so helpers can assign
-`the$last_allele_check` at run time. It is the package's only mutable state.
+The storage is a package-level environment, `.mrpipeline_env <-
+new.env(parent = emptyenv())` in `R/zzz.R` (the same idiom as codeminer's
+`.codeminer_env`). The namespace is locked on load but bindings inside that
+environment are not, so helpers can assign `.mrpipeline_env$last_allele_check`
+at run time. It is the package's only mutable state.
 
 ## Internal Helper Functions
 
@@ -373,7 +374,7 @@ The check is symmetric: it cannot say which dataset is wrong. The condition
 message (classes `mrpipeline_allele_check_error` /
 `mrpipeline_allele_check_warning`) lists the five worst offenders inline, the
 tie-breakers (reference panel frequencies, a known-direction variant,
-provenance) and the `col_map` fix. The record is stored in `the$last_allele_check`
+provenance) and the `col_map` fix. The record is stored in `.mrpipeline_env$last_allele_check`
 in every mode, including `"none"`.
 
 ### `check_allele_orientation_gwas()`

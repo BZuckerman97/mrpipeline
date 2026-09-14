@@ -58,7 +58,7 @@
 #'
 #' @export
 last_allele_check <- function() {
-  rec <- the$last_allele_check # nolint: object_usage_linter.
+  rec <- .mrpipeline_env$last_allele_check # nolint: object_usage_linter.
   if (is.null(rec)) {
     cli::cli_inform("No allele orientation check has run yet in this session.")
     return(invisible(NULL))
