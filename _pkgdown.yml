@@ -43,6 +43,7 @@ reference:
     desc: Helper functions for analysis workflows.
     contents:
       - get_gene_coords
+      - last_allele_check
 
   - title: Example Data
     desc: Bundled datasets used in examples and vignettes.

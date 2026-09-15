@@ -31,6 +31,55 @@
 #' loaded data to check. User-supplied aliases are checked before the built-in
 #' list, so they take precedence in the event of ambiguity.
 #'
+#' @section What does A1 mean?:
+#' `A1`/`A2` are ambiguous across the field, and the alias table can only
+#' pick one reading:
+#'
+#' | Convention | `A1` | `A2` | `BETA` / `FRQ` refer to | Built-in mapping |
+#' |---|---|---|---|---|
+#' | PLINK, regenie, METAL, most GWAS Catalog deposits | effect (coded, tested) allele | other allele | `A1` | correct |
+#' | EPACTS, RAREMETAL, VCF-derived tables (e.g. IAMDGC AMD) | REF | ALT | `A2` | **swapped: every beta inverted** |
+#'
+#' A file of the second kind is not malformed and nothing looks wrong after
+#' formatting: harmonisation aligns alleles by letter, so the output is
+#' internally consistent and every MR estimate is simply inverted (GitHub
+#' issue #18). Before formatting a file whose allele columns are called
+#' `A1`/`A2` -- or whose documentation does not say which allele the effect
+#' refers to -- establish the convention:
+#'
+#' 1. **Read the README or header.** regenie's `ALLELE1`/`A1FREQ`, METAL's
+#'    `Allele1`/`Freq1` and GWAS Catalog `effect_allele` are explicit; a
+#'    VCF-style `REF`/`ALT` pair means the effect is per ALT.
+#' 2. **Rule out a minor allele frequency.** A MAF never exceeds 0.5. If the
+#'    frequency column exceeds 0.5 in a sizeable fraction of rows it tracks
+#'    one fixed allele, and you can ask which one.
+#' 3. **Look up two or three variants.** Compare the frequency column with a
+#'    known population frequency (gnomAD, Ensembl, or `plink --freq` on your
+#'    LD panel) to see whether it describes `A1` or `A2`, and check a variant
+#'    with a well-established effect direction for the trait -- for AMD, CFH
+#'    rs1061170 (C is the risk allele, OR about 2.5) settles at once whether
+#'    `BETA` is per `A1` or `A2`. This generalises to any trait.
+#'
+#' If `A1` turns out to be REF, swap the mapping; user aliases take
+#' precedence over the built-in table:
+#'
+#' ```r
+#' format_gwas(
+#'   path,
+#'   phenotype_id = "AMD",
+#'   col_map = list(effect_allele = "A2", other_allele = "A1")
+#' )
+#' ```
+#'
+#' As a safety net, [run_mr()] and [run_coloc()] run an allele orientation
+#' check at harmonisation (`allele_check` argument; full record from
+#' [last_allele_check()]): when the outcome's allele frequencies are
+#' systematically the *complement* of the exposure's across non-palindromic
+#' SNPs, one of the two datasets has swapped alleles. The check cannot tell
+#' which dataset, needs at least 10 informative SNPs, and does not replace
+#' reading the header. Validating a supplied `eaf` against a `ref_frq` panel
+#' at ingestion is a planned extension.
+#'
 #' @section Automatic odds-ratio to log-odds conversion:
 #' Some GWAS files (particularly older EBI deposits) report effect sizes as odds
 #' ratios rather than log-odds. When `beta` is absent -- or present but entirely

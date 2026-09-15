@@ -88,6 +88,17 @@
 #'   lets PLINK auto-detect. Read from `getOption("mrpipeline.plink_memory")`
 #'   or the `MRPIPELINE_PLINK_MEMORY` environment variable via
 #'   [plink_option()].
+#' @param allele_check Character. What to do when the allele orientation
+#'   check finds that effect/other alleles look swapped between exposure and
+#'   outcome -- the signature of a GWAS file whose `A1`/`A2` mean REF/ALT,
+#'   which silently inverts every beta (see [format_gwas()], section *What
+#'   does A1 mean?*). `"error"` (default) aborts, `"warn"` warns and
+#'   continues, `"none"` runs the analysis regardless. The check harmonises
+#'   the instruments together with up to 1000 further SNPs shared by the two
+#'   datasets, so it works even for a cis-MR with a handful of instruments;
+#'   it is skipped when fewer than 10 informative non-palindromic SNPs carry
+#'   both allele frequencies. The full record is available afterwards from
+#'   [last_allele_check()] in every mode.
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
@@ -137,6 +148,7 @@ run_mr <- function(
   presso_n_dist = 1000,
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
+  allele_check = c("error", "warn", "none"),
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -144,6 +156,8 @@ run_mr <- function(
   if (ld_correct && is.null(bfile)) {
     cli::cli_abort("{.arg bfile} is required when {.code ld_correct = TRUE}.")
   }
+
+  allele_check <- rlang::arg_match(allele_check)
 
   shortcut_methods <- c(
     "ivw",
@@ -188,7 +202,8 @@ run_mr <- function(
     methods = methods,
     ld_correct = ld_correct,
     exposure_n = exposure_n,
-    presso_n_dist = presso_n_dist
+    presso_n_dist = presso_n_dist,
+    allele_check = allele_check
   )
 
   timing <- numeric(0)
@@ -407,6 +422,24 @@ run_mr <- function(
 
   timing[["region_exclusion"]] <- proc.time()[["elapsed"]] - t0
 
+  # --- Allele orientation check ---------------------------------------------
+
+  # Runs on the full exposure/outcome (instruments plus a sample of shared
+  # SNPs) BEFORE the outcome is narrowed to instrument rsIDs below, so that a
+  # cis-MR with only a few instruments still gets a verdict. The instrument
+  # harmonisation further down therefore passes check = FALSE.
+  t0 <- proc.time()[["elapsed"]]
+
+  check_allele_orientation_gwas(
+    exposure,
+    outcome,
+    instrument_snps = exposure_iv$SNP,
+    allele_check = allele_check,
+    verbose = verbose
+  )
+
+  timing[["allele_check"]] <- proc.time()[["elapsed"]] - t0
+
   # --- Format outcome and harmonise -----------------------------------------
 
   t0 <- proc.time()[["elapsed"]]
@@ -457,7 +490,12 @@ run_mr <- function(
     log_pval = FALSE
   )
 
-  harmonised <- harmonise_and_filter(exposure_iv, outcome_data)
+  harmonised <- harmonise_and_filter(
+    exposure_iv,
+    outcome_data,
+    allele_check = allele_check,
+    check = FALSE
+  )
 
   timing[["harmonisation"]] <- proc.time()[["elapsed"]] - t0
 

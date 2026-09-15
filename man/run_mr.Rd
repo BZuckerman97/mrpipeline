@@ -25,6 +25,7 @@ run_mr(
   presso_n_dist = 1000,
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
+  allele_check = c("error", "warn", "none"),
   verbose = TRUE
 )
 }
@@ -102,6 +103,18 @@ or the \code{MRPIPELINE_PLINK_THREADS} environment variable via
 lets PLINK auto-detect. Read from \code{getOption("mrpipeline.plink_memory")}
 or the \code{MRPIPELINE_PLINK_MEMORY} environment variable via
 \code{\link[=plink_option]{plink_option()}}.}
+
+\item{allele_check}{Character. What to do when the allele orientation
+check finds that effect/other alleles look swapped between exposure and
+outcome -- the signature of a GWAS file whose \code{A1}/\code{A2} mean REF/ALT,
+which silently inverts every beta (see \code{\link[=format_gwas]{format_gwas()}}, section \emph{What
+does A1 mean?}). \code{"error"} (default) aborts, \code{"warn"} warns and
+continues, \code{"none"} runs the analysis regardless. The check harmonises
+the instruments together with up to 1000 further SNPs shared by the two
+datasets, so it works even for a cis-MR with a handful of instruments;
+it is skipped when fewer than 10 informative non-palindromic SNPs carry
+both allele frequencies. The full record is available afterwards from
+\code{\link[=last_allele_check]{last_allele_check()}} in every mode.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.

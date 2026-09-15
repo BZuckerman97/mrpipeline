@@ -30,6 +30,23 @@ test_that("run_coloc validates methods argument", {
   )
 })
 
+test_that("run_coloc validates allele_check argument", {
+  expect_error(
+    run_coloc(
+      exposure = data.frame(),
+      exposure_id = "test",
+      outcome = data.frame(),
+      outcome_id = "test",
+      gene_chr = "1",
+      gene_start = 1,
+      gene_end = 2,
+      bfile = "dummy",
+      allele_check = "bogus"
+    ),
+    "allele_check"
+  )
+})
+
 test_that("run_coloc errors when outcome_type = 'cc' without outcome_s", {
   expect_error(
     run_coloc(
@@ -474,7 +491,7 @@ test_that("run_coloc ABF-only returns correct coloc_result structure", {
     pos = test_positions,
     beta = rnorm(length(test_snps), 0, 0.1),
     se = runif(length(test_snps), 0.01, 0.05),
-    eaf = runif(length(test_snps), 0.1, 0.9),
+    eaf = exposure$eaf.exposure,
     pval = runif(length(test_snps), 1e-5, 0.5),
     n = 20000,
     effect_allele = bim$V5[seq_along(test_snps)],
@@ -554,7 +571,7 @@ test_that("run_coloc skips prop_test when susie not requested", {
     pos = test_positions,
     beta = rnorm(length(test_snps), 0, 0.1),
     se = runif(length(test_snps), 0.01, 0.05),
-    eaf = runif(length(test_snps), 0.1, 0.9),
+    eaf = exposure$eaf.exposure,
     pval = runif(length(test_snps), 1e-5, 0.5),
     n = 20000,
     effect_allele = bim$V5[seq_along(test_snps)],
@@ -672,7 +689,7 @@ test_that("run_coloc runs susie + signals end-to-end despite LD-panel allele mis
     pos = test_positions,
     beta = beta_out_reported,
     se = se_out,
-    eaf = runif(n_snp, 0.1, 0.9),
+    eaf = exposure$eaf.exposure,
     pval = 2 * stats::pnorm(-abs(z_out)),
     n = 20000,
     effect_allele = ea_reported,

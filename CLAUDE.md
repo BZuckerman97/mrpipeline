@@ -12,9 +12,10 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 - `format_pqtl_decode()` -- Format deCODE proteomics GWAS to TwoSampleMR exposure format
 - `format_pqtl_ukbppp()` -- Format UKB-PPP pQTL data to TwoSampleMR exposure format
 - `format_single_cell_onek1k()` -- Format OneK1K single-cell eQTL data
+- `last_allele_check()` -- Record of the most recent harmonisation allele orientation check (detects A1/A2 = REF/ALT files, issue #18)
 
 **Internal helpers** (not exported, in `R/helpers.R`):
-`harmonise_and_filter()`, `compute_ld_matrix()`, `clump_instruments()`, `align_to_ld_matrix()`, `eaf_to_maf()`, `resolve_sample_size()`
+`harmonise_and_filter()`, `check_allele_orientation()`, `check_allele_orientation_gwas()`, `compute_ld_matrix()`, `clump_instruments()`, `align_to_ld_matrix()`, `eaf_to_maf()`, `resolve_sample_size()`
 
 **S3 classes:** `mr_result` (from `run_mr()`), `coloc_result` (from `run_coloc()`)
 
@@ -143,7 +144,7 @@ Before opening any pull request:
 
 ## Workflow
 
-Feature branches are created off `dev` and merged back to `dev` via PR. Each feature should have a corresponding GitHub issue.
+Feature branches are created off `main` and merged back to `main` via PR (the former `dev` branch was retired once it fell behind `main`). Each feature should have a corresponding GitHub issue.
 
 Branch naming: `phase-N/short-description` (e.g. `phase-1/shared-helpers`).
 

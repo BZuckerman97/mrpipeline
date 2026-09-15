@@ -29,6 +29,19 @@ test_that("run_mr validates methods argument", {
   )
 })
 
+test_that("run_mr validates allele_check argument", {
+  expect_error(
+    run_mr(
+      exposure = data.frame(),
+      exposure_id = "test",
+      outcome = data.frame(),
+      outcome_id = "test",
+      allele_check = "bogus"
+    ),
+    "allele_check"
+  )
+})
+
 test_that("run_mr validates exclude_regions argument", {
   expect_error(
     run_mr(
@@ -598,4 +611,45 @@ test_that("run_mr skips heterogeneity and loo with 1 instrument", {
   expect_null(result$loo)
   expect_true("heterogeneity" %in% names(result$methods_skipped))
   expect_true("loo" %in% names(result$methods_skipped))
+})
+
+# --- Allele orientation check -----------------------------------------------
+
+test_that("run_mr detects a swapped-allele outcome even with 3 instruments", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_gwas_fixture()
+  run <- function(outcome, ...) {
+    suppressMessages(run_mr(
+      exposure = f$exposure,
+      exposure_id = "exp",
+      outcome = outcome,
+      outcome_id = "out",
+      instruments = f$instruments,
+      methods = "ivw",
+      verbose = FALSE,
+      ...
+    ))
+  }
+
+  expect_error(run(f$bug), class = "mrpipeline_allele_check_error")
+  rec <- last_allele_check()
+  expect_equal(rec$status, "fail")
+  expect_equal(rec$n_sampled, 37L) # the sampled path, not just the 3 instruments
+
+  # Correctly labelled outcome runs and records a pass
+  result <- run(f$ok)
+  expect_s3_class(result, "mr_result")
+  expect_equal(result$status, "success")
+  expect_equal(nrow(result$instruments), 3L)
+  expect_equal(last_allele_check()$status, "pass")
+  expect_true("allele_check" %in% names(result$timing))
+  expect_equal(result$params$allele_check, "error")
+
+  # "warn" carries on and records the mode
+  expect_warning(
+    result <- run(f$bug, allele_check = "warn"),
+    class = "mrpipeline_allele_check_warning"
+  )
+  expect_equal(result$status, "success")
+  expect_equal(result$params$allele_check, "warn")
 })

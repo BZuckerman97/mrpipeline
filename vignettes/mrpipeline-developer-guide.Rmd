@@ -309,13 +309,86 @@ coordinates. Key design decisions:
 - Deduplicates by gene + chromosome (widest range), preferring autosomes
 - Warns about genes not found in Ensembl
 
+### `last_allele_check()`
+
+Defined in `R/last_allele_check.R`. Returns the record stored by the most
+recent `check_allele_orientation()` call (the `httr2::last_response()`
+pattern), or `NULL` with a message if none has run. The record is a named list
+-- `status` (`"pass"`/`"fail"`/`"skipped"`), `n`, `n_complementary`, `prop`,
+`threshold`, `min_n`, `allele_check`, `exposure`, `outcome`, `id.exposure`,
+`id.outcome`, `n_sampled`, and `variants`, a data frame with one row per SNP that had both
+frequencies (palindromic and `remove` rows included but flagged, with a
+`score` column to sort offenders). A list rather than a data frame with
+attributes so the summary fields survive `dplyr` verbs and `[`, and no S3
+class or print method is needed.
+
+The storage is a package-level environment, `.mrpipeline_env <-
+new.env(parent = emptyenv())` in `R/zzz.R` (the same idiom as codeminer's
+`.codeminer_env`). The namespace is locked on load but bindings inside that
+environment are not, so helpers can assign `.mrpipeline_env$last_allele_check`
+at run time. It is the package's only mutable state.
+
 ## Internal Helper Functions
 
 All helpers live in `R/helpers.R`, are tagged `@keywords internal`, and are not exported.
 
 ### `harmonise_and_filter()`
 
-<!-- TODO: document purpose, inputs, outputs -->
+Single choke point for harmonisation, used by both `run_mr()` and
+`run_coloc()`. Wraps `TwoSampleMR::harmonise_data()`, runs
+`check_allele_orientation()` on the raw output, returns a 0-row frame if
+harmonisation produced nothing usable (so callers hit their `nrow == 0`
+early-return instead of erroring on a missing `mr_keep` column), then filters
+to `mr_keep == TRUE` and drops duplicate SNPs. The allele check runs *before*
+the `mr_keep` filter so SNPs later dropped for a missing `beta`/`se` still
+contribute their frequencies, and on every call so the stored record is never
+stale. `run_mr()` passes `check = FALSE` because it has already checked a
+larger set via `check_allele_orientation_gwas()`; `run_coloc()` keeps the
+default because its window is already large.
+
+### `check_allele_orientation()`
+
+The verdict behind `allele_check` (GitHub issue #18). Some GWAS files use
+`A1`/`A2` to mean REF/ALT with `BETA`/`FRQ` per `A2`; `format_gwas()` reads
+`A1` as the effect allele, so every beta is silently inverted. Harmonisation
+is per-variant and letter-based, so it faithfully applies the swapped labels
+and the output is internally consistent -- the only trace is that
+`eaf.outcome` ends up describing the other allele, i.e. `eaf.outcome ~ 1 -
+eaf.exposure` across the set. The helper counts, among *informative* rows
+(both EAFs present, `palindromic == FALSE`, `remove == FALSE`, one row per
+SNP), how many have `eaf.exposure` closer to `1 - eaf.outcome` than to
+`eaf.outcome`; it fails when that proportion exceeds 0.70 with at least 10
+informative rows, and is `"skipped"` below that. Ties (`eaf.outcome == 0.5`)
+count as not complementary; near-0.5 frequencies can only dilute the
+proportion, never trigger it.
+
+Palindromic SNPs are excluded because TwoSampleMR resolves their strand *from*
+the frequencies: when effect allele and frequency are both mis-assigned the
+two flips cancel, `eaf.outcome` looks consistent, and the harmonised beta can
+be identical to the correct value while every non-palindromic beta in the same
+set is inverted (the tests prove this on the fixture). Including them would
+only dilute the statistic -- and once the check fails, every palindromic
+strand call in that pair is unreliable regardless of its beta.
+
+The check is symmetric: it cannot say which dataset is wrong. The condition
+message (classes `mrpipeline_allele_check_error` /
+`mrpipeline_allele_check_warning`) lists the five worst offenders inline, the
+tie-breakers (reference panel frequencies, a known-direction variant,
+provenance) and the `col_map` fix. The record is stored in `.mrpipeline_env$last_allele_check`
+in every mode, including `"none"`.
+
+### `check_allele_orientation_gwas()`
+
+`run_mr()`'s instrument set is often below the 10-SNP minimum (a cis-MR may
+have three instruments), but `run_mr()` holds the full exposure and outcome
+before it narrows the outcome to instrument rsIDs. This helper harmonises the
+instruments plus up to 1000 further shared SNPs and hands the result to
+`check_allele_orientation()`. The extra SNPs are evenly spaced picks through
+the sorted shared rsIDs: deterministic (reproducible, and the caller's RNG
+state is untouched) and effectively random with respect to genomic position.
+Cost is dominated by the rsID intersection -- about 0.5 s for a 200k-SNP
+exposure against a 10M-row outcome -- recorded as `timing[["allele_check"]]`.
+
 
 ### `compute_ld_matrix()`
 

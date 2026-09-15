@@ -33,6 +33,7 @@ run_coloc(
   susie_repeat_until_convergence = FALSE,
   exclude_regions = NULL,
   ref_frq = NULL,
+  allele_check = c("error", "warn", "none"),
   verbose = TRUE
 )
 }
@@ -130,6 +131,17 @@ are dropped before harmonisation. For example, to exclude the MHC:
 and outcome. Columns expected: \code{SNP}, \code{A1}, \code{A2}, \code{MAF}. The A1 allele is
 matched against \code{effect_allele.outcome} (post-harmonisation) to orient the
 frequency correctly. \code{NULL} (default) disables the lookup.}
+
+\item{allele_check}{Character. What to do when the allele orientation
+check finds that effect/other alleles look swapped between exposure and
+outcome -- the signature of a GWAS file whose \code{A1}/\code{A2} mean REF/ALT,
+which silently inverts every beta (see \code{\link[=format_gwas]{format_gwas()}}, section \emph{What
+does A1 mean?}). \code{"error"} (default) aborts, \code{"warn"} warns and
+continues, \code{"none"} runs the analysis regardless. The check runs on
+every harmonised SNP in the colocalization window and is skipped when
+fewer than 10 informative non-palindromic SNPs carry both allele
+frequencies. The full record is available afterwards from
+\code{\link[=last_allele_check]{last_allele_check()}} in every mode.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
