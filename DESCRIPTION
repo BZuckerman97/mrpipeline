@@ -21,6 +21,7 @@ Imports:
     ieugwasr (>= 1.0.2),
     MendelianRandomization (>= 0.10.0),
     purrr,
+    R.utils,
     rlang,
     Rmpfr,
     stringr (>= 1.5.1),
@@ -36,7 +37,6 @@ Suggests:
     ggplot2,
     knitr,
     locuszoomr,
-    R.utils,
     rmarkdown,
     susieR,
     testthat (>= 3.0.0)

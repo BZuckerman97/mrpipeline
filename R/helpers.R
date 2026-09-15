@@ -804,3 +804,67 @@ resolve_sample_size <- function(
 
   NULL
 }
+
+#' Read a delimited file, checking compression support first
+#'
+#' Thin wrapper around [data.table::fread()] that fails early, with an
+#' actionable message, when `path` is compressed but the `R.utils` package
+#' (which `fread()` needs to decompress `.gz`/`.bz2` files) is unavailable.
+#' `R.utils` is only a `Suggests` of `data.table`, so declaring it in
+#' `mrpipeline`'s `Imports` is what actually guarantees the gzipped inputs
+#' that GWAS summary statistics are routinely distributed as (issue #20).
+#' This guard is a backstop for a broken library rather than an expected
+#' failure mode, and keeps the error at the top of the call stack instead of
+#' deep inside `fread()`.
+#'
+#' @param path Character scalar file path.
+#' @param ... Passed to [data.table::fread()].
+#'
+#' @return The value of [data.table::fread()].
+#'
+#' @keywords internal
+fread_file <- function(path, ...) {
+  check_gz_support(path)
+  data.table::fread(path, ...)
+}
+
+#' Check that compressed files can be read
+#'
+#' @param path Character scalar file path. Non-character input is ignored.
+#' @param has_rutils Logical, or `NULL` (default) to look `R.utils` up with
+#'   `requireNamespace()`. Only consulted when `path` is compressed. Exposed
+#'   so tests can exercise the failure branch without uninstalling the
+#'   package.
+#'
+#' @return `invisible(TRUE)` if `path` is readable, otherwise aborts.
+#'
+#' @keywords internal
+check_gz_support <- function(path, has_rutils = NULL) {
+  compressed <- is.character(path) &&
+    length(path) == 1L &&
+    stringr::str_detect(path, "\\.(gz|bz2)$")
+  if (!compressed) {
+    return(invisible(TRUE))
+  }
+  if (is.null(has_rutils)) {
+    # decompressFile() is the entry point data.table::fread() reaches for to
+    # open .gz/.bz2. Naming it explicitly also makes the R.utils dependency
+    # visible to R CMD check, which does not count requireNamespace() as use
+    # of a declared Import. The `&&` short-circuits, so `R.utils::` is only
+    # evaluated once the namespace is known to be available.
+    has_rutils <- requireNamespace("R.utils", quietly = TRUE) &&
+      is.function(R.utils::decompressFile)
+  }
+  if (!has_rutils) {
+    cli::cli_abort(
+      c(
+        "Cannot read compressed file {.path {path}}.",
+        "x" = "{.pkg data.table} needs {.pkg R.utils} to decompress
+               {.field .gz} / {.field .bz2} files, and it is not installed.",
+        "i" = "Install it with {.run install.packages(\"R.utils\")}, or
+               supply an uncompressed file."
+      )
+    )
+  }
+  invisible(TRUE)
+}

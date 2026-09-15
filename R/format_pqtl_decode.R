@@ -51,7 +51,7 @@ format_pqtl_decode <- function(
     stopifnot(all(sapply(decode_proteomic_gwas_file_path, file.exists)))
     decode_raw_data <- decode_proteomic_gwas_file_path |>
       purrr::map(\(path) {
-        data.table::fread(path)
+        fread_file(path)
       }) |>
       dplyr::bind_rows()
   } else {
@@ -64,7 +64,7 @@ format_pqtl_decode <- function(
     stopifnot(all(sapply(decode_included_variants_file_path, file.exists)))
     included_variants_df <- decode_included_variants_file_path |>
       purrr::map(\(path) {
-        data.table::fread(path)
+        fread_file(path)
       }) |>
       dplyr::bind_rows()
   } else {
@@ -104,7 +104,7 @@ format_pqtl_decode <- function(
     stopifnot(file.exists(x_y_chr_file))
     if ("X" %in% unique(decode_processed$chr)) {
       # Load x_y_rsid
-      x_y_info_df <- data.table::fread(x_y_chr_file)
+      x_y_info_df <- fread_file(x_y_chr_file)
       # Rename columns to match
       x_y_info_df <- x_y_info_df |>
         dplyr::rename(
@@ -200,7 +200,7 @@ format_pqtl_decode <- function(
 decode_pqtl_file_name <- function(unique_id, decode_linker_file, decode_dir) {
   if (rlang::is_string(decode_linker_file)) {
     stopifnot(file.exists(decode_linker_file))
-    decode_linker_file <- data.table::fread(decode_linker_file)
+    decode_linker_file <- fread_file(decode_linker_file)
   } else {
     stopifnot(is.data.frame(decode_linker_file))
   }

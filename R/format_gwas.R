@@ -270,7 +270,7 @@ format_gwas <- function(
     if (!file.exists(path)) {
       cli::cli_abort("File not found: {.path {path}}")
     }
-    dat <- as.data.frame(data.table::fread(path))
+    dat <- as.data.frame(fread_file(path))
   } else if (is.data.frame(path)) {
     dat <- as.data.frame(path)
   } else {
@@ -445,7 +445,7 @@ format_gwas <- function(
       cli::cli_abort("bim file not found: {.path {bim_file}}")
     }
 
-    bim <- data.table::fread(
+    bim <- fread_file(
       bim_file,
       header = FALSE,
       select = c(1L, 2L, 4L),
@@ -495,7 +495,7 @@ format_gwas <- function(
       cli::cli_abort("bim file not found: {.path {bim_file}}")
     }
 
-    bim <- data.table::fread(
+    bim <- fread_file(
       bim_file,
       header = FALSE,
       select = c(1L, 2L, 4L),
@@ -564,7 +564,7 @@ format_gwas <- function(
     if (all(c("rsids", "effect_allele") %in% names(dat))) {
       needs_eaf <- is.na(dat$eaf)
       if (any(needs_eaf)) {
-        frq <- data.table::fread(ref_frq, data.table = FALSE)
+        frq <- fread_file(ref_frq, data.table = FALSE)
         frq <- frq[!duplicated(frq$SNP), c("SNP", "A1", "MAF")]
         idx <- match(dat$rsids[needs_eaf], frq$SNP)
         found <- !is.na(idx)

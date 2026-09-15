@@ -49,7 +49,7 @@ format_pqtl_ukbppp <- function(
 
     ukbppp <- ukbppp |>
       purrr::map(\(x) {
-        data.table::fread(x, nThread = parallel::detectCores())
+        fread_file(x, nThread = parallel::detectCores())
       }) |>
       dplyr::bind_rows()
   } else {
@@ -60,7 +60,7 @@ format_pqtl_ukbppp <- function(
     # Read in files using data.table::fread()
     ukbppp_rsid <- ukbppp_rsid |>
       purrr::map(\(x) {
-        data.table::fread(x, nThread = parallel::detectCores())
+        fread_file(x, nThread = parallel::detectCores())
       }) |>
       dplyr::bind_rows()
   } else {
@@ -143,7 +143,7 @@ format_pqtl_ukbppp <- function(
   if (!is.null(x_y_chr_file) && "X" %in% unique(ukbppp$chr)) {
     if (is.character(x_y_chr_file)) {
       stopifnot(file.exists(x_y_chr_file))
-      x_y_rsid <- data.table::fread(
+      x_y_rsid <- fread_file(
         x_y_chr_file,
         nThread = parallel::detectCores()
       )
@@ -261,7 +261,7 @@ ukbppp_pqtl_file_name <- function(
 ) {
   if (rlang::is_string(olink_linker_file)) {
     stopifnot(file.exists(olink_linker_file))
-    olink_linker_file <- data.table::fread(olink_linker_file)
+    olink_linker_file <- fread_file(olink_linker_file)
   } else {
     stopifnot(is.data.frame(olink_linker_file))
   }
