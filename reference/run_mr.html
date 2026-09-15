@@ -67,6 +67,7 @@ and optional sensitivity analyses. Returns an <code>mr_result</code> S3 object.<
 <span>  presso_n_dist <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  plink_threads <span class="op">=</span> <span class="fu"><a href="plink_option.html">plink_option</a></span><span class="op">(</span><span class="st">"threads"</span><span class="op">)</span>,</span>
 <span>  plink_memory <span class="op">=</span> <span class="fu"><a href="plink_option.html">plink_option</a></span><span class="op">(</span><span class="st">"memory"</span><span class="op">)</span>,</span>
+<span>  allele_check <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"warn"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -187,6 +188,20 @@ or the <code>MRPIPELINE_PLINK_THREADS</code> environment variable via
 lets PLINK auto-detect. Read from <code>getOption("mrpipeline.plink_memory")</code>
 or the <code>MRPIPELINE_PLINK_MEMORY</code> environment variable via
 <code><a href="plink_option.html">plink_option()</a></code>.</p></dd>
+
+
+<dt id="arg-allele-check">allele_check<a class="anchor" aria-label="anchor" href="#arg-allele-check"></a></dt>
+<dd><p>Character. What to do when the allele orientation
+check finds that effect/other alleles look swapped between exposure and
+outcome – the signature of a GWAS file whose <code>A1</code>/<code>A2</code> mean REF/ALT,
+which silently inverts every beta (see <code><a href="format_gwas.html">format_gwas()</a></code>, section <em>What
+does A1 mean?</em>). <code>"error"</code> (default) aborts, <code>"warn"</code> warns and
+continues, <code>"none"</code> runs the analysis regardless. The check harmonises
+the instruments together with up to 1000 further SNPs shared by the two
+datasets, so it works even for a cis-MR with a handful of instruments;
+it is skipped when fewer than 10 informative non-palindromic SNPs carry
+both allele frequencies. The full record is available afterwards from
+<code><a href="last_allele_check.html">last_allele_check()</a></code> in every mode.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

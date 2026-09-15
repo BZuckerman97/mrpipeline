@@ -47,10 +47,11 @@ get_gene_coords("CD40")
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
 #> Also defined by ‘Rmpfr’
 #> Ensembl site unresponsive, trying asia mirror
-#> Error in req_perform(html_request): Failed to perform HTTP request.
-#> Caused by error in `curl::curl_fetch_memory()`:
-#> ! Timeout was reached [jun2026.archive.ensembl.org]:
-#> Operation timed out after 9903 milliseconds with 0 bytes received
+#> Ensembl site unresponsive, trying useast mirror
+#> Error in .chooseEnsemblMirror(mirror = mirror, http_config = http_config): Unable to query any Ensembl site
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
-#> Error in req_perform(request): HTTP 504 Gateway Timeout.
+#> Error in req_perform(request): Failed to perform HTTP request.
+#> Caused by error in `curl::curl_fetch_memory()`:
+#> ! Unsupported protocol [grch37.ensembl.org]:
+#> Received HTTP/0.9 when not allowed
 ```

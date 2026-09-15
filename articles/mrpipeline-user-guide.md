@@ -86,7 +86,185 @@ PLINK auto-detect (`NULL`). The same parameters are available in
 
 ## Setting Up an LD Reference Panel
 
-## Formatting Exposure Data
+## Formatting GWAS Data
+
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+and
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+take an **exposure** in TwoSampleMR format (`SNP`, `beta.exposure`,
+`se.exposure`, `effect_allele.exposure`, `other_allele.exposure`,
+`eaf.exposure`, `pval.exposure`, …) and an **outcome** in the
+[`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
+outcome schema (`rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
+`effect_allele`, `other_allele`, `phenotype`).
+[`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
+produces either from almost any summary statistics file. Source-specific
+wrappers exist for deCODE
+([`format_pqtl_decode()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_decode.md)),
+UKB-PPP
+([`format_pqtl_ukbppp()`](https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_ukbppp.md))
+and OneK1K single-cell eQTLs
+([`format_single_cell_onek1k()`](https://github.com/BZuckerman97/mrpipeline/reference/format_single_cell_onek1k.md));
+they already know their source’s allele convention, so the steps below
+are for everything else.
+
+### Step 1: inspect the header
+
+Look at the column names before formatting anything:
+
+``` r
+
+path <- "genomics_data/outcome_GWAS/AMD/IAMDGC_AMD.tsv.gz"
+names(data.table::fread(path, nrows = 5))
+#> [1] "SNP" "CHR" "POS" "A1" "A2" "BETA" "SE" "PVALUE" "N" "FRQ" ...
+```
+
+Compare them against the alias table in
+[`?format_gwas`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
+(section *Column normalisation*). Columns in the table are renamed
+automatically.
+
+### Step 2: map any columns the alias table does not know
+
+Anything not recognised needs a `col_map` entry. Other switches:
+`log10_pval = TRUE` for `-log10(p)` columns, `n = ...` when the file has
+no sample-size column, `bim_path` when rsIDs (or chr/pos) are missing,
+and `marker_col` for compound `CHR:POS:...` identifiers.
+
+``` r
+
+col_map <- list(pval = "PVALUE")
+```
+
+### Step 3: decide what A1 means
+
+This is the step that is easy to skip and expensive to get wrong. Two
+conventions share the names `A1`/`A2`:
+
+| Convention | `A1` | `A2` | `BETA` / `FRQ` refer to |
+|----|----|----|----|
+| PLINK, regenie, METAL, most GWAS Catalog deposits | effect allele | other allele | `A1` |
+| EPACTS, RAREMETAL, VCF-derived tables | REF | ALT | `A2` |
+
+[`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
+assumes the first. A file using the second is silently read with effect
+and other allele swapped, and because harmonisation then aligns alleles
+by letter, every outcome beta ends up with the wrong sign while the
+results look entirely plausible. To establish which convention a file
+uses:
+
+1.  **Read the README/header.** `ALLELE1`/`A1FREQ` (regenie) or
+    `effect_allele` are explicit; `REF`/`ALT` means the effect is per
+    ALT.
+
+2.  **Rule out a minor allele frequency.** A MAF never exceeds 0.5, so
+    if the frequency column does, it tracks one fixed allele:
+
+    ``` r
+
+    frq <- data.table::fread(path, select = "FRQ")[[1]]
+    mean(frq > 0.5)
+    #> [1] 0.155   # not a MAF -- describes a fixed allele (A1 or A2?)
+    ```
+
+3.  **Look up two or three variants.** Compare `FRQ` with a known
+    population frequency (gnomAD, Ensembl, or `plink --freq` on your LD
+    panel) to see whether it describes `A1` or `A2`, and check a variant
+    whose effect direction is established for the trait. For AMD, CFH
+    rs1061170: the C allele is the risk allele (OR about 2.5). In the
+    IAMDGC file that row reads `A1 = C, A2 = T, BETA = -0.87` – read per
+    `A1` the best-replicated AMD risk allele would be protective, so
+    `BETA` is per `A2`.
+
+If `A1` is REF, swap the mapping (user aliases take precedence):
+
+``` r
+
+col_map <- list(pval = "PVALUE", effect_allele = "A2", other_allele = "A1")
+```
+
+### Step 4: call format_gwas()
+
+``` r
+
+outcome <- format_gwas(
+  path         = path,
+  phenotype_id = "AMD",
+  col_map      = col_map
+)
+
+exposure <- format_gwas(
+  path         = "genomics_data/exposure_GWAS/RPS/rps.regenie",
+  phenotype_id = "RPS",
+  type         = "exposure",
+  col_map      = list(rsids = "ID", pval = "LOG10P"),
+  log10_pval   = TRUE
+)
+```
+
+### Step 5: sanity-check the output
+
+``` r
+
+outcome[outcome$rsids == "rs1061170", c("effect_allele", "other_allele", "beta", "eaf")]
+#>   effect_allele other_allele  beta   eaf
+#> 1             C            T  0.87 0.38   # risk allele now has a positive beta
+range(outcome$eaf, na.rm = TRUE)
+```
+
+### Step 6: the harmonisation safety net
+
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+and
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+run an allele orientation check after harmonisation. Among
+non-palindromic SNPs with both allele frequencies, it counts how many
+have `eaf.exposure` closer to `1 - eaf.outcome` than to `eaf.outcome`.
+Different ancestries produce scatter; swapped alleles produce systematic
+complementarity, so a clear majority (over 70% of at least 10 SNPs)
+fails the check.
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+harmonises its instruments together with up to 1000 further SNPs shared
+by the two datasets, so the check works even for a cis-MR with three
+instruments.
+
+``` r
+
+result <- run_mr(exposure, "RPS", outcome, "AMD", instruments = ivs)
+#> Error in `run_mr()`:
+#> ! Possible effect/other allele mis-assignment between "RPS" and "AMD":
+#>   987/1003 (98%) non-palindromic SNPs have eaf.exposure closer to
+#>   1 - eaf.outcome than to eaf.outcome.
+#> i This usually means one of the two datasets labels A1/A2 as REF/ALT ...
+#> i Worst offenders (effect allele in brackets):
+#>   rs117756744 (G): eaf.exposure = 0.979, eaf.outcome = 0.015, 1 - eaf.outcome = 0.985
+#>   ...
+#> ! Palindromic SNPs in this pair were strand-aligned from these mis-assigned
+#>   frequencies, so their alignment is unreliable even where the beta looks unchanged.
+#> ! The check cannot tell WHICH dataset is wrong. ...
+#> > Fix: re-run `format_gwas()` on the offending dataset with
+#>   `col_map = list(effect_allele = "A2", other_allele = "A1")` ...
+
+chk <- last_allele_check()          # full record, stored on pass and fail
+chk$status
+chk$variants[order(-chk$variants$score), ][1:10, ]
+```
+
+Two things the check cannot do. It cannot tell *which* dataset is wrong
+– the comparison is symmetric – so break the tie with an independent
+frequency reference (`plink --freq` on the LD panel, or `ref_frq` in
+[`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)),
+a known-direction variant as in Step 3, or provenance (a dataset that
+has harmonised cleanly against other outcomes is not the suspect). And
+it does not flag palindromic SNPs: their strand is resolved *from* the
+frequencies, so a mis-assigned effect allele and a mis-assigned
+frequency cancel and the beta can come out identical either way. Once
+the check fails, treat every palindromic alignment in that pair as
+unreliable and re-run after fixing the file.
+
+Use `allele_check = "warn"` to continue with a warning, or `"none"` to
+skip the condition (the record is still stored). Both are visible in
+`result$params$allele_check`, which keeps the decision reviewable.
 
 ## Running MR Analyses
 

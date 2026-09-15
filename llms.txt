@@ -135,6 +135,8 @@ Helper functions for analysis workflows.
 
 - [`get_gene_coords()`](https://github.com/BZuckerman97/mrpipeline/reference/get_gene_coords.md)
   : Look up gene coordinates from Ensembl via biomaRt
+- [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
+  : Retrieve the most recent allele orientation check
 
 ## Example Data
 

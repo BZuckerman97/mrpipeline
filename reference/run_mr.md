@@ -28,6 +28,7 @@ run_mr(
   presso_n_dist = 1000,
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
+  allele_check = c("error", "warn", "none"),
   verbose = TRUE
 )
 ```
@@ -146,6 +147,23 @@ run_mr(
   auto-detect. Read from `getOption("mrpipeline.plink_memory")` or the
   `MRPIPELINE_PLINK_MEMORY` environment variable via
   [`plink_option()`](https://github.com/BZuckerman97/mrpipeline/reference/plink_option.md).
+
+- allele_check:
+
+  Character. What to do when the allele orientation check finds that
+  effect/other alleles look swapped between exposure and outcome – the
+  signature of a GWAS file whose `A1`/`A2` mean REF/ALT, which silently
+  inverts every beta (see
+  [`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md),
+  section *What does A1 mean?*). `"error"` (default) aborts, `"warn"`
+  warns and continues, `"none"` runs the analysis regardless. The check
+  harmonises the instruments together with up to 1000 further SNPs
+  shared by the two datasets, so it works even for a cis-MR with a
+  handful of instruments; it is skipped when fewer than 10 informative
+  non-palindromic SNPs carry both allele frequencies. The full record is
+  available afterwards from
+  [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
+  in every mode.
 
 - verbose:
 

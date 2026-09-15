@@ -19,9 +19,14 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
   – Format UKB-PPP pQTL data to TwoSampleMR exposure format
 - [`format_single_cell_onek1k()`](https://github.com/BZuckerman97/mrpipeline/reference/format_single_cell_onek1k.md)
   – Format OneK1K single-cell eQTL data
+- [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
+  – Record of the most recent harmonisation allele orientation check
+  (detects A1/A2 = REF/ALT files, issue \#18)
 
 **Internal helpers** (not exported, in `R/helpers.R`):
 [`harmonise_and_filter()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonise_and_filter.md),
+[`check_allele_orientation()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.md),
+[`check_allele_orientation_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.md),
 [`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md),
 [`clump_instruments()`](https://github.com/BZuckerman97/mrpipeline/reference/clump_instruments.md),
 [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md),
@@ -187,8 +192,9 @@ Before opening any pull request:
 
 ## Workflow
 
-Feature branches are created off `dev` and merged back to `dev` via PR.
-Each feature should have a corresponding GitHub issue.
+Feature branches are created off `main` and merged back to `main` via PR
+(the former `dev` branch was retired once it fell behind `main`). Each
+feature should have a corresponding GitHub issue.
 
 Branch naming: `phase-N/short-description`
 (e.g. `phase-1/shared-helpers`).

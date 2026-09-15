@@ -81,6 +81,7 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 <span>  susie_repeat_until_convergence <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  exclude_regions <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  ref_frq <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  allele_check <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"warn"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -237,6 +238,19 @@ are dropped before harmonisation. For example, to exclude the MHC:
 and outcome. Columns expected: <code>SNP</code>, <code>A1</code>, <code>A2</code>, <code>MAF</code>. The A1 allele is
 matched against <code>effect_allele.outcome</code> (post-harmonisation) to orient the
 frequency correctly. <code>NULL</code> (default) disables the lookup.</p></dd>
+
+
+<dt id="arg-allele-check">allele_check<a class="anchor" aria-label="anchor" href="#arg-allele-check"></a></dt>
+<dd><p>Character. What to do when the allele orientation
+check finds that effect/other alleles look swapped between exposure and
+outcome – the signature of a GWAS file whose <code>A1</code>/<code>A2</code> mean REF/ALT,
+which silently inverts every beta (see <code><a href="format_gwas.html">format_gwas()</a></code>, section <em>What
+does A1 mean?</em>). <code>"error"</code> (default) aborts, <code>"warn"</code> warns and
+continues, <code>"none"</code> runs the analysis regardless. The check runs on
+every harmonised SNP in the colocalization window and is skipped when
+fewer than 10 informative non-palindromic SNPs carry both allele
+frequencies. The full record is available afterwards from
+<code><a href="last_allele_check.html">last_allele_check()</a></code> in every mode.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

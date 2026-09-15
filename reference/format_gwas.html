@@ -161,6 +161,44 @@ loaded data to check. User-supplied aliases are checked before the built-in
 list, so they take precedence in the event of ambiguity.</p>
     </div>
     <div class="section level2">
+    <h2 id="what-does-a-mean-">What does A1 mean?<a class="anchor" aria-label="anchor" href="#what-does-a-mean-"></a></h2>
+
+
+<p><code>A1</code>/<code>A2</code> are ambiguous across the field, and the alias table can only
+pick one reading:</p><table class="table table"><tr><td>Convention</td><td><code>A1</code></td><td><code>A2</code></td><td><code>BETA</code> / <code>FRQ</code> refer to</td><td>Built-in mapping</td></tr><tr><td>PLINK, regenie, METAL, most GWAS Catalog deposits</td><td>effect (coded, tested) allele</td><td>other allele</td><td><code>A1</code></td><td>correct</td></tr><tr><td>EPACTS, RAREMETAL, VCF-derived tables (e.g. IAMDGC AMD)</td><td>REF</td><td>ALT</td><td><code>A2</code></td><td><strong>swapped: every beta inverted</strong></td></tr></table><p>A file of the second kind is not malformed and nothing looks wrong after
+formatting: harmonisation aligns alleles by letter, so the output is
+internally consistent and every MR estimate is simply inverted (GitHub
+issue #18). Before formatting a file whose allele columns are called
+<code>A1</code>/<code>A2</code> – or whose documentation does not say which allele the effect
+refers to – establish the convention:</p><ol><li><p><strong>Read the README or header.</strong> regenie's <code>ALLELE1</code>/<code>A1FREQ</code>, METAL's
+<code>Allele1</code>/<code>Freq1</code> and GWAS Catalog <code>effect_allele</code> are explicit; a
+VCF-style <code>REF</code>/<code>ALT</code> pair means the effect is per ALT.</p></li>
+<li><p><strong>Rule out a minor allele frequency.</strong> A MAF never exceeds 0.5. If the
+frequency column exceeds 0.5 in a sizeable fraction of rows it tracks
+one fixed allele, and you can ask which one.</p></li>
+<li><p><strong>Look up two or three variants.</strong> Compare the frequency column with a
+known population frequency (gnomAD, Ensembl, or <code>plink --freq</code> on your
+LD panel) to see whether it describes <code>A1</code> or <code>A2</code>, and check a variant
+with a well-established effect direction for the trait – for AMD, CFH
+rs1061170 (C is the risk allele, OR about 2.5) settles at once whether
+<code>BETA</code> is per <code>A1</code> or <code>A2</code>. This generalises to any trait.</p></li>
+</ol><p>If <code>A1</code> turns out to be REF, swap the mapping; user aliases take
+precedence over the built-in table:</p>
+<p></p><div class="sourceCode r"><pre><code><span><span class="fu"><a href="../reference/format_gwas.html">format_gwas</a></span><span class="op">(</span></span>
+<span>  <span class="va">path</span>,</span>
+<span>  phenotype_id <span class="op">=</span> <span class="st">"AMD"</span>,</span>
+<span>  col_map <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>effect_allele <span class="op">=</span> <span class="st">"A2"</span>, other_allele <span class="op">=</span> <span class="st">"A1"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre><p></p></div>
+<p>As a safety net, <code><a href="run_mr.html">run_mr()</a></code> and <code><a href="run_coloc.html">run_coloc()</a></code> run an allele orientation
+check at harmonisation (<code>allele_check</code> argument; full record from
+<code><a href="last_allele_check.html">last_allele_check()</a></code>): when the outcome's allele frequencies are
+systematically the <em>complement</em> of the exposure's across non-palindromic
+SNPs, one of the two datasets has swapped alleles. The check cannot tell
+which dataset, needs at least 10 informative SNPs, and does not replace
+reading the header. Validating a supplied <code>eaf</code> against a <code>ref_frq</code> panel
+at ingestion is a planned extension.</p>
+    </div>
+    <div class="section level2">
     <h2 id="automatic-odds-ratio-to-log-odds-conversion">Automatic odds-ratio to log-odds conversion<a class="anchor" aria-label="anchor" href="#automatic-odds-ratio-to-log-odds-conversion"></a></h2>
 
 

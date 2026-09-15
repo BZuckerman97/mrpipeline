@@ -52,7 +52,9 @@
 <code><a href="reference/format_pqtl_ukbppp.html">format_pqtl_ukbppp()</a></code> – Format UKB-PPP pQTL data to TwoSampleMR exposure format</li>
 <li>
 <code><a href="reference/format_single_cell_onek1k.html">format_single_cell_onek1k()</a></code> – Format OneK1K single-cell eQTL data</li>
-</ul><p><strong>Internal helpers</strong> (not exported, in <code>R/helpers.R</code>): <code><a href="reference/harmonise_and_filter.html">harmonise_and_filter()</a></code>, <code><a href="reference/compute_ld_matrix.html">compute_ld_matrix()</a></code>, <code><a href="reference/clump_instruments.html">clump_instruments()</a></code>, <code><a href="reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code>, <code><a href="reference/eaf_to_maf.html">eaf_to_maf()</a></code>, <code><a href="reference/resolve_sample_size.html">resolve_sample_size()</a></code></p>
+<li>
+<code><a href="reference/last_allele_check.html">last_allele_check()</a></code> – Record of the most recent harmonisation allele orientation check (detects A1/A2 = REF/ALT files, issue #18)</li>
+</ul><p><strong>Internal helpers</strong> (not exported, in <code>R/helpers.R</code>): <code><a href="reference/harmonise_and_filter.html">harmonise_and_filter()</a></code>, <code><a href="reference/check_allele_orientation.html">check_allele_orientation()</a></code>, <code><a href="reference/check_allele_orientation_gwas.html">check_allele_orientation_gwas()</a></code>, <code><a href="reference/compute_ld_matrix.html">compute_ld_matrix()</a></code>, <code><a href="reference/clump_instruments.html">clump_instruments()</a></code>, <code><a href="reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code>, <code><a href="reference/eaf_to_maf.html">eaf_to_maf()</a></code>, <code><a href="reference/resolve_sample_size.html">resolve_sample_size()</a></code></p>
 <p><strong>S3 classes:</strong> <code>mr_result</code> (from <code><a href="reference/run_mr.html">run_mr()</a></code>), <code>coloc_result</code> (from <code><a href="reference/run_coloc.html">run_coloc()</a></code>)</p>
 </div>
 <div class="section level2">
@@ -123,7 +125,7 @@
 </ol></div>
 <div class="section level2">
 <h2 id="workflow">Workflow<a class="anchor" aria-label="anchor" href="#workflow"></a></h2>
-<p>Feature branches are created off <code>dev</code> and merged back to <code>dev</code> via PR. Each feature should have a corresponding GitHub issue.</p>
+<p>Feature branches are created off <code>main</code> and merged back to <code>main</code> via PR (the former <code>dev</code> branch was retired once it fell behind <code>main</code>). Each feature should have a corresponding GitHub issue.</p>
 <p>Branch naming: <code>phase-N/short-description</code> (e.g. <code>phase-1/shared-helpers</code>).</p>
 </div>
 <div class="section level2">

@@ -37,6 +37,7 @@ run_coloc(
   susie_repeat_until_convergence = FALSE,
   exclude_regions = NULL,
   ref_frq = NULL,
+  allele_check = c("error", "warn", "none"),
   verbose = TRUE
 )
 ```
@@ -195,6 +196,21 @@ run_coloc(
   outcome. Columns expected: `SNP`, `A1`, `A2`, `MAF`. The A1 allele is
   matched against `effect_allele.outcome` (post-harmonisation) to orient
   the frequency correctly. `NULL` (default) disables the lookup.
+
+- allele_check:
+
+  Character. What to do when the allele orientation check finds that
+  effect/other alleles look swapped between exposure and outcome – the
+  signature of a GWAS file whose `A1`/`A2` mean REF/ALT, which silently
+  inverts every beta (see
+  [`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md),
+  section *What does A1 mean?*). `"error"` (default) aborts, `"warn"`
+  warns and continues, `"none"` runs the analysis regardless. The check
+  runs on every harmonised SNP in the colocalization window and is
+  skipped when fewer than 10 informative non-palindromic SNPs carry both
+  allele frequencies. The full record is available afterwards from
+  [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
+  in every mode.
 
 - verbose:
 
