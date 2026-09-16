@@ -266,6 +266,42 @@ Use `allele_check = "warn"` to continue with a warning, or `"none"` to
 skip the condition (the record is still stored). Both are visible in
 `result$params$allele_check`, which keeps the decision reviewable.
 
+### When the check cannot run
+
+The check needs allele frequencies in *both* datasets. OR-only GWAS
+files are common and often ship without a frequency column, so no
+verdict is possible. That is **not** a pass, and it says so at warning
+level (issue \#21):
+
+``` r
+
+#> Warning:
+#> ! Allele orientation could not be checked for "RPS" vs "Malignant melanoma":
+#>   no harmonised variants carry allele frequencies in both datasets.
+#> ! Orientation is unverified for this pair. A mis-assigned effect allele
+#>   inverts every estimate and leaves no other trace, so an unchecked pair is
+#>   not the same as a clean one.
+#> i Verify it by anchoring on a variant whose effect direction for this trait
+#>   is established beyond doubt -- no frequencies needed. See `?format_gwas`,
+#>   section What does A1 mean? (subsection If the check cannot run).
+```
+
+Verify orientation by hand instead: anchor on a variant whose direction
+for the trait is beyond doubt and see whether the file agrees with the
+literature. For a cutaneous melanoma GWAS, rs1805007 (MC1R), rs16891982
+(SLC45A2) and rs12203592 (IRF4) settle it at once – read with the
+alleles swapped, all three would contradict well-replicated melanoma
+genetics.
+[`?format_gwas`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
+(*If the check cannot run*) works the example through and covers the two
+checks that come free in many designs: a positive control that comes out
+the wrong way makes orientation a prime suspect, and two independent
+GWAS of the same trait should agree in direction at shared variants.
+
+Once confirmed that way, `allele_check = "none"` silences the warning
+for that pair – and, being recorded in `result$params$allele_check`, the
+decision stays reviewable.
+
 ## Running MR Analyses
 
 ### Cis-MR (quick start with API clumping)

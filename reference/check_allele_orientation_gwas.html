@@ -110,7 +110,8 @@ add. Default <code>1000L</code>.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
-<dd><p>Logical. Passed to <code><a href="check_allele_orientation.html">check_allele_orientation()</a></code>.</p></dd>
+<dd><p>Logical. Passed to <code><a href="check_allele_orientation.html">check_allele_orientation()</a></code>. A check
+that cannot reach a verdict warns regardless.</p></dd>
 
 
 <dt id="arg-call">call<a class="anchor" aria-label="anchor" href="#arg-call"></a></dt>
@@ -127,9 +128,10 @@ add. Default <code>1000L</code>.</p></dd>
     <p>Cost is dominated by the rsID intersection (about 0.5 s for a 200k-SNP
 exposure against a 10M-row outcome); formatting and harmonising ~1000
 SNPs takes a few milliseconds.</p>
-<p>The check is skipped (with a <code>"skipped"</code> record) when the exposure lacks
-<code>SNP</code>/<code>eaf.exposure</code> or the outcome lacks the <code><a href="format_gwas.html">format_gwas()</a></code> outcome
-columns, or when nothing overlaps.</p>
+<p>The check is skipped (with a <code>"skipped"</code> record, and a warning that
+orientation is unverified) when the exposure lacks <code>SNP</code>/<code>eaf.exposure</code> or
+the outcome lacks the <code><a href="format_gwas.html">format_gwas()</a></code> outcome columns, or when nothing
+overlaps.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

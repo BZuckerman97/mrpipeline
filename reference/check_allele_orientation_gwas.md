@@ -62,6 +62,7 @@ check_allele_orientation_gwas(
 
   Logical. Passed to
   [`check_allele_orientation()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.md).
+  A check that cannot reach a verdict warns regardless.
 
 - call:
 
@@ -79,7 +80,8 @@ Cost is dominated by the rsID intersection (about 0.5 s for a 200k-SNP
 exposure against a 10M-row outcome); formatting and harmonising ~1000
 SNPs takes a few milliseconds.
 
-The check is skipped (with a `"skipped"` record) when the exposure lacks
-`SNP`/`eaf.exposure` or the outcome lacks the
+The check is skipped (with a `"skipped"` record, and a warning that
+orientation is unverified) when the exposure lacks `SNP`/`eaf.exposure`
+or the outcome lacks the
 [`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
 outcome columns, or when nothing overlaps.

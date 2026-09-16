@@ -86,7 +86,8 @@ any <code>mr_keep</code> filtering). Needs columns <code>SNP</code>, <code>eaf.e
 <dt id="arg-allele-check">allele_check<a class="anchor" aria-label="anchor" href="#arg-allele-check"></a></dt>
 <dd><p>One of <code>"error"</code> (default), <code>"warn"</code> or <code>"none"</code>.
 Controls what happens on failure; the diagnostic record is stored in
-every mode.</p></dd>
+every mode. <code>"none"</code> also suppresses the warning emitted when the check
+cannot reach a verdict.</p></dd>
 
 
 <dt id="arg-threshold">threshold<a class="anchor" aria-label="anchor" href="#arg-threshold"></a></dt>
@@ -107,8 +108,11 @@ was not sampled.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
-<dd><p>Logical. If <code>TRUE</code>, report a passing or skipped verdict via
-<code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>. Default <code>FALSE</code>.</p></dd>
+<dd><p>Logical. If <code>TRUE</code>, report a passing verdict via
+<code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>. A verdict that could <em>not</em> be reached is always
+reported, as a warning, regardless of <code>verbose</code> – unless
+<code>allele_check = "none"</code>, which silences it along with the check itself.
+Default <code>FALSE</code>.</p></dd>
 
 
 <dt id="arg-call">call<a class="anchor" aria-label="anchor" href="#arg-call"></a></dt>
@@ -141,7 +145,9 @@ the proportion whose <code>eaf.exposure</code> is closer to <code>1 - eaf.outcom
 to <code>eaf.outcome</code> (ties, e.g. <code>eaf.outcome == 0.5</code>, count as <em>not</em>
 complementary). The check fails when that proportion exceeds <code>threshold</code>
 and at least <code>min_n</code> informative variants were available; with fewer it
-is <code>"skipped"</code>. Variants with EAF near 0.5 are equally likely to fall
+is <code>"skipped"</code> – and a warning says so, because a pair that could not be
+checked is not a pair that passed, and the two must not look alike in a
+log (GitHub issue #21). Variants with EAF near 0.5 are equally likely to fall
 either side, so they can only dilute the proportion towards 0.5 – they
 cannot cause a spurious failure, only mask a real one, which the 0.70
 threshold tolerates.</p>

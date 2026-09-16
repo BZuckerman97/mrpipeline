@@ -38,6 +38,8 @@ check_allele_orientation(
 
   One of `"error"` (default), `"warn"` or `"none"`. Controls what
   happens on failure; the diagnostic record is stored in every mode.
+  `"none"` also suppresses the warning emitted when the check cannot
+  reach a verdict.
 
 - threshold:
 
@@ -58,9 +60,11 @@ check_allele_orientation(
 
 - verbose:
 
-  Logical. If `TRUE`, report a passing or skipped verdict via
+  Logical. If `TRUE`, report a passing verdict via
   [`cli::cli_inform()`](https://cli.r-lib.org/reference/cli_abort.html).
-  Default `FALSE`.
+  A verdict that could *not* be reached is always reported, as a
+  warning, regardless of `verbose` – unless `allele_check = "none"`,
+  which silences it along with the check itself. Default `FALSE`.
 
 - call:
 
@@ -94,10 +98,12 @@ the proportion whose `eaf.exposure` is closer to `1 - eaf.outcome` than
 to `eaf.outcome` (ties, e.g. `eaf.outcome == 0.5`, count as *not*
 complementary). The check fails when that proportion exceeds `threshold`
 and at least `min_n` informative variants were available; with fewer it
-is `"skipped"`. Variants with EAF near 0.5 are equally likely to fall
-either side, so they can only dilute the proportion towards 0.5 – they
-cannot cause a spurious failure, only mask a real one, which the 0.70
-threshold tolerates.
+is `"skipped"` – and a warning says so, because a pair that could not be
+checked is not a pair that passed, and the two must not look alike in a
+log (GitHub issue \#21). Variants with EAF near 0.5 are equally likely
+to fall either side, so they can only dilute the proportion towards 0.5
+– they cannot cause a spurious failure, only mask a real one, which the
+0.70 threshold tolerates.
 
 ## Why palindromic variants are excluded
 

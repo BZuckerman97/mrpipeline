@@ -48,7 +48,7 @@ harmonise_and_filter(
 
   Logical. Passed to
   [`check_allele_orientation()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.md).
-  Default `FALSE`.
+  Default `FALSE`. A check that cannot reach a verdict warns regardless.
 
 ## Value
 

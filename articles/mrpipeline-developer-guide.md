@@ -456,6 +456,21 @@ inline, the tie-breakers (reference panel frequencies, a known-direction
 variant, provenance) and the `col_map` fix. The record is stored in
 `.mrpipeline_env$last_allele_check` in every mode, including `"none"`.
 
+A `"skipped"` verdict – no usable frequencies, or fewer than `min_n`
+informative rows – warns (class `mrpipeline_allele_check_unverified`)
+rather than informing. It used to be a `cli_inform()` gated behind
+`verbose`, which put “could not be checked” at the same level as
+ordinary progress output: scanning a log, silence reads as a pass, and
+in a real run two unchecked pairs slipped past that way while every
+other harmonisation passed (GitHub issue \#21). The warning is emitted
+regardless of `verbose`, since `verbose` gates informational output
+only; `allele_check = "none"` suppresses it, on the grounds that a user
+who has switched the check off does not need telling it did not run. The
+message points at
+[`?format_gwas`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md),
+section *If the check cannot run*, which documents the frequency-free
+fallback: anchoring on a variant with an established effect direction.
+
 ### `check_allele_orientation_gwas()`
 
 [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)’s

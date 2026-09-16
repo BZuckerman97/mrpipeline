@@ -199,6 +199,35 @@ reading the header. Validating a supplied <code>eaf</code> against a <code>ref_f
 at ingestion is a planned extension.</p>
     </div>
     <div class="section level2">
+    <h2 id="if-the-check-cannot-run">If the check cannot run<a class="anchor" aria-label="anchor" href="#if-the-check-cannot-run"></a></h2>
+
+
+<p>The frequency-based check needs allele frequencies in <em>both</em> datasets.
+OR-only GWAS files are common – <code>format_gwas()</code> derives beta from the
+Z-score for them – and such files often ship without a frequency column,
+so the check reports that it could not reach a verdict and warns that
+orientation is unverified for that pair.</p>
+<p>The frequency comparison is not the only way to settle orientation, and
+the alternative needs no frequencies at all: <strong>anchor on a variant whose
+effect direction for the trait is established beyond doubt</strong>, and see
+whether the file agrees with the literature or contradicts it. Verifying a
+cutaneous melanoma GWAS carrying no usable frequencies:</p><table class="table table"><tr><td>Variant</td><td>Effect allele</td><td>OR</td><td>Expected</td></tr><tr><td>rs1805007 (MC1R R151C)</td><td>C (wild type)</td><td>0.637</td><td>T, the red-hair allele, strongly raises risk – correct</td></tr><tr><td>rs16891982 (SLC45A2)</td><td>C (dark L374)</td><td>0.523</td><td>dark allele protective – correct</td></tr><tr><td>rs12203592 (IRF4)</td><td>C</td><td>0.701</td><td>T (lighter / freckling) increases risk – correct</td></tr></table><p>Read with the alleles swapped, all three would contradict well-replicated
+melanoma genetics. The same approach settles an AMD dataset using CFH
+rs1061170 and ARMS2 rs10490924, and generalises to any trait with a decent
+GWAS history.</p>
+<p>Two further checks come free in many designs:</p><ul><li><p><strong>Positive controls double as orientation tests.</strong> If an instrument
+expected to raise risk comes out protective, orientation is a prime
+suspect.</p></li>
+<li><p><strong>Cross-dataset concordance.</strong> Two independent GWAS of the same trait
+should agree in direction at shared variants; if they do not, one of
+them is wrong.</p></li>
+</ul><p>One scope note: for a <strong>negative control expecting no association</strong>,
+orientation is largely moot, since a sign error does not turn a null into
+a non-null.</p>
+<p>Once orientation is confirmed this way, <code>allele_check = "none"</code> silences
+the unverified warning for that pair.</p>
+    </div>
+    <div class="section level2">
     <h2 id="automatic-odds-ratio-to-log-odds-conversion">Automatic odds-ratio to log-odds conversion<a class="anchor" aria-label="anchor" href="#automatic-odds-ratio-to-log-odds-conversion"></a></h2>
 
 
