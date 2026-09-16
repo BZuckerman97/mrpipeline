@@ -11,7 +11,7 @@ TwoSampleMR::forest_plot_1_to_many(). Requires the ggplot2 package."></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,9 +51,9 @@ median), for a single <code>mr_result</code> or several sectioned together. Wrap
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">forest_plot</span><span class="op">(</span></span>
 <span>  <span class="va">results</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"IVW (fixed effects)"</span>, <span class="st">"Inverse variance weighted"</span>, <span class="st">"MR Egger"</span>,</span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"IVW (fixed effects)"</span>, <span class="st">"IVW (random effects)"</span>, <span class="st">"MR Egger"</span>,</span>
 <span>    <span class="st">"Weighted median"</span><span class="op">)</span>,</span>
-<span>  relabel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>`Inverse variance weighted` <span class="op">=</span> <span class="st">"IVW (random effects)"</span><span class="op">)</span>,</span>
+<span>  relabel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
 <span>  exponentiate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  xlab <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  trans <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -80,14 +80,16 @@ regardless of any name given.</p></dd>
 
 <dt id="arg-methods">methods<a class="anchor" aria-label="anchor" href="#arg-methods"></a></dt>
 <dd><p>Character vector of <code>method</code> values to include, in display
-order. Default puts fixed effects above random effects: <code>c("IVW (fixed effects)", "Inverse variance weighted", "MR Egger", "Weighted median")</code>.</p></dd>
+order. Default puts fixed effects above random effects: <code>c("IVW (fixed effects)", "IVW (random effects)", "MR Egger", "Weighted median")</code>.
+Labels no longer encode LD correction (that lives in the <code>ld_corrected</code>
+column), so LD-corrected results match the same defaults.</p></dd>
 
 
 <dt id="arg-relabel">relabel<a class="anchor" aria-label="anchor" href="#arg-relabel"></a></dt>
 <dd><p>Named character vector, <code>c(old = new)</code>, applied to the
 <code>method</code> column for display only, after row filtering/ordering – so
-matching against <code>results$results$method</code> is unaffected. Default
-relabels <code>"Inverse variance weighted"</code> to <code>"IVW (random effects)"</code>.</p></dd>
+matching against <code>results$results$method</code> is unaffected. Empty by
+default.</p></dd>
 
 
 <dt id="arg-exponentiate">exponentiate<a class="anchor" aria-label="anchor" href="#arg-exponentiate"></a></dt>
@@ -151,7 +153,7 @@ successful, matching rows.</p>
 <span class="r-in"><span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>, outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span></span>
 <span class="r-in"><span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span></span>
-<span class="r-in"><span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw"</span>, <span class="st">"ivw_fe"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Single result: one row per method</span></span></span>
@@ -163,6 +165,16 @@ successful, matching rows.</p>
 <span class="r-in"><span>  <span class="st">"Positive control"</span> <span class="op">=</span> <span class="va">positive_control_result</span>,</span></span>
 <span class="r-in"><span>  <span class="st">"Negative control"</span> <span class="op">=</span> <span class="va">negative_control_result</span></span></span>
 <span class="r-in"><span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Uncorrected vs LD-corrected arms of the same analysis</span></span></span>
+<span class="r-in"><span><span class="va">corrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="run_mr.html">run_mr</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>, exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span></span>
+<span class="r-in"><span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>, outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span></span>
+<span class="r-in"><span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  bfile <span class="op">=</span> <span class="va">bfile</span>, ld_correct <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
+<span class="r-in"><span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">forest_plot</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"Uncorrected"</span> <span class="op">=</span> <span class="va">result</span>, <span class="st">"LD-corrected"</span> <span class="op">=</span> <span class="va">corrected</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

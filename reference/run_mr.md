@@ -22,7 +22,7 @@ run_mr(
   instruments = NULL,
   instruments_strict = FALSE,
   exclude_regions = NULL,
-  methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
+  methods = c("ivw_random", "egger", "weighted_median", "presso", "conmix", "steiger"),
   ld_correct = FALSE,
   exposure_n = NULL,
   presso_n_dist = 1000,
@@ -105,26 +105,21 @@ run_mr(
 
 - methods:
 
-  Character vector of MR methods to run. Named shortcuts: `"ivw"` (IVW
-  random effects), `"ivw_fe"` (IVW fixed effects), `"egger"` (MR Egger),
-  `"weighted_median"` (weighted median), `"presso"` (MR-PRESSO),
-  `"conmix"` (ContMix), `"steiger"` (Steiger filtering), `"pleiotropy"`
-  (Egger intercept test; result stored in `$pleiotropy`, not
-  `$results`), `"heterogeneity"` (Cochran's Q test via
-  [`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html);
-  result stored in `$heterogeneity`, not `$results`; requires \>= 2
-  instruments), `"loo"` (leave-one-out analysis via
-  [`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html);
-  result stored in `$loo`, not `$results`; requires \>= 3 instruments).
-  You may also pass any method name from
-  `TwoSampleMR::mr_method_list()$obj` directly (e.g.
-  `"mr_simple_median"`, `"mr_raps"`). Note: `"ivw_fe"` does not support
-  `ld_correct = TRUE`.
+  Character vector of methods to run. Named shortcuts (see
+  [`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+  and the *Available methods* section): `"ivw_random"`, `"ivw_fixed"`,
+  `"egger"`, `"weighted_median"`, `"presso"`, `"conmix"`, `"steiger"`,
+  `"pleiotropy"`, `"heterogeneity"`, `"loo"`. You may also pass any raw
+  method name from `TwoSampleMR::mr_method_list()$obj` that has no
+  shortcut (e.g. `"mr_raps"`, `"mr_weighted_mode"`); raw names are never
+  LD-corrected. The former shortcuts `"ivw"` and `"ivw_fe"` are accepted
+  with a warning and mapped to `"ivw_random"` and `"ivw_fixed"`.
 
 - ld_correct:
 
-  Logical. Use LD-corrected IVW/Egger via the `MendelianRandomization`
-  package. Requires `bfile`. Default `FALSE`.
+  Logical. Fit `ivw_random`, `ivw_fixed` and `egger` by GLS with the
+  instruments' LD matrix (see the *LD correction* section). Requires
+  `bfile`. Default `FALSE`.
 
 - exposure_n:
 
@@ -189,11 +184,14 @@ run_mr(
 ## Value
 
 An `mr_result` object. Check `result$status` for `"success"` vs failure
-reasons. The `$results` data frame includes `or`, `or_lci95`, and
-`or_uci95` columns (from
-[`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html))
-alongside the raw `b` and `se`. The `$timing` field contains a named
-numeric vector of elapsed seconds for each major step.
+reasons. Each `$results` row states the estimator that produced it:
+`method` (the label), `model` (`"random"`, `"fixed"`, or `NA` where the
+distinction does not apply) and `ld_corrected` (whether the LD matrix
+was used for that fit), alongside `nsnp`, `b`, `se`, `pval` and the
+`or`, `or_lci95`, `or_uci95` columns from
+[`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html).
+The `$timing` field contains a named numeric vector of elapsed seconds
+for each major step.
 
 ## Instrument selection modes
 
@@ -213,25 +211,33 @@ Exactly one of three modes is used, determined by the combination of
 
 ## Method dispatch
 
-Methods are dispatched based on the number of instruments after
-clumping:
+Every method is looked up in the package's method registry – see
+[`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+and the *Available methods* section below for what each shortcut runs,
+whether it can be LD-corrected, and how many instruments it needs.
+Dispatch depends on the number of instruments after clumping:
 
-- 1 SNP: Wald ratio only; all other methods skipped
+- 1 SNP: Wald ratio only; every multi-SNP method is skipped
 
-- 2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
-  are attempted; Egger, weighted median, and PRESSO require \>= 3 SNPs
+- 2+ SNPs: `ivw_random`, `ivw_fixed`, `conmix`, `heterogeneity` and any
+  raw TwoSampleMR method are attempted; `egger`, `weighted_median`,
+  `presso`, `pleiotropy` and `loo` require \>= 3 SNPs
 
-- 3+ SNPs: all methods in `methods` are attempted
-
-Generic TwoSampleMR methods (raw `mr_*` names) are dispatched via
+Raw TwoSampleMR methods (`mr_*` names from
+`TwoSampleMR::mr_method_list()$obj` that have no shortcut, e.g.
+`"mr_raps"`) are dispatched via
 [`TwoSampleMR::mr()`](https://mrcieu.github.io/TwoSampleMR/reference/mr.html)
-and errors are caught and reported as skipped.
+under TwoSampleMR's own label; errors are caught and reported in
+`$methods_skipped`. Names that are the engine behind a shortcut
+(`mr_ivw`, `mr_ivw_fe`, `mr_egger_regression`, `mr_weighted_median`) are
+refused with a pointer to the shortcut, so the same estimator cannot
+enter unlabelled and uncorrected.
 
-When `ld_correct = TRUE`, IVW and Egger use
-[`MendelianRandomization::mr_ivw()`](https://rdrr.io/pkg/MendelianRandomization/man/mr_ivw.html)
-and
-[`MendelianRandomization::mr_egger()`](https://rdrr.io/pkg/MendelianRandomization/man/mr_egger.html)
-with `correl = TRUE`.
+ConMix reports `se = NA`:
+[`MendelianRandomization::mr_conmix()`](https://rdrr.io/pkg/MendelianRandomization/man/mr_conmix.html)
+returns a confidence interval that may be asymmetric or multi-modal
+rather than a standard error, so the `or_lci95`/`or_uci95` columns are
+`NA` for it too.
 
 When `"egger"` is in `methods` and there are \>= 3 instruments,
 [`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html)
@@ -239,6 +245,65 @@ When `"egger"` is in `methods` and there are \>= 3 instruments,
 stored in `$pleiotropy`. You do not need to add `"pleiotropy"` to
 `methods` separately. The `"pleiotropy"` shortcut remains available for
 running the intercept test without Egger.
+
+## LD correction
+
+`ld_correct = TRUE` computes a signed LD matrix for the instruments from
+`bfile` and re-orients it to the exposure's effect alleles. Instruments
+absent from the reference panel, or with ambiguous palindromic alleles,
+are dropped at that step, so an LD-corrected run can have fewer
+instruments than the same call uncorrected.
+
+Methods with a correlated form – `ivw_random`, `ivw_fixed` and `egger` –
+are then fitted by generalised least squares through
+`MendelianRandomization` with `correl = TRUE`: the weight matrix is
+`diag(se_y) %*% R %*% diag(se_y)` in place of `diag(se_y^2)`, so two
+instruments in LD are no longer counted as two independent looks at the
+causal effect. The IVW estimator is pinned explicitly
+(`model = "random"` for `ivw_random`, `"fixed"` for `ivw_fixed`) so that
+each shortcut means the same thing at every instrument count;
+`MendelianRandomization`'s own default would switch to fixed effects
+below 4 instruments.
+
+Every other method has no correlated form and runs on the uncorrected
+data: a warning names each such method, and its `$results` row carries
+`ld_corrected = FALSE`. `ld_correct` is never silently ignored – it is
+either applied, or visibly not applied. To compare corrected and
+uncorrected estimates, call `run_mr()` twice and pass both results to
+[`forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.md)
+as a named list: one `mr_result` is always one instrument set under one
+weight matrix.
+
+Random effects are multiplicative: the standard error is inflated by
+`max(RSE, 1)`, never deflated, so when the instruments are
+under-dispersed the random- and fixed-effect results coincide exactly.
+
+## Available methods
+
+Rendered from
+[`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md).
+`label` is the `method` value written to `$results`; `model` the effects
+model; `LD` whether `ld_correct = TRUE` applies; `min n` the minimum
+number of instruments.
+
+|  |  |  |  |  |  |  |
+|----|----|----|----|----|----|----|
+| shortcut | description | label | output | model | LD | min n |
+| `ivw_random` | IVW, multiplicative random effects | IVW (random effects) | `$results` | random | yes | 2 |
+| `ivw_fixed` | IVW, fixed effects | IVW (fixed effects) | `$results` | fixed | yes | 2 |
+| `egger` | MR Egger regression | MR Egger | `$results` | random | yes | 3 |
+| `weighted_median` | Weighted median | Weighted median | `$results` | – | no | 3 |
+| `presso` | MR-PRESSO outlier test | MR-PRESSO | `$results` | – | no | 3 |
+| `conmix` | Contamination mixture | ConMix | `$results` | – | no | 2 |
+| `steiger` | Steiger directionality test | – | `$steiger` | – | no | 1 |
+| `pleiotropy` | Egger intercept (pleiotropy) test | – | `$pleiotropy` | – | no | 3 |
+| `heterogeneity` | Cochran's Q heterogeneity test | – | `$heterogeneity` | – | no | 2 |
+| `loo` | Leave-one-out IVW | – | `$loo` | – | no | 3 |
+
+## See also
+
+[`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+for the table of methods and what each supports.
 
 ## Examples
 
@@ -253,9 +318,24 @@ result <- run_mr(
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   bfile = bfile,
-  methods = c("ivw", "egger", "weighted_median")
+  methods = c("ivw_random", "egger", "weighted_median")
 )
 result
 summary(result)
+
+# LD-corrected: both IVW estimators by GLS; weighted median warns and
+# runs uncorrected. Compare arms by passing both results to forest_plot().
+corrected <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile,
+  ld_correct = TRUE,
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+)
+corrected$results[, c("method", "model", "ld_corrected", "b", "se")]
+forest_plot(list("Uncorrected" = result, "LD-corrected" = corrected))
 } # }
 ```

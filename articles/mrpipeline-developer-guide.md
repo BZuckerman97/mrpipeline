@@ -47,26 +47,113 @@ someone needs to see which flag cost each variant its place.
 The `$results` data frame has one row per MR method and the following
 columns:
 
-| Column     | Description                                              |
-|------------|----------------------------------------------------------|
-| `exposure` | Exposure label (from `exposure_id`)                      |
-| `outcome`  | Outcome label (from `outcome_id`)                        |
-| `method`   | Method name                                              |
-| `nsnp`     | Number of instruments used                               |
-| `b`        | Effect estimate (log-OR scale for case-control outcomes) |
-| `se`       | Standard error of `b`                                    |
-| `pval`     | P-value                                                  |
-| `lo_ci`    | Lower 95% CI on the log-OR scale (`b - 1.96 * se`)       |
-| `up_ci`    | Upper 95% CI on the log-OR scale (`b + 1.96 * se`)       |
-| `or`       | Odds ratio (`exp(b)`)                                    |
-| `or_lci95` | Lower 95% CI for OR (`exp(lo_ci)`)                       |
-| `or_uci95` | Upper 95% CI for OR (`exp(up_ci)`)                       |
+| Column | Description |
+|----|----|
+| `exposure` | Exposure label (from `exposure_id`) |
+| `outcome` | Outcome label (from `outcome_id`) |
+| `method` | Method label, from the registry’s `label` column (`mr_methods()$label`); raw TwoSampleMR passthrough rows carry TwoSampleMR’s own label |
+| `nsnp` | Number of instruments used |
+| `b` | Effect estimate (log-OR scale for case-control outcomes) |
+| `se` | Standard error of `b` |
+| `pval` | P-value |
+| `ld_corrected` | Logical: whether the LD matrix was used for this fit. `TRUE` only for `ivw_random`, `ivw_fixed` and `egger` under `ld_correct = TRUE`; every other row is `FALSE` |
+| `model` | `"random"`, `"fixed"`, or `NA` where the fixed/random distinction does not apply (weighted median, PRESSO, ConMix, Wald ratio, passthrough) |
+| `lo_ci` | Lower 95% CI on the log-OR scale (`b - 1.96 * se`) |
+| `up_ci` | Upper 95% CI on the log-OR scale (`b + 1.96 * se`) |
+| `or` | Odds ratio (`exp(b)`) |
+| `or_lci95` | Lower 95% CI for OR (`exp(lo_ci)`) |
+| `or_uci95` | Upper 95% CI for OR (`exp(up_ci)`) |
 
-The OR columns are always present (added by
+Every row is built by
+[`mr_result_row()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_result_row.md)
+from its registry entry, so the schema cannot differ between dispatch
+branches (which would make the final `do.call(rbind, results_list)`
+fail). The OR columns are added by
 [`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html)
-in the results assembly step). For quantitative outcomes the OR columns
-are still computed but should be interpreted cautiously – they reflect
-exponentiated effect sizes, not true odds ratios.
+in the results assembly step on a successful run; early returns carry
+the nine base columns of
+[`empty_mr_results()`](https://github.com/BZuckerman97/mrpipeline/reference/empty_mr_results.md),
+the `results` default of
+[`new_mr_result()`](https://github.com/BZuckerman97/mrpipeline/reference/new_mr_result.md).
+For quantitative outcomes the OR columns are still computed but should
+be interpreted cautiously – they reflect exponentiated effect sizes, not
+true odds ratios.
+
+#### The method registry and LD correction
+
+`R/mr_methods.R` holds
+[`mr_method_registry()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_method_registry.md),
+the single source of truth for what
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+can run.
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+reads everything method-related from it: the valid shortcut names, which
+raw TwoSampleMR names are refused because a shortcut already wraps them
+(derived from the `engine` column), the minimum instrument count behind
+every `"Requires >= n instruments"` skip reason, the `label`/`model`
+written into each `$results` row, and which methods warn
+`has no LD-corrected form` when `ld_correct = TRUE`.
+[`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+exports it,
+[`rd_method_table()`](https://github.com/BZuckerman97/mrpipeline/reference/rd_method_table.md)
+renders it into
+[`?run_mr`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+through a roxygen `@eval` tag, and the user guide renders it with knitr.
+Before the registry the shortcut list was hard-coded in three places
+that had drifted apart, which is how `ivw_fe` came to be half-wired
+(GitHub issue \#27).
+
+``` r
+
+tab <- mrpipeline::mr_methods(detail = "full")
+# Backticks keep MathJax from reading `$results` ... `$steiger` as maths.
+tab$output <- paste0("`", tab$output, "`")
+knitr::kable(tab)
+```
+
+| shortcut | description | label | output | model | ld_correctable | min_instruments | engine | engine_ld |
+|:---|:---|:---|:---|:---|:---|---:|:---|:---|
+| ivw_random | IVW, multiplicative random effects | IVW (random effects) | `$results` | random | TRUE | 2 | TwoSampleMR::mr_ivw | MendelianRandomization::mr_ivw(model = “random”) |
+| ivw_fixed | IVW, fixed effects | IVW (fixed effects) | `$results` | fixed | TRUE | 2 | TwoSampleMR::mr_ivw_fe | MendelianRandomization::mr_ivw(model = “fixed”) |
+| egger | MR Egger regression | MR Egger | `$results` | random | TRUE | 3 | TwoSampleMR::mr_egger_regression | MendelianRandomization::mr_egger |
+| weighted_median | Weighted median | Weighted median | `$results` | NA | FALSE | 3 | TwoSampleMR::mr_weighted_median | NA |
+| presso | MR-PRESSO outlier test | MR-PRESSO | `$results` | NA | FALSE | 3 | TwoSampleMR::run_mr_presso | NA |
+| conmix | Contamination mixture | ConMix | `$results` | NA | FALSE | 2 | MendelianRandomization::mr_conmix | NA |
+| NA | Wald ratio, single instrument | Wald ratio | `$results` | NA | FALSE | 1 | TwoSampleMR::mr_wald_ratio | NA |
+| NA | Any other TwoSampleMR method | NA | `$results` | NA | FALSE | 2 | TwoSampleMR::mr | NA |
+| steiger | Steiger directionality test | NA | `$steiger` | NA | FALSE | 1 | TwoSampleMR::steiger_filtering | NA |
+| pleiotropy | Egger intercept (pleiotropy) test | NA | `$pleiotropy` | NA | FALSE | 3 | TwoSampleMR::mr_pleiotropy_test | NA |
+| heterogeneity | Cochran’s Q heterogeneity test | NA | `$heterogeneity` | NA | FALSE | 2 | TwoSampleMR::mr_heterogeneity | NA |
+| loo | Leave-one-out IVW | NA | `$loo` | NA | FALSE | 3 | TwoSampleMR::mr_leaveoneout | NA |
+
+`ld_correctable` is declared, not inferred – nothing inspects upstream
+function signatures at run time. It is kept honest by `engine_ld`: a row
+may claim LD support only by naming the function that provides it, and
+`test-mr_methods.R` asserts `ld_correctable == !is.na(engine_ld)`. There
+is deliberately no free-text notes column, because notes about upstream
+internals go stale silently when a dependency changes;
+`engine`/`engine_ld` name what mrpipeline calls and so stay true as long
+as the dispatch does.
+
+The LD path itself:
+[`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
+and
+[`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
+run once, before dispatch, and the aligned matrix goes into a single
+`MendelianRandomization::mr_input(correlation = ld_mat)` that every
+corrected fit shares. The matrix – not the `correl = TRUE` flag – is
+what carries the correction; `mr_ivw()`/`mr_egger()` read it from that
+object. The IVW model is pinned explicitly (`model = "random"` /
+`"fixed"`) because `MendelianRandomization`’s `"default"` is fixed
+effects below 4 instruments and random above, which would make
+`ivw_random` mean two different estimators depending on how many SNPs
+survived clumping. Egger needs no pinning: `mr_egger()` has no `model`
+argument and is multiplicative random effects on both paths
+(`/min(1, sigma)` in TwoSampleMR, `*max(1, rse.corr)` in
+MendelianRandomization). If alignment drops every instrument,
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+returns `status = "no_harmonised_variants"` rather than reaching the GLS
+fit with zero rows.
 
 #### Egger intercept / pleiotropy test
 
@@ -118,12 +205,20 @@ See the `mrpipeline`/root `CLAUDE.md` files for the full rationale.
 
 [`print.mr_result()`](https://github.com/BZuckerman97/mrpipeline/reference/print.mr_result.md)
 shows a one-line summary using the first result row, including the OR
-and 95% CI (when available).
+and 95% CI (when available), tagged `[LD-corrected]` when that row’s
+`ld_corrected` is `TRUE`.
 [`summary.mr_result()`](https://github.com/BZuckerman97/mrpipeline/reference/summary.mr_result.md)
-shows all methods with OR columns, F-statistics, Steiger result, the
-Egger intercept (when computed), the heterogeneity (Cochran’s Q) table
-(when computed), a leave-one-out row count (when computed), and skipped
-methods.
+shows all methods with OR columns – each tagged with its effects model
+where the label does not already carry it (so
+`MR Egger [random effects]`) and, on an LD-corrected run,
+`[LD-corrected]` or `[not LD-corrected]` – then F-statistics, Steiger
+result, the Egger intercept (when computed), the heterogeneity
+(Cochran’s Q) table (when computed), a leave-one-out row count (when
+computed), skipped methods, and finally an **LD correction** section
+listing the methods the matrix was and was not applied to. That section
+is keyed off `$results$ld_corrected`, not off the presence of
+`$ld_matrix`, so a run whose methods all lacked a correlated form reads
+“Applied to: none” rather than being announced as LD-corrected.
 
 ### `coloc_result`
 
@@ -237,11 +332,13 @@ caller-built data frame input fit `plot(x, ...)` dispatch):
   then calls
   [`TwoSampleMR::forest_plot_1_to_many()`](https://mrcieu.github.io/TwoSampleMR/reference/forest_plot_1_to_many.html)
   with `TraitM = "method"`. Default `methods` puts
-  `"IVW (fixed effects)"` above `"Inverse variance weighted"`; the
-  `relabel` argument (default: rename `"Inverse variance weighted"` to
-  `"IVW (random effects)"`) is applied to the combined data’s `method`
-  column *after* filtering/ordering, so it never affects matching
-  against the raw labels
+  `"IVW (fixed effects)"` above `"IVW (random effects)"`. Labels no
+  longer encode LD correction (that is the `ld_corrected` column), so
+  LD-corrected results match the same defaults – previously every
+  `"(LD-corrected)"` row was silently dropped. The `relabel` argument
+  (empty by default) is applied to the combined data’s `method` column
+  *after* filtering/ordering, so it never affects matching against the
+  raw labels
   [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
   produced.
 - `outcome_forest_plot(mr_res, xlab, method, colour_by, shape_by, ...)`
@@ -563,6 +660,19 @@ against a 10M-row outcome – recorded as `timing[["allele_check"]]`.
 
 ### `compute_ld_matrix()`
 
+Runs PLINK `--r square` (via
+[`ieugwasr::ld_matrix()`](https://mrcieu.github.io/ieugwasr/reference/ld_matrix.html))
+on the local `bfile` for a vector of rsIDs and returns
+`list(ld =, alleles =)`: the **signed** correlation matrix with
+rsID-only dimnames, and the panel’s `ld_a1`/`ld_a2` allele coding for
+each SNP. The sign matters – a pair in repulsion enters the GLS as a
+negative `r` – and it is anchored to the panel’s A1 allele, so the
+allele table is returned alongside rather than discarded. `bfile` is
+always required: there is no API fallback, because the matrix must be
+computed on exactly the instrument set and allele coding that
+[`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
+then reconciles with the exposure.
+
 ### `compute_ld_to_index()`
 
 Reuses
@@ -575,6 +685,23 @@ LD colouring; not used anywhere else.
 ### `clump_instruments()`
 
 ### `align_to_ld_matrix()`
+
+Intersects the harmonised instruments with the matrix, reorders both to
+the shared SNPs, and re-orients the matrix’s sign to the exposure’s
+effect allele: a SNP whose
+`effect_allele.exposure`/`other_allele.exposure` are the panel’s
+`ld_a2`/`ld_a1` gets its row and column sign flipped; a SNP whose
+alleles match neither orientation, or that is palindromic with an
+ambiguous frequency (0.42-0.58 in either dataset), is dropped. This is
+why an LD-corrected
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+can end up with fewer instruments than the same call uncorrected, and
+why one `mr_result` is always one instrument set under one weight
+matrix. Returns `list(data =, ld_matrix =, ld_sign =)`;
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+takes `data` as its new `harmonised` frame and builds the shared
+[`MendelianRandomization::mr_input()`](https://rdrr.io/pkg/MendelianRandomization/man/mr_input.html)
+from `ld_matrix`.
 
 ### `plink_option()`
 
@@ -673,6 +800,37 @@ when a function is called very frequently in a hot path.
   vignette in the same commit
 
 ## Adding New MR Methods
+
+Add a row to
+[`mr_method_registry()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_method_registry.md)
+in `R/mr_methods.R` – that is the only way to make a method requestable,
+and the tests in `test-mr_methods.R` will fail if the row is
+inconsistent (a label missing on a `$results`-producing row,
+`ld_correctable` claimed without an `engine_ld`, and so on). Then:
+
+1.  Add the dispatch branch in
+    [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)’s
+    method-dispatch block, following the existing pattern:
+    `entry <- mr_method_entry("name")`, `too_few(entry)` for the skip
+    reason, `warn_no_ld_correction("name")` if `ld_correct` is `TRUE`
+    and the method has no correlated form (or fit from the shared
+    `ld_input` if it does), and `mr_result_row(entry, ...)` for the row.
+    Never build a
+    [`data.frame()`](https://rdrr.io/r/base/data.frame.html) by hand –
+    the row helper is what keeps the `$results` schema identical across
+    branches.
+2.  If the method has a correlated implementation, name it in
+    `engine_ld` and set `ld_correctable = TRUE`; if not, leave
+    `engine_ld` as `NA` so the warning fires.
+3.  Nothing else to update: validation, the single-instrument skip list,
+    the raw-name shadowing,
+    [`?run_mr`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)‘s
+    method table and both vignettes’ tables all read the registry.
+
+Diagnostics that write to a field other than `$results` (like `steiger`
+or `loo`) get `output = "$<field>"`, `label = NA`, and a corresponding
+argument on
+[`new_mr_result()`](https://github.com/BZuckerman97/mrpipeline/reference/new_mr_result.md).
 
 ## Adding New Coloc Methods
 

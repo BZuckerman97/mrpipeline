@@ -46,7 +46,7 @@ result <- run_mr(
   outcome = sjogren_outcome, outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   bfile = bfile,
-  methods = c("ivw", "egger", "weighted_median", "loo")
+  methods = c("ivw_random", "egger", "weighted_median", "loo")
 )
 plot(result, type = "scatter")
 plot(result, type = "forest")

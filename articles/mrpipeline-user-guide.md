@@ -402,14 +402,137 @@ result <- run_mr(
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   bfile = bfile,
-  methods = c("ivw", "egger", "weighted_median", "heterogeneity", "loo")
+  methods = c("ivw_random", "egger", "weighted_median", "heterogeneity", "loo")
 )
 
 result$heterogeneity  # Q, Q_df, Q_pval per method (needs >= 2 instruments)
 result$loo            # per-SNP + pooled "All" estimates (needs >= 3 instruments)
 ```
 
-### LD-corrected IVW
+### Which methods can I run?
+
+[`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+returns the table
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+itself dispatches from – the shortcut names, what each one runs, whether
+it is a fixed- or random-effects estimator, whether `ld_correct = TRUE`
+applies to it, how many instruments it needs, and where its result lands
+on the `mr_result`:
+
+``` r
+
+tab <- mrpipeline::mr_methods()
+# Backticks render the field names as code, which keeps MathJax from reading
+# `$results` ... `$steiger` as an inline formula.
+tab$output <- paste0("`", tab$output, "`")
+knitr::kable(tab)
+```
+
+| shortcut | description | label | output | model | ld_correctable | min_instruments |
+|:---|:---|:---|:---|:---|:---|---:|
+| ivw_random | IVW, multiplicative random effects | IVW (random effects) | `$results` | random | TRUE | 2 |
+| ivw_fixed | IVW, fixed effects | IVW (fixed effects) | `$results` | fixed | TRUE | 2 |
+| egger | MR Egger regression | MR Egger | `$results` | random | TRUE | 3 |
+| weighted_median | Weighted median | Weighted median | `$results` | NA | FALSE | 3 |
+| presso | MR-PRESSO outlier test | MR-PRESSO | `$results` | NA | FALSE | 3 |
+| conmix | Contamination mixture | ConMix | `$results` | NA | FALSE | 2 |
+| steiger | Steiger directionality test | NA | `$steiger` | NA | FALSE | 1 |
+| pleiotropy | Egger intercept (pleiotropy) test | NA | `$pleiotropy` | NA | FALSE | 3 |
+| heterogeneity | Cochran’s Q heterogeneity test | NA | `$heterogeneity` | NA | FALSE | 2 |
+| loo | Leave-one-out IVW | NA | `$loo` | NA | FALSE | 3 |
+
+`mr_methods(detail = "full")` adds the automatic Wald-ratio path (used
+when exactly one instrument survives), the raw TwoSampleMR passthrough
+(any `TwoSampleMR::mr_method_list()$obj` name with no shortcut,
+e.g. `"mr_raps"`), and the function that actually runs on each LD path.
+The same table is rendered into
+[`?run_mr`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md).
+Because
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+reads it rather than a separate list, it cannot drift from what the
+function accepts.
+
+The IVW shortcuts name the estimator explicitly: `ivw_random` is
+multiplicative random effects (the standard error is inflated by
+`max(RSE, 1)`, never deflated) and `ivw_fixed` is fixed effects (no
+overdispersion adjustment). With under-dispersed instruments the two
+coincide exactly. The former names `"ivw"` and `"ivw_fe"` still work but
+warn.
+
+### LD-corrected MR
+
+Cis-MR instruments are often in linkage disequilibrium with one another,
+and standard IVW treats every instrument as an independent look at the
+causal effect – two correlated SNPs are counted twice and the standard
+error comes out too small. `ld_correct = TRUE` computes the instruments’
+LD matrix from `bfile`, re-orients it to the exposure’s effect alleles,
+and fits the IVW and Egger estimators by generalised least squares with
+that matrix as the weight structure (through `MendelianRandomization`
+with `correl = TRUE`):
+
+``` r
+
+corrected <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile,
+  ld_correct = TRUE,
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+)
+#> Warning: 'weighted_median' has no LD-corrected form; running uncorrected.
+
+corrected$results[, c("method", "model", "ld_corrected")]
+#>                 method  model ld_corrected
+#> 1 IVW (random effects) random         TRUE
+#> 2  IVW (fixed effects)  fixed         TRUE
+#> 3             MR Egger random         TRUE
+#> 4      Weighted median   <NA>        FALSE
+```
+
+Every `$results` row states the estimator that produced it: `model` says
+whether it was a fixed- or random-effects fit, and `ld_corrected`
+whether the LD matrix was used. Only `ivw_random`, `ivw_fixed` and
+`egger` have a correlated form; any other method you request runs on the
+uncorrected data and warns by name, so `ld_correct` is never silently
+ignored. `summary(corrected)` lists which methods it was and was not
+applied to, and `print(corrected)` tags the primary row
+`[LD-corrected]`.
+
+Two things to know:
+
+- **`ivw_random` and `ivw_fixed` mean the same thing at every instrument
+  count.** `MendelianRandomization`’s own default would switch to fixed
+  effects below 4 instruments – a common situation in cis-MR – so
+  [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+  pins the model explicitly on the shortcut. Ask for the estimator you
+  want by name.
+- **An LD-corrected run can have fewer instruments than the same call
+  uncorrected.** Instruments absent from the reference panel, or with
+  ambiguous palindromic alleles, are dropped when the matrix is aligned
+  to the exposure’s effect alleles.
+
+Because of the second point, one `mr_result` is always one instrument
+set under one weight matrix – `ld_correct` is a single switch, not a
+request for both arms. To compare corrected and uncorrected estimates,
+run both and section them in one forest plot:
+
+``` r
+
+uncorrected <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile,
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+)
+
+forest_plot(list("Uncorrected" = uncorrected, "LD-corrected" = corrected))
+```
 
 ### Genome-wide MR
 
@@ -531,8 +654,8 @@ instead.
 [`forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.md)
 shows one row per method, for a single `mr_result` or for several
 sectioned together. Fixed effects is listed above random effects by
-default, and `"Inverse variance weighted"` is relabelled to
-`"IVW (random effects)"` for display:
+default. Method labels do not encode LD correction (that lives in the
+`ld_corrected` column), so LD-corrected results match the same defaults:
 
 ``` r
 
@@ -571,7 +694,7 @@ combined <- dplyr::bind_rows(
 outcome_forest_plot(
   combined,
   xlab = "OR (95% CI)",
-  method = c("Inverse variance weighted", "IVW (fixed effects)"), # both models
+  method = c("IVW (random effects)", "IVW (fixed effects)"), # both models
   colour_by = "instrument",
   shape_by = "method",
   section_order = c("Primary", "Positive control", "Negative control")

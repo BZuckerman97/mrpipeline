@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">new_mr_result</span><span class="op">(</span></span>
-<span>  results <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  results <span class="op">=</span> <span class="fu"><a href="empty_mr_results.html">empty_mr_results</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  harmonisation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  f_stats <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>per_snp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span>, mean <span class="op">=</span> <span class="cn">NA_real_</span>, min <span class="op">=</span> <span class="cn">NA_real_</span><span class="op">)</span>,</span>
@@ -67,8 +67,10 @@
 
 <dl><dt id="arg-results">results<a class="anchor" aria-label="anchor" href="#arg-results"></a></dt>
 <dd><p>Data frame with columns: exposure, outcome, method, nsnp,
-b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
-<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code>).</p></dd>
+b, se, pval, ld_corrected (logical: whether the LD matrix was used for
+that fit), model (<code>"random"</code>, <code>"fixed"</code> or <code>NA</code>), plus or, or_lci95,
+or_uci95 (and lo_ci, up_ci) from <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code>
+on a successful run. Defaults to <code><a href="empty_mr_results.html">empty_mr_results()</a></code>.</p></dd>
 
 
 <dt id="arg-instruments">instruments<a class="anchor" aria-label="anchor" href="#arg-instruments"></a></dt>

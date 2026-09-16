@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -130,6 +130,10 @@ flag cost each variant its place.</p>
 <p>The <code>$results</code> data frame has one row per MR method and
 the following columns:</p>
 <table class="table">
+<colgroup>
+<col width="38%">
+<col width="61%">
+</colgroup>
 <thead><tr class="header">
 <th>Column</th>
 <th>Description</th>
@@ -145,7 +149,9 @@ the following columns:</p>
 </tr>
 <tr class="odd">
 <td><code>method</code></td>
-<td>Method name</td>
+<td>Method label, from the registry’s <code>label</code> column
+(<code>mr_methods()$label</code>); raw TwoSampleMR passthrough rows
+carry TwoSampleMR’s own label</td>
 </tr>
 <tr class="even">
 <td><code>nsnp</code></td>
@@ -163,6 +169,22 @@ the following columns:</p>
 <tr class="odd">
 <td><code>pval</code></td>
 <td>P-value</td>
+</tr>
+<tr class="even">
+<td><code>ld_corrected</code></td>
+<td>Logical: whether the LD matrix was used for this fit.
+<code>TRUE</code> only for <code>ivw_random</code>,
+<code>ivw_fixed</code> and <code>egger</code> under
+<code>ld_correct = TRUE</code>; every other row is
+<code>FALSE</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>model</code></td>
+<td>
+<code>"random"</code>, <code>"fixed"</code>, or <code>NA</code>
+where the fixed/random distinction does not apply (weighted median,
+PRESSO, ConMix, Wald ratio, passthrough)</td>
 </tr>
 <tr class="even">
 <td><code>lo_ci</code></td>
@@ -186,11 +208,227 @@ the following columns:</p>
 </tr>
 </tbody>
 </table>
-<p>The OR columns are always present (added by
+<p>Every row is built by <code><a href="../reference/mr_result_row.html">mr_result_row()</a></code> from its registry
+entry, so the schema cannot differ between dispatch branches (which
+would make the final <code>do.call(rbind, results_list)</code> fail).
+The OR columns are added by
 <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code> in the results assembly
-step). For quantitative outcomes the OR columns are still computed but
-should be interpreted cautiously – they reflect exponentiated effect
-sizes, not true odds ratios.</p>
+step on a successful run; early returns carry the nine base columns of
+<code><a href="../reference/empty_mr_results.html">empty_mr_results()</a></code>, the <code>results</code> default of
+<code><a href="../reference/new_mr_result.html">new_mr_result()</a></code>. For quantitative outcomes the OR columns
+are still computed but should be interpreted cautiously – they reflect
+exponentiated effect sizes, not true odds ratios.</p>
+</div>
+<div class="section level4">
+<h4 id="the-method-registry-and-ld-correction">The method registry and LD correction<a class="anchor" aria-label="anchor" href="#the-method-registry-and-ld-correction"></a>
+</h4>
+<p><code>R/mr_methods.R</code> holds <code><a href="../reference/mr_method_registry.html">mr_method_registry()</a></code>,
+the single source of truth for what <code><a href="../reference/run_mr.html">run_mr()</a></code> can run.
+<code><a href="../reference/run_mr.html">run_mr()</a></code> reads everything method-related from it: the valid
+shortcut names, which raw TwoSampleMR names are refused because a
+shortcut already wraps them (derived from the <code>engine</code>
+column), the minimum instrument count behind every
+<code>"Requires &gt;= n instruments"</code> skip reason, the
+<code>label</code>/<code>model</code> written into each
+<code>$results</code> row, and which methods warn
+<code>has no LD-corrected form</code> when
+<code>ld_correct = TRUE</code>. <code><a href="../reference/mr_methods.html">mr_methods()</a></code> exports it,
+<code><a href="../reference/rd_method_table.html">rd_method_table()</a></code> renders it into <code><a href="../reference/run_mr.html">?run_mr</a></code>
+through a roxygen <code>@eval</code> tag, and the user guide renders it
+with knitr. Before the registry the shortcut list was hard-coded in
+three places that had drifted apart, which is how <code>ivw_fe</code>
+came to be half-wired (GitHub issue #27).</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="fu">mrpipeline</span><span class="fu">::</span><span class="fu"><a href="../reference/mr_methods.html">mr_methods</a></span><span class="op">(</span>detail <span class="op">=</span> <span class="st">"full"</span><span class="op">)</span></span>
+<span><span class="co"># Backticks keep MathJax from reading `$results` ... `$steiger` as maths.</span></span>
+<span><span class="va">tab</span><span class="op">$</span><span class="va">output</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"`"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">output</span>, <span class="st">"`"</span><span class="op">)</span></span>
+<span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">tab</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<colgroup>
+<col width="7%">
+<col width="16%">
+<col width="10%">
+<col width="8%">
+<col width="3%">
+<col width="7%">
+<col width="7%">
+<col width="16%">
+<col width="23%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">shortcut</th>
+<th align="left">description</th>
+<th align="left">label</th>
+<th align="left">output</th>
+<th align="left">model</th>
+<th align="left">ld_correctable</th>
+<th align="right">min_instruments</th>
+<th align="left">engine</th>
+<th align="left">engine_ld</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ivw_random</td>
+<td align="left">IVW, multiplicative random effects</td>
+<td align="left">IVW (random effects)</td>
+<td align="left"><code>$results</code></td>
+<td align="left">random</td>
+<td align="left">TRUE</td>
+<td align="right">2</td>
+<td align="left">TwoSampleMR::mr_ivw</td>
+<td align="left">MendelianRandomization::mr_ivw(model = “random”)</td>
+</tr>
+<tr class="even">
+<td align="left">ivw_fixed</td>
+<td align="left">IVW, fixed effects</td>
+<td align="left">IVW (fixed effects)</td>
+<td align="left"><code>$results</code></td>
+<td align="left">fixed</td>
+<td align="left">TRUE</td>
+<td align="right">2</td>
+<td align="left">TwoSampleMR::mr_ivw_fe</td>
+<td align="left">MendelianRandomization::mr_ivw(model = “fixed”)</td>
+</tr>
+<tr class="odd">
+<td align="left">egger</td>
+<td align="left">MR Egger regression</td>
+<td align="left">MR Egger</td>
+<td align="left"><code>$results</code></td>
+<td align="left">random</td>
+<td align="left">TRUE</td>
+<td align="right">3</td>
+<td align="left">TwoSampleMR::mr_egger_regression</td>
+<td align="left">MendelianRandomization::mr_egger</td>
+</tr>
+<tr class="even">
+<td align="left">weighted_median</td>
+<td align="left">Weighted median</td>
+<td align="left">Weighted median</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">TwoSampleMR::mr_weighted_median</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">presso</td>
+<td align="left">MR-PRESSO outlier test</td>
+<td align="left">MR-PRESSO</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">TwoSampleMR::run_mr_presso</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">conmix</td>
+<td align="left">Contamination mixture</td>
+<td align="left">ConMix</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">MendelianRandomization::mr_conmix</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">NA</td>
+<td align="left">Wald ratio, single instrument</td>
+<td align="left">Wald ratio</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">1</td>
+<td align="left">TwoSampleMR::mr_wald_ratio</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">NA</td>
+<td align="left">Any other TwoSampleMR method</td>
+<td align="left">NA</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">TwoSampleMR::mr</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">steiger</td>
+<td align="left">Steiger directionality test</td>
+<td align="left">NA</td>
+<td align="left"><code>$steiger</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">1</td>
+<td align="left">TwoSampleMR::steiger_filtering</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">pleiotropy</td>
+<td align="left">Egger intercept (pleiotropy) test</td>
+<td align="left">NA</td>
+<td align="left"><code>$pleiotropy</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">TwoSampleMR::mr_pleiotropy_test</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">heterogeneity</td>
+<td align="left">Cochran’s Q heterogeneity test</td>
+<td align="left">NA</td>
+<td align="left"><code>$heterogeneity</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+<td align="left">TwoSampleMR::mr_heterogeneity</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">loo</td>
+<td align="left">Leave-one-out IVW</td>
+<td align="left">NA</td>
+<td align="left"><code>$loo</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+<td align="left">TwoSampleMR::mr_leaveoneout</td>
+<td align="left">NA</td>
+</tr>
+</tbody>
+</table>
+<p><code>ld_correctable</code> is declared, not inferred – nothing
+inspects upstream function signatures at run time. It is kept honest by
+<code>engine_ld</code>: a row may claim LD support only by naming the
+function that provides it, and <code>test-mr_methods.R</code> asserts
+<code>ld_correctable == !is.na(engine_ld)</code>. There is deliberately
+no free-text notes column, because notes about upstream internals go
+stale silently when a dependency changes;
+<code>engine</code>/<code>engine_ld</code> name what mrpipeline calls
+and so stay true as long as the dispatch does.</p>
+<p>The LD path itself: <code><a href="../reference/compute_ld_matrix.html">compute_ld_matrix()</a></code> and
+<code><a href="../reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code> run once, before dispatch, and the
+aligned matrix goes into a single
+<code>MendelianRandomization::mr_input(correlation = ld_mat)</code> that
+every corrected fit shares. The matrix – not the
+<code>correl = TRUE</code> flag – is what carries the correction;
+<code>mr_ivw()</code>/<code>mr_egger()</code> read it from that object.
+The IVW model is pinned explicitly (<code>model = "random"</code> /
+<code>"fixed"</code>) because <code>MendelianRandomization</code>’s
+<code>"default"</code> is fixed effects below 4 instruments and random
+above, which would make <code>ivw_random</code> mean two different
+estimators depending on how many SNPs survived clumping. Egger needs no
+pinning: <code>mr_egger()</code> has no <code>model</code> argument and
+is multiplicative random effects on both paths
+(<code>/min(1, sigma)</code> in TwoSampleMR,
+<code>*max(1, rse.corr)</code> in MendelianRandomization). If alignment
+drops every instrument, <code><a href="../reference/run_mr.html">run_mr()</a></code> returns
+<code>status = "no_harmonised_variants"</code> rather than reaching the
+GLS fit with zero rows.</p>
 </div>
 <div class="section level4">
 <h4 id="egger-intercept-pleiotropy-test">Egger intercept / pleiotropy test<a class="anchor" aria-label="anchor" href="#egger-intercept-pleiotropy-test"></a>
@@ -255,11 +493,21 @@ it reaches <code><a href="../reference/run_mr.html">run_mr()</a></code>. See the
 <code>summary.mr_result()</code><a class="anchor" aria-label="anchor" href="#print-mr_result-and-summary-mr_result"></a>
 </h4>
 <p><code><a href="../reference/print.mr_result.html">print.mr_result()</a></code> shows a one-line summary using the
-first result row, including the OR and 95% CI (when available).
-<code><a href="../reference/summary.mr_result.html">summary.mr_result()</a></code> shows all methods with OR columns,
-F-statistics, Steiger result, the Egger intercept (when computed), the
-heterogeneity (Cochran’s Q) table (when computed), a leave-one-out row
-count (when computed), and skipped methods.</p>
+first result row, including the OR and 95% CI (when available), tagged
+<code>[LD-corrected]</code> when that row’s <code>ld_corrected</code> is
+<code>TRUE</code>. <code><a href="../reference/summary.mr_result.html">summary.mr_result()</a></code> shows all methods
+with OR columns – each tagged with its effects model where the label
+does not already carry it (so <code>MR Egger [random effects]</code>)
+and, on an LD-corrected run, <code>[LD-corrected]</code> or
+<code>[not LD-corrected]</code> – then F-statistics, Steiger result, the
+Egger intercept (when computed), the heterogeneity (Cochran’s Q) table
+(when computed), a leave-one-out row count (when computed), skipped
+methods, and finally an <strong>LD correction</strong> section listing
+the methods the matrix was and was not applied to. That section is keyed
+off <code>$results$ld_corrected</code>, not off the presence of
+<code>$ld_matrix</code>, so a run whose methods all lacked a correlated
+form reads “Applied to: none” rather than being announced as
+LD-corrected.</p>
 </div>
 </div>
 <div class="section level3">
@@ -406,12 +654,14 @@ becomes section order when <code>results</code> is a named list), then
 calls <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/forest_plot_1_to_many.html" class="external-link">TwoSampleMR::forest_plot_1_to_many()</a></code> with
 <code>TraitM = "method"</code>. Default <code>methods</code> puts
 <code>"IVW (fixed effects)"</code> above
-<code>"Inverse variance weighted"</code>; the <code>relabel</code>
-argument (default: rename <code>"Inverse variance weighted"</code> to
-<code>"IVW (random effects)"</code>) is applied to the combined data’s
-<code>method</code> column <em>after</em> filtering/ordering, so it
-never affects matching against the raw labels <code><a href="../reference/run_mr.html">run_mr()</a></code>
-produced.</li>
+<code>"IVW (random effects)"</code>. Labels no longer encode LD
+correction (that is the <code>ld_corrected</code> column), so
+LD-corrected results match the same defaults – previously every
+<code>"(LD-corrected)"</code> row was silently dropped. The
+<code>relabel</code> argument (empty by default) is applied to the
+combined data’s <code>method</code> column <em>after</em>
+filtering/ordering, so it never affects matching against the raw labels
+<code><a href="../reference/run_mr.html">run_mr()</a></code> produced.</li>
 <li>
 <code>outcome_forest_plot(mr_res, xlab, method, colour_by, shape_by, ...)</code>
 – one row per <em>outcome</em>. Standalone <code>ggplot2</code> code
@@ -790,7 +1040,18 @@ outcome – recorded as <code>timing[["allele_check"]]</code>.</p>
 <h3 id="compute_ld_matrix">
 <code>compute_ld_matrix()</code><a class="anchor" aria-label="anchor" href="#compute_ld_matrix"></a>
 </h3>
-<!-- TODO: document purpose, inputs, outputs, why bfile is always required -->
+<p>Runs PLINK <code>--r square</code> (via
+<code><a href="https://mrcieu.github.io/ieugwasr/reference/ld_matrix.html" class="external-link">ieugwasr::ld_matrix()</a></code>) on the local <code>bfile</code> for
+a vector of rsIDs and returns <code>list(ld =, alleles =)</code>: the
+<strong>signed</strong> correlation matrix with rsID-only dimnames, and
+the panel’s <code>ld_a1</code>/<code>ld_a2</code> allele coding for each
+SNP. The sign matters – a pair in repulsion enters the GLS as a negative
+<code>r</code> – and it is anchored to the panel’s A1 allele, so the
+allele table is returned alongside rather than discarded.
+<code>bfile</code> is always required: there is no API fallback, because
+the matrix must be computed on exactly the instrument set and allele
+coding that <code><a href="../reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code> then reconciles with the
+exposure.</p>
 </div>
 <div class="section level3">
 <h3 id="compute_ld_to_index">
@@ -811,7 +1072,21 @@ used anywhere else.</p>
 <h3 id="align_to_ld_matrix">
 <code>align_to_ld_matrix()</code><a class="anchor" aria-label="anchor" href="#align_to_ld_matrix"></a>
 </h3>
-<!-- TODO: document intersect-and-reorder approach (simplified from allele-flip logic) -->
+<p>Intersects the harmonised instruments with the matrix, reorders both
+to the shared SNPs, and re-orients the matrix’s sign to the exposure’s
+effect allele: a SNP whose
+<code>effect_allele.exposure</code>/<code>other_allele.exposure</code>
+are the panel’s <code>ld_a2</code>/<code>ld_a1</code> gets its row and
+column sign flipped; a SNP whose alleles match neither orientation, or
+that is palindromic with an ambiguous frequency (0.42-0.58 in either
+dataset), is dropped. This is why an LD-corrected <code><a href="../reference/run_mr.html">run_mr()</a></code>
+can end up with fewer instruments than the same call uncorrected, and
+why one <code>mr_result</code> is always one instrument set under one
+weight matrix. Returns
+<code>list(data =, ld_matrix =, ld_sign =)</code>; <code><a href="../reference/run_mr.html">run_mr()</a></code>
+takes <code>data</code> as its new <code>harmonised</code> frame and
+builds the shared <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_input.html" class="external-link">MendelianRandomization::mr_input()</a></code> from
+<code>ld_matrix</code>.</p>
 </div>
 <div class="section level3">
 <h3 id="plink_option">
@@ -871,7 +1146,7 @@ compressed path”) exists so tests can exercise the failure branch.</p>
 <p>Always use the <code>cli</code> package. Never use
 <code><a href="https://rdrr.io/r/base/message.html" class="external-link">message()</a></code>, <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">warning()</a></code>, or <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code>
 directly.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_inform</a></span><span class="op">(</span><span class="st">"Processing {protein}..."</span><span class="op">)</span>      <span class="co"># informational (goes to stderr)</span></span>
 <span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_warn</a></span><span class="op">(</span><span class="st">"Only {n} SNP(s) available."</span><span class="op">)</span>     <span class="co"># warning</span></span>
 <span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_abort</a></span><span class="op">(</span><span class="st">"bfile is required for coloc."</span><span class="op">)</span>  <span class="co"># error (stops execution)</span></span></code></pre></div>
@@ -889,7 +1164,7 @@ calls should be gated behind it.</p>
 <h3 id="string-operations">String Operations<a class="anchor" aria-label="anchor" href="#string-operations"></a>
 </h3>
 <p>Prefer <code>stringr</code> functions over base R equivalents:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Good</span></span>
 <span><span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_remove.html" class="external-link">str_remove</a></span><span class="op">(</span><span class="va">x</span>, <span class="st">"_.*"</span><span class="op">)</span></span>
 <span><span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_detect.html" class="external-link">str_detect</a></span><span class="op">(</span><span class="va">x</span>, <span class="st">"^chr"</span><span class="op">)</span></span>
@@ -925,9 +1200,35 @@ this vignette in the same commit</li>
 <div class="section level2">
 <h2 id="adding-new-mr-methods">Adding New MR Methods<a class="anchor" aria-label="anchor" href="#adding-new-mr-methods"></a>
 </h2>
-<!-- TODO: where to add method dispatch logic in run_mr() -->
-<!-- TODO: how to update method count table and methods_skipped -->
-<!-- TODO: how to update mr_result structure if needed -->
+<p>Add a row to <code><a href="../reference/mr_method_registry.html">mr_method_registry()</a></code> in
+<code>R/mr_methods.R</code> – that is the only way to make a method
+requestable, and the tests in <code>test-mr_methods.R</code> will fail
+if the row is inconsistent (a label missing on a
+<code>$results</code>-producing row, <code>ld_correctable</code> claimed
+without an <code>engine_ld</code>, and so on). Then:</p>
+<ol style="list-style-type: decimal">
+<li>Add the dispatch branch in <code><a href="../reference/run_mr.html">run_mr()</a></code>’s method-dispatch
+block, following the existing pattern:
+<code>entry &lt;- mr_method_entry("name")</code>,
+<code>too_few(entry)</code> for the skip reason,
+<code>warn_no_ld_correction("name")</code> if <code>ld_correct</code> is
+<code>TRUE</code> and the method has no correlated form (or fit from the
+shared <code>ld_input</code> if it does), and
+<code>mr_result_row(entry, ...)</code> for the row. Never build a
+<code><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame()</a></code> by hand – the row helper is what keeps the
+<code>$results</code> schema identical across branches.</li>
+<li>If the method has a correlated implementation, name it in
+<code>engine_ld</code> and set <code>ld_correctable = TRUE</code>; if
+not, leave <code>engine_ld</code> as <code>NA</code> so the warning
+fires.</li>
+<li>Nothing else to update: validation, the single-instrument skip list,
+the raw-name shadowing, <code><a href="../reference/run_mr.html">?run_mr</a></code>‘s method table and both
+vignettes’ tables all read the registry.</li>
+</ol>
+<p>Diagnostics that write to a field other than <code>$results</code>
+(like <code>steiger</code> or <code>loo</code>) get
+<code>output = "$&lt;field&gt;"</code>, <code>label = NA</code>, and a
+corresponding argument on <code><a href="../reference/new_mr_result.html">new_mr_result()</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="adding-new-coloc-methods">Adding New Coloc Methods<a class="anchor" aria-label="anchor" href="#adding-new-coloc-methods"></a>
@@ -1013,10 +1314,10 @@ binary fileset with 50 biallelic SNPs from the CD40 chr20 cis region
 are drawn from the real <code>cd40_sumstats</code> data, so LD structure
 is random but allele frequencies are realistic. Total size ~4 KB.</p>
 <p>Access the bfile prefix in tests:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"\\.bed$"</span>, <span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref.bed"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Guard integration tests that need plink:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">skip_if_not</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.exists</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">bfile</span>, <span class="st">".bed"</span><span class="op">)</span><span class="op">)</span>, <span class="st">"LD reference panel not available"</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>

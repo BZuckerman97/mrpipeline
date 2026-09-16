@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -477,16 +477,225 @@ estimates:</p>
 <span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
 <span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span>, <span class="st">"loo"</span><span class="op">)</span></span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span>, <span class="st">"loo"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">result</span><span class="op">$</span><span class="va">heterogeneity</span>  <span class="co"># Q, Q_df, Q_pval per method (needs &gt;= 2 instruments)</span></span>
 <span><span class="va">result</span><span class="op">$</span><span class="va">loo</span>            <span class="co"># per-SNP + pooled "All" estimates (needs &gt;= 3 instruments)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="ld-corrected-ivw">LD-corrected IVW<a class="anchor" aria-label="anchor" href="#ld-corrected-ivw"></a>
+<h3 id="which-methods-can-i-run">Which methods can I run?<a class="anchor" aria-label="anchor" href="#which-methods-can-i-run"></a>
 </h3>
-<!-- TODO: ld_correct = TRUE example with bfile -->
+<p><code><a href="../reference/mr_methods.html">mr_methods()</a></code> returns the table <code><a href="../reference/run_mr.html">run_mr()</a></code>
+itself dispatches from – the shortcut names, what each one runs, whether
+it is a fixed- or random-effects estimator, whether
+<code>ld_correct = TRUE</code> applies to it, how many instruments it
+needs, and where its result lands on the <code>mr_result</code>:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="fu">mrpipeline</span><span class="fu">::</span><span class="fu"><a href="../reference/mr_methods.html">mr_methods</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co"># Backticks render the field names as code, which keeps MathJax from reading</span></span>
+<span><span class="co"># `$results` ... `$steiger` as an inline formula.</span></span>
+<span><span class="va">tab</span><span class="op">$</span><span class="va">output</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"`"</span>, <span class="va">tab</span><span class="op">$</span><span class="va">output</span>, <span class="st">"`"</span><span class="op">)</span></span>
+<span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">tab</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<colgroup>
+<col width="12%">
+<col width="27%">
+<col width="16%">
+<col width="13%">
+<col width="5%">
+<col width="11%">
+<col width="12%">
+</colgroup>
+<thead><tr class="header">
+<th align="left">shortcut</th>
+<th align="left">description</th>
+<th align="left">label</th>
+<th align="left">output</th>
+<th align="left">model</th>
+<th align="left">ld_correctable</th>
+<th align="right">min_instruments</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">ivw_random</td>
+<td align="left">IVW, multiplicative random effects</td>
+<td align="left">IVW (random effects)</td>
+<td align="left"><code>$results</code></td>
+<td align="left">random</td>
+<td align="left">TRUE</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">ivw_fixed</td>
+<td align="left">IVW, fixed effects</td>
+<td align="left">IVW (fixed effects)</td>
+<td align="left"><code>$results</code></td>
+<td align="left">fixed</td>
+<td align="left">TRUE</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">egger</td>
+<td align="left">MR Egger regression</td>
+<td align="left">MR Egger</td>
+<td align="left"><code>$results</code></td>
+<td align="left">random</td>
+<td align="left">TRUE</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">weighted_median</td>
+<td align="left">Weighted median</td>
+<td align="left">Weighted median</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+</tr>
+<tr class="odd">
+<td align="left">presso</td>
+<td align="left">MR-PRESSO outlier test</td>
+<td align="left">MR-PRESSO</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+</tr>
+<tr class="even">
+<td align="left">conmix</td>
+<td align="left">Contamination mixture</td>
+<td align="left">ConMix</td>
+<td align="left"><code>$results</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td align="left">steiger</td>
+<td align="left">Steiger directionality test</td>
+<td align="left">NA</td>
+<td align="left"><code>$steiger</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">1</td>
+</tr>
+<tr class="even">
+<td align="left">pleiotropy</td>
+<td align="left">Egger intercept (pleiotropy) test</td>
+<td align="left">NA</td>
+<td align="left"><code>$pleiotropy</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+</tr>
+<tr class="odd">
+<td align="left">heterogeneity</td>
+<td align="left">Cochran’s Q heterogeneity test</td>
+<td align="left">NA</td>
+<td align="left"><code>$heterogeneity</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">2</td>
+</tr>
+<tr class="even">
+<td align="left">loo</td>
+<td align="left">Leave-one-out IVW</td>
+<td align="left">NA</td>
+<td align="left"><code>$loo</code></td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
+<td align="right">3</td>
+</tr>
+</tbody>
+</table>
+<p><code>mr_methods(detail = "full")</code> adds the automatic
+Wald-ratio path (used when exactly one instrument survives), the raw
+TwoSampleMR passthrough (any
+<code>TwoSampleMR::mr_method_list()$obj</code> name with no shortcut,
+e.g. <code>"mr_raps"</code>), and the function that actually runs on
+each LD path. The same table is rendered into <code><a href="../reference/run_mr.html">?run_mr</a></code>.
+Because <code><a href="../reference/run_mr.html">run_mr()</a></code> reads it rather than a separate list, it
+cannot drift from what the function accepts.</p>
+<p>The IVW shortcuts name the estimator explicitly:
+<code>ivw_random</code> is multiplicative random effects (the standard
+error is inflated by <code>max(RSE, 1)</code>, never deflated) and
+<code>ivw_fixed</code> is fixed effects (no overdispersion adjustment).
+With under-dispersed instruments the two coincide exactly. The former
+names <code>"ivw"</code> and <code>"ivw_fe"</code> still work but
+warn.</p>
+</div>
+<div class="section level3">
+<h3 id="ld-corrected-mr">LD-corrected MR<a class="anchor" aria-label="anchor" href="#ld-corrected-mr"></a>
+</h3>
+<p>Cis-MR instruments are often in linkage disequilibrium with one
+another, and standard IVW treats every instrument as an independent look
+at the causal effect – two correlated SNPs are counted twice and the
+standard error comes out too small. <code>ld_correct = TRUE</code>
+computes the instruments’ LD matrix from <code>bfile</code>, re-orients
+it to the exposure’s effect alleles, and fits the IVW and Egger
+estimators by generalised least squares with that matrix as the weight
+structure (through <code>MendelianRandomization</code> with
+<code>correl = TRUE</code>):</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">corrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
+<span>  ld_correct <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: 'weighted_median' has no LD-corrected form; running uncorrected.</span></span>
+<span></span>
+<span><span class="va">corrected</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"model"</span>, <span class="st">"ld_corrected"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                 method  model ld_corrected</span></span>
+<span><span class="co">#&gt; 1 IVW (random effects) random         TRUE</span></span>
+<span><span class="co">#&gt; 2  IVW (fixed effects)  fixed         TRUE</span></span>
+<span><span class="co">#&gt; 3             MR Egger random         TRUE</span></span>
+<span><span class="co">#&gt; 4      Weighted median   &lt;NA&gt;        FALSE</span></span></code></pre></div>
+<p>Every <code>$results</code> row states the estimator that produced
+it: <code>model</code> says whether it was a fixed- or random-effects
+fit, and <code>ld_corrected</code> whether the LD matrix was used. Only
+<code>ivw_random</code>, <code>ivw_fixed</code> and <code>egger</code>
+have a correlated form; any other method you request runs on the
+uncorrected data and warns by name, so <code>ld_correct</code> is never
+silently ignored. <code>summary(corrected)</code> lists which methods it
+was and was not applied to, and <code>print(corrected)</code> tags the
+primary row <code>[LD-corrected]</code>.</p>
+<p>Two things to know:</p>
+<ul>
+<li>
+<strong><code>ivw_random</code> and <code>ivw_fixed</code> mean the
+same thing at every instrument count.</strong>
+<code>MendelianRandomization</code>’s own default would switch to fixed
+effects below 4 instruments – a common situation in cis-MR – so
+<code><a href="../reference/run_mr.html">run_mr()</a></code> pins the model explicitly on the shortcut. Ask for
+the estimator you want by name.</li>
+<li>
+<strong>An LD-corrected run can have fewer instruments than the same
+call uncorrected.</strong> Instruments absent from the reference panel,
+or with ambiguous palindromic alleles, are dropped when the matrix is
+aligned to the exposure’s effect alleles.</li>
+</ul>
+<p>Because of the second point, one <code>mr_result</code> is always one
+instrument set under one weight matrix – <code>ld_correct</code> is a
+single switch, not a request for both arms. To compare corrected and
+uncorrected estimates, run both and section them in one forest plot:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">uncorrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"Uncorrected"</span> <span class="op">=</span> <span class="va">uncorrected</span>, <span class="st">"LD-corrected"</span> <span class="op">=</span> <span class="va">corrected</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="genome-wide-mr">Genome-wide MR<a class="anchor" aria-label="anchor" href="#genome-wide-mr"></a>
@@ -502,7 +711,7 @@ the MHC region on chromosome 6, which can introduce spurious
 associations due to complex LD structure.</p>
 <p>Supply a data frame with columns <code>chr</code>,
 <code>start</code>, and <code>end</code>:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Exclude MHC region (GRCh37 coordinates: chr6:28,477,797–33,448,354)</span></span>
 <span><span class="va">mhc_grch37</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>chr <span class="op">=</span> <span class="st">"6"</span>, start <span class="op">=</span> <span class="fl">28477797</span>, end <span class="op">=</span> <span class="fl">33448354</span><span class="op">)</span></span>
 <span></span>
@@ -519,7 +728,7 @@ associations due to complex LD structure.</p>
 <p>You can exclude multiple regions by stacking rows. For example, when
 studying age-related macular degeneration (AMD), you might exclude both
 the CFH and ARMS2/HTRA1 loci:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">amd_exclusions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  chr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1"</span>, <span class="st">"10"</span><span class="op">)</span>,</span>
 <span>  start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">196621008</span>, <span class="fl">124214077</span><span class="op">)</span>,</span>
@@ -539,7 +748,7 @@ the CFH and ARMS2/HTRA1 loci:</p>
 </h3>
 <p>You can bypass automatic instrument selection by supplying a
 character vector of rsIDs to the <code>instruments</code> argument:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
@@ -550,7 +759,7 @@ character vector of rsIDs to the <code>instruments</code> argument:</p>
 <p>By default, instruments missing from the exposure data produce a
 warning but the analysis continues with the available SNPs. Set
 <code>instruments_strict = TRUE</code> to error instead:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
@@ -569,7 +778,7 @@ warning but the analysis continues with the available SNPs. Set
 <!-- TODO: methods_skipped -->
 <p>Use <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> for a one-line summary and
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> for full details:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mr_res</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
@@ -577,7 +786,7 @@ warning but the analysis continues with the available SNPs. Set
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> produces diagnostic plots using TwoSampleMR
 plotting functions (requires <code>ggplot2</code>):</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span> <span class="co"># scatter plot (default)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"forest"</span><span class="op">)</span>  <span class="co"># per-SNP forest plot</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"funnel"</span><span class="op">)</span>  <span class="co"># funnel plot</span></span></code></pre></div>
@@ -592,14 +801,14 @@ and <code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()<
 </h3>
 <p><code><a href="../reference/forest_plot.html">forest_plot()</a></code> shows one row per method, for a single
 <code>mr_result</code> or for several sectioned together. Fixed effects
-is listed above random effects by default, and
-<code>"Inverse variance weighted"</code> is relabelled to
-<code>"IVW (random effects)"</code> for display:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+is listed above random effects by default. Method labels do not encode
+LD correction (that lives in the <code>ld_corrected</code> column), so
+LD-corrected results match the same defaults:</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
 <p>Pass a named list to section several results into one figure – e.g. a
 primary analysis alongside positive and negative controls:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  Primary <span class="op">=</span> <span class="va">mr_res</span>,</span>
 <span>  <span class="st">"Positive control"</span> <span class="op">=</span> <span class="va">positive_control_res</span>,</span>
@@ -610,7 +819,7 @@ primary analysis alongside positive and negative controls:</p>
 coloured and/or shaped by a grouping column you attach yourself
 (e.g. which instrument was used). Build the combined data frame from one
 or more results’ <code>$results</code>, then plot:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">combined</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
 <span>  <span class="va">mr_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Primary"</span><span class="op">)</span>,</span>
 <span>  <span class="va">positive_control_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Positive control"</span><span class="op">)</span>,</span>
@@ -623,7 +832,7 @@ or more results’ <code>$results</code>, then plot:</p>
 <span><span class="fu"><a href="../reference/outcome_forest_plot.html">outcome_forest_plot</a></span><span class="op">(</span></span>
 <span>  <span class="va">combined</span>,</span>
 <span>  xlab <span class="op">=</span> <span class="st">"OR (95% CI)"</span>,</span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Inverse variance weighted"</span>, <span class="st">"IVW (fixed effects)"</span><span class="op">)</span>, <span class="co"># both models</span></span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"IVW (random effects)"</span>, <span class="st">"IVW (fixed effects)"</span><span class="op">)</span>, <span class="co"># both models</span></span>
 <span>  colour_by <span class="op">=</span> <span class="st">"instrument"</span>,</span>
 <span>  shape_by <span class="op">=</span> <span class="st">"method"</span>,</span>
 <span>  section_order <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Primary"</span>, <span class="st">"Positive control"</span>, <span class="st">"Negative control"</span><span class="op">)</span></span>
@@ -635,7 +844,7 @@ rather than <code>ggplot2</code>. It returns a <code>forestplot</code>
 object – render it yourself with <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>, so you control the
 output device (e.g. wrap the call in
 <code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code>/<code><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off()</a></code> to save a file):</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">table_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="st">"Genetically-proxied NLRP3 inhibition"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Coronary heart disease"</span>, <span class="st">"Stroke"</span>, <span class="st">"Type 2 diabetes"</span><span class="op">)</span>,</span>
@@ -659,7 +868,7 @@ output device (e.g. wrap the call in
 <p>The simplest colocalization test uses Approximate Bayes Factors
 (ABF). Supply pre-formatted exposure data, raw outcome data, the gene
 region, and an LD reference panel:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -685,7 +894,7 @@ region, and an LD reference panel:</p>
 fine-maps each trait independently, then <code>coloc.susie()</code> and
 <code>coloc.signals()</code> test colocalization across all pairs of
 credible sets:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -704,7 +913,7 @@ credible sets:</p>
 </h3>
 <p>For case-control outcomes, set <code>outcome_type = "cc"</code> and
 provide the proportion of cases via <code>outcome_s</code>:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -724,7 +933,7 @@ provide the proportion of cases via <code>outcome_s</code>:</p>
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> for <code>coloc_result</code> objects supports
 three plot types:</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>    <span class="co"># bar chart of ABF posterior probabilities (default; requires ggplot2)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span>  <span class="co"># regional association plots (requires ggplot2)</span></span></code></pre></div>
 <p><code>type = "locuszoom"</code> renders LD-coloured regional plots
@@ -742,7 +951,7 @@ build <code>bfile</code> and the coloc data actually use. Unlike the
 other two plot types, this one draws directly to the current graphics
 device (like a base R plot) and returns <code>NULL</code> – open a
 device first if you want to save it:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">EnsDb.Hsapiens.v75</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf</a></span><span class="op">(</span><span class="st">"locuszoom_plot.pdf"</span>, width <span class="op">=</span> <span class="fl">9</span>, height <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>

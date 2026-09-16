@@ -73,6 +73,8 @@ Run Mendelian randomisation and inspect results.
 
 - [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
   : Perform Mendelian randomisation analysis
+- [`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+  : Methods available to run_mr()
 - [`print(`*`<mr_result>`*`)`](https://github.com/BZuckerman97/mrpipeline/reference/print.mr_result.md)
   : Print an mr_result object
 - [`summary(`*`<mr_result>`*`)`](https://github.com/BZuckerman97/mrpipeline/reference/summary.mr_result.md)

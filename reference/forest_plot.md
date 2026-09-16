@@ -10,9 +10,9 @@ Requires the `ggplot2` package.
 ``` r
 forest_plot(
   results,
-  methods = c("IVW (fixed effects)", "Inverse variance weighted", "MR Egger",
+  methods = c("IVW (fixed effects)", "IVW (random effects)", "MR Egger",
     "Weighted median"),
-  relabel = c(`Inverse variance weighted` = "IVW (random effects)"),
+  relabel = character(0),
   exponentiate = TRUE,
   xlab = NULL,
   trans = NULL,
@@ -40,14 +40,16 @@ forest_plot(
 
   Character vector of `method` values to include, in display order.
   Default puts fixed effects above random effects:
-  `c("IVW (fixed effects)", "Inverse variance weighted", "MR Egger", "Weighted median")`.
+  `c("IVW (fixed effects)", "IVW (random effects)", "MR Egger", "Weighted median")`.
+  Labels no longer encode LD correction (that lives in the
+  `ld_corrected` column), so LD-corrected results match the same
+  defaults.
 
 - relabel:
 
   Named character vector, `c(old = new)`, applied to the `method` column
   for display only, after row filtering/ordering – so matching against
-  `results$results$method` is unaffected. Default relabels
-  `"Inverse variance weighted"` to `"IVW (random effects)"`.
+  `results$results$method` is unaffected. Empty by default.
 
 - exponentiate:
 
@@ -113,7 +115,7 @@ result <- run_mr(
   outcome = sjogren_outcome, outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   bfile = bfile,
-  methods = c("ivw", "ivw_fe", "egger", "weighted_median")
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
 )
 
 # Single result: one row per method
@@ -125,5 +127,15 @@ forest_plot(list(
   "Positive control" = positive_control_result,
   "Negative control" = negative_control_result
 ))
+
+# Uncorrected vs LD-corrected arms of the same analysis
+corrected <- run_mr(
+  exposure = cd40_exposure, exposure_id = "CD40",
+  outcome = sjogren_outcome, outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile, ld_correct = TRUE,
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+)
+forest_plot(list("Uncorrected" = result, "LD-corrected" = corrected))
 } # }
 ```

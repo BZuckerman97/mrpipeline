@@ -14,8 +14,8 @@ without colliding. Requires the `ggplot2` package.
 outcome_forest_plot(
   mr_res,
   xlab,
-  method = c("Inverse variance weighted", "IVW (fixed effects)"),
-  relabel = c(`Inverse variance weighted` = "Random effects", `IVW (fixed effects)` =
+  method = c("IVW (random effects)", "IVW (fixed effects)"),
+  relabel = c(`IVW (random effects)` = "Random effects", `IVW (fixed effects)` =
     "Fixed effects"),
   colour_by = NULL,
   shape_by = NULL,
@@ -53,7 +53,7 @@ outcome_forest_plot(
 - method:
 
   Character vector of `method` values to include. Default
-  `c("Inverse variance weighted", "IVW (fixed effects)")` includes both
+  `c("IVW (random effects)", "IVW (fixed effects)")` includes both
   wherever computed. Outcomes lacking a requested method simply
   contribute no row for it – there is no silent substitution.
 
@@ -140,7 +140,7 @@ primary <- run_mr(
   outcome = sjogren_outcome, outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   bfile = bfile,
-  methods = c("ivw", "ivw_fe")
+  methods = c("ivw_random", "ivw_fixed")
 )
 
 mr_res <- dplyr::bind_rows(

@@ -6,7 +6,7 @@ Create an mr_result object
 
 ``` r
 new_mr_result(
-  results = data.frame(),
+  results = empty_mr_results(),
   instruments = data.frame(),
   harmonisation = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
@@ -28,8 +28,12 @@ new_mr_result(
 - results:
 
   Data frame with columns: exposure, outcome, method, nsnp, b, se, pval,
-  or, or_lci95, or_uci95 (and lo_ci, up_ci from
-  [`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html)).
+  ld_corrected (logical: whether the LD matrix was used for that fit),
+  model (`"random"`, `"fixed"` or `NA`), plus or, or_lci95, or_uci95
+  (and lo_ci, up_ci) from
+  [`TwoSampleMR::generate_odds_ratios()`](https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html)
+  on a successful run. Defaults to
+  [`empty_mr_results()`](https://github.com/BZuckerman97/mrpipeline/reference/empty_mr_results.md).
 
 - instruments:
 

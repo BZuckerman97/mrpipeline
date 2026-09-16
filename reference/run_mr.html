@@ -9,7 +9,7 @@ and optional sensitivity analyses. Returns an mr_result S3 object."></head><body
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@ and optional sensitivity analyses. Returns an <code>mr_result</code> S3 object.<
 <span>  instruments <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  instruments_strict <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  exclude_regions <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"presso"</span>, <span class="st">"conmix"</span>, <span class="st">"steiger"</span><span class="op">)</span>,</span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"presso"</span>, <span class="st">"conmix"</span>, <span class="st">"steiger"</span><span class="op">)</span>,</span>
 <span>  ld_correct <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  exposure_n <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  presso_n_dist <span class="op">=</span> <span class="fl">1000</span>,</span>
@@ -147,24 +147,20 @@ exclude the MHC region: <code>data.frame(chr = "6", start = 26e6, end = 34e6)</c
 
 
 <dt id="arg-methods">methods<a class="anchor" aria-label="anchor" href="#arg-methods"></a></dt>
-<dd><p>Character vector of MR methods to run. Named shortcuts:
-<code>"ivw"</code> (IVW random effects), <code>"ivw_fe"</code> (IVW fixed effects),
-<code>"egger"</code> (MR Egger), <code>"weighted_median"</code> (weighted median),
-<code>"presso"</code> (MR-PRESSO), <code>"conmix"</code> (ContMix), <code>"steiger"</code> (Steiger
-filtering), <code>"pleiotropy"</code> (Egger intercept test; result stored in
-<code>$pleiotropy</code>, not <code>$results</code>), <code>"heterogeneity"</code> (Cochran's Q test via
-<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code>; result stored in <code>$heterogeneity</code>,
-not <code>$results</code>; requires &gt;= 2 instruments), <code>"loo"</code> (leave-one-out
-analysis via <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code>; result stored in <code>$loo</code>,
-not <code>$results</code>; requires &gt;= 3 instruments). You may also pass any
-method name from <code>TwoSampleMR::mr_method_list()$obj</code> directly (e.g.
-<code>"mr_simple_median"</code>, <code>"mr_raps"</code>). Note: <code>"ivw_fe"</code> does not support
-<code>ld_correct = TRUE</code>.</p></dd>
+<dd><p>Character vector of methods to run. Named shortcuts (see
+<code><a href="mr_methods.html">mr_methods()</a></code> and the <em>Available methods</em> section): <code>"ivw_random"</code>,
+<code>"ivw_fixed"</code>, <code>"egger"</code>, <code>"weighted_median"</code>, <code>"presso"</code>, <code>"conmix"</code>,
+<code>"steiger"</code>, <code>"pleiotropy"</code>, <code>"heterogeneity"</code>, <code>"loo"</code>. You may also
+pass any raw method name from <code>TwoSampleMR::mr_method_list()$obj</code> that
+has no shortcut (e.g. <code>"mr_raps"</code>, <code>"mr_weighted_mode"</code>); raw names are
+never LD-corrected. The former shortcuts <code>"ivw"</code> and <code>"ivw_fe"</code> are
+accepted with a warning and mapped to <code>"ivw_random"</code> and <code>"ivw_fixed"</code>.</p></dd>
 
 
 <dt id="arg-ld-correct">ld_correct<a class="anchor" aria-label="anchor" href="#arg-ld-correct"></a></dt>
-<dd><p>Logical. Use LD-corrected IVW/Egger via the
-<code>MendelianRandomization</code> package. Requires <code>bfile</code>. Default <code>FALSE</code>.</p></dd>
+<dd><p>Logical. Fit <code>ivw_random</code>, <code>ivw_fixed</code> and <code>egger</code> by
+GLS with the instruments' LD matrix (see the <em>LD correction</em> section).
+Requires <code>bfile</code>. Default <code>FALSE</code>.</p></dd>
 
 
 <dt id="arg-exposure-n">exposure_n<a class="anchor" aria-label="anchor" href="#arg-exposure-n"></a></dt>
@@ -227,10 +223,13 @@ Default <code>TRUE</code>.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An <code>mr_result</code> object. Check <code>result$status</code> for <code>"success"</code> vs
-failure reasons. The <code>$results</code> data frame includes <code>or</code>, <code>or_lci95</code>, and
-<code>or_uci95</code> columns (from <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code>) alongside
-the raw <code>b</code> and <code>se</code>. The <code>$timing</code> field contains a named numeric
-vector of elapsed seconds for each major step.</p>
+failure reasons. Each <code>$results</code> row states the estimator that produced
+it: <code>method</code> (the label), <code>model</code> (<code>"random"</code>, <code>"fixed"</code>, or <code>NA</code> where
+the distinction does not apply) and <code>ld_corrected</code> (whether the LD
+matrix was used for that fit), alongside <code>nsnp</code>, <code>b</code>, <code>se</code>, <code>pval</code> and
+the <code>or</code>, <code>or_lci95</code>, <code>or_uci95</code> columns from
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/generate_odds_ratios.html" class="external-link">TwoSampleMR::generate_odds_ratios()</a></code>. The <code>$timing</code> field contains a
+named numeric vector of elapsed seconds for each major step.</p>
     </div>
     <div class="section level2">
     <h2 id="instrument-selection-modes">Instrument selection modes<a class="anchor" aria-label="anchor" href="#instrument-selection-modes"></a></h2>
@@ -249,20 +248,69 @@ applies <code>pval_thresh</code>, then LD-clumps.</p></li>
     <h2 id="method-dispatch">Method dispatch<a class="anchor" aria-label="anchor" href="#method-dispatch"></a></h2>
 
 
-<p>Methods are dispatched based on the number of instruments after clumping:</p><ul><li><p>1 SNP: Wald ratio only; all other methods skipped</p></li>
-<li><p>2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
-are attempted; Egger, weighted median, and PRESSO require &gt;= 3 SNPs</p></li>
-<li><p>3+ SNPs: all methods in <code>methods</code> are attempted</p></li>
-</ul><p>Generic TwoSampleMR methods (raw <code>mr_*</code> names) are dispatched via
-<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr.html" class="external-link">TwoSampleMR::mr()</a></code> and errors are caught and reported as skipped.</p>
-<p>When <code>ld_correct = TRUE</code>, IVW and Egger use
-<code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_ivw.html" class="external-link">MendelianRandomization::mr_ivw()</a></code> and <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_egger.html" class="external-link">MendelianRandomization::mr_egger()</a></code>
-with <code>correl = TRUE</code>.</p>
+<p>Every method is looked up in the package's method registry – see
+<code><a href="mr_methods.html">mr_methods()</a></code> and the <em>Available methods</em> section below for what each
+shortcut runs, whether it can be LD-corrected, and how many instruments
+it needs. Dispatch depends on the number of instruments after clumping:</p><ul><li><p>1 SNP: Wald ratio only; every multi-SNP method is skipped</p></li>
+<li><p>2+ SNPs: <code>ivw_random</code>, <code>ivw_fixed</code>, <code>conmix</code>, <code>heterogeneity</code> and any
+raw TwoSampleMR method are attempted; <code>egger</code>, <code>weighted_median</code>,
+<code>presso</code>, <code>pleiotropy</code> and <code>loo</code> require &gt;= 3 SNPs</p></li>
+</ul><p>Raw TwoSampleMR methods (<code>mr_*</code> names from
+<code>TwoSampleMR::mr_method_list()$obj</code> that have no shortcut, e.g.
+<code>"mr_raps"</code>) are dispatched via <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr.html" class="external-link">TwoSampleMR::mr()</a></code> under TwoSampleMR's
+own label; errors are caught and reported in <code>$methods_skipped</code>. Names
+that are the engine behind a shortcut (<code>mr_ivw</code>, <code>mr_ivw_fe</code>,
+<code>mr_egger_regression</code>, <code>mr_weighted_median</code>) are refused with a pointer
+to the shortcut, so the same estimator cannot enter unlabelled and
+uncorrected.</p>
+<p>ConMix reports <code>se = NA</code>: <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_conmix.html" class="external-link">MendelianRandomization::mr_conmix()</a></code> returns a
+confidence interval that may be asymmetric or multi-modal rather than a
+standard error, so the <code>or_lci95</code>/<code>or_uci95</code> columns are <code>NA</code> for it too.</p>
 <p>When <code>"egger"</code> is in <code>methods</code> and there are &gt;= 3 instruments,
 <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code> (the Egger intercept test) is always
 run automatically and its result stored in <code>$pleiotropy</code>. You do not need
 to add <code>"pleiotropy"</code> to <code>methods</code> separately. The <code>"pleiotropy"</code> shortcut
 remains available for running the intercept test without Egger.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="ld-correction">LD correction<a class="anchor" aria-label="anchor" href="#ld-correction"></a></h2>
+
+
+<p><code>ld_correct = TRUE</code> computes a signed LD matrix for the instruments from
+<code>bfile</code> and re-orients it to the exposure's effect alleles. Instruments
+absent from the reference panel, or with ambiguous palindromic alleles,
+are dropped at that step, so an LD-corrected run can have fewer
+instruments than the same call uncorrected.</p>
+<p>Methods with a correlated form – <code>ivw_random</code>, <code>ivw_fixed</code> and <code>egger</code>
+– are then fitted by generalised least squares through
+<code>MendelianRandomization</code> with <code>correl = TRUE</code>: the weight matrix is
+<code>diag(se_y) %*% R %*% diag(se_y)</code> in place of <code>diag(se_y^2)</code>, so two
+instruments in LD are no longer counted as two independent looks at the
+causal effect. The IVW estimator is pinned explicitly (<code>model = "random"</code>
+for <code>ivw_random</code>, <code>"fixed"</code> for <code>ivw_fixed</code>) so that each shortcut means
+the same thing at every instrument count; <code>MendelianRandomization</code>'s own
+default would switch to fixed effects below 4 instruments.</p>
+<p>Every other method has no correlated form and runs on the uncorrected
+data: a warning names each such method, and its <code>$results</code> row carries
+<code>ld_corrected = FALSE</code>. <code>ld_correct</code> is never silently ignored – it is
+either applied, or visibly not applied. To compare corrected and
+uncorrected estimates, call <code>run_mr()</code> twice and pass both results to
+<code><a href="forest_plot.html">forest_plot()</a></code> as a named list: one <code>mr_result</code> is always one instrument
+set under one weight matrix.</p>
+<p>Random effects are multiplicative: the standard error is inflated by
+<code>max(RSE, 1)</code>, never deflated, so when the instruments are under-dispersed
+the random- and fixed-effect results coincide exactly.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="available-methods">Available methods<a class="anchor" aria-label="anchor" href="#available-methods"></a></h2>
+
+
+<p>Rendered from <code><a href="mr_methods.html">mr_methods()</a></code>. <code>label</code> is the <code>method</code> value written to
+<code>$results</code>; <code>model</code> the effects model; <code>LD</code> whether <code>ld_correct = TRUE</code>
+applies; <code>min n</code> the minimum number of instruments.</p><table class="table table"><tr><td>shortcut</td><td>description</td><td>label</td><td>output</td><td>model</td><td>LD</td><td>min n</td></tr><tr><td><code>ivw_random</code></td><td>IVW, multiplicative random effects</td><td>IVW (random effects)</td><td><code>$results</code></td><td>random</td><td>yes</td><td>2</td></tr><tr><td><code>ivw_fixed</code></td><td>IVW, fixed effects</td><td>IVW (fixed effects)</td><td><code>$results</code></td><td>fixed</td><td>yes</td><td>2</td></tr><tr><td><code>egger</code></td><td>MR Egger regression</td><td>MR Egger</td><td><code>$results</code></td><td>random</td><td>yes</td><td>3</td></tr><tr><td><code>weighted_median</code></td><td>Weighted median</td><td>Weighted median</td><td><code>$results</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>presso</code></td><td>MR-PRESSO outlier test</td><td>MR-PRESSO</td><td><code>$results</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>conmix</code></td><td>Contamination mixture</td><td>ConMix</td><td><code>$results</code></td><td>–</td><td>no</td><td>2</td></tr><tr><td><code>steiger</code></td><td>Steiger directionality test</td><td>–</td><td><code>$steiger</code></td><td>–</td><td>no</td><td>1</td></tr><tr><td><code>pleiotropy</code></td><td>Egger intercept (pleiotropy) test</td><td>–</td><td><code>$pleiotropy</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>heterogeneity</code></td><td>Cochran's Q heterogeneity test</td><td>–</td><td><code>$heterogeneity</code></td><td>–</td><td>no</td><td>2</td></tr><tr><td><code>loo</code></td><td>Leave-one-out IVW</td><td>–</td><td><code>$loo</code></td><td>–</td><td>no</td><td>3</td></tr></table></div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="mr_methods.html">mr_methods()</a></code> for the table of methods and what each supports.</p></div>
     </div>
 
     <div class="section level2">
@@ -277,10 +325,25 @@ remains available for running the intercept test without Egger.</p>
 <span class="r-in"><span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span></span>
 <span class="r-in"><span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span></span>
-<span class="r-in"><span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">result</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># LD-corrected: both IVW estimators by GLS; weighted median warns and</span></span></span>
+<span class="r-in"><span><span class="co"># runs uncorrected. Compare arms by passing both results to forest_plot().</span></span></span>
+<span class="r-in"><span><span class="va">corrected</span> <span class="op">&lt;-</span> <span class="fu">run_mr</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span></span>
+<span class="r-in"><span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span></span>
+<span class="r-in"><span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span></span>
+<span class="r-in"><span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span></span>
+<span class="r-in"><span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span></span>
+<span class="r-in"><span>  ld_correct <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
+<span class="r-in"><span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">corrected</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"model"</span>, <span class="st">"ld_corrected"</span>, <span class="st">"b"</span>, <span class="st">"se"</span><span class="op">)</span><span class="op">]</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"Uncorrected"</span> <span class="op">=</span> <span class="va">result</span>, <span class="st">"LD-corrected"</span> <span class="op">=</span> <span class="va">corrected</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

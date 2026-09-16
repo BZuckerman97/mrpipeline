@@ -19,6 +19,7 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_to_index.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/decode_pqtl_file_name.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/eaf_to_maf.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/empty_mr_results.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_decode.html</loc></url>
@@ -33,6 +34,10 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/harmonise_and_filter.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/index.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/mr_method_entry.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/mr_method_registry.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/mr_result_row.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/mrpipeline-package.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/new_coloc_result.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/new_mr_result.html</loc></url>
@@ -46,6 +51,7 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/print.coloc_result.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/print.mr_result.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/print_harmonisation_summary.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/rd_method_table.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/read_vcf_data.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/resolve_sample_size.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.html</loc></url>
@@ -57,5 +63,6 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/ukbppp_pqtl_file_name.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/validate_exclude_regions.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/validate_harmonise_action.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/warn_no_ld_correction.html</loc></url>
 </urlset>
 

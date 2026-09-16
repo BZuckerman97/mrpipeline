@@ -22,6 +22,12 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 - [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
   – Record of the most recent harmonisation allele orientation check
   (detects A1/A2 = REF/ALT files, issue \#18)
+- [`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+  – Table of every method
+  [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+  accepts: estimator (fixed/random), LD-correctability, minimum
+  instruments, output field. Rendered from the internal registry that
+  drives dispatch, so it cannot drift (issue \#27)
 
 **Internal helpers** (not exported, in `R/helpers.R`):
 [`harmonise_and_filter()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonise_and_filter.md),
@@ -31,7 +37,31 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 [`clump_instruments()`](https://github.com/BZuckerman97/mrpipeline/reference/clump_instruments.md),
 [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md),
 [`eaf_to_maf()`](https://github.com/BZuckerman97/mrpipeline/reference/eaf_to_maf.md),
-[`resolve_sample_size()`](https://github.com/BZuckerman97/mrpipeline/reference/resolve_sample_size.md)
+[`resolve_sample_size()`](https://github.com/BZuckerman97/mrpipeline/reference/resolve_sample_size.md),
+[`warn_no_ld_correction()`](https://github.com/BZuckerman97/mrpipeline/reference/warn_no_ld_correction.md)
+
+**Method registry** (in `R/mr_methods.R`):
+[`mr_method_registry()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_method_registry.md)
+is the single source of truth for what
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+can run – shortcut, label, fixed/random model, `ld_correctable`,
+`min_instruments`, output field, engine per LD path.
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+validates, dispatches, computes skip reasons and emits the “no
+LD-corrected form” warnings from it;
+[`mr_methods()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_methods.md)
+exports it;
+[`rd_method_table()`](https://github.com/BZuckerman97/mrpipeline/reference/rd_method_table.md)
+renders it into
+[`?run_mr`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+via roxygen `@eval`;
+[`mr_method_entry()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_method_entry.md)
+/
+[`mr_result_row()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_result_row.md)
+build every `$results` row from it. **Adding a method means adding a
+registry row** – never a new hard-coded name list.
+[`empty_mr_results()`](https://github.com/BZuckerman97/mrpipeline/reference/empty_mr_results.md)
+(in `R/mr_result.R`) is the zero-row `$results` schema.
 
 **S3 classes:** `mr_result` (from
 [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)),
