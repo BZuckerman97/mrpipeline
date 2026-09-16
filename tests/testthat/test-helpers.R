@@ -634,3 +634,36 @@ test_that("clump_instruments works with local reference panel", {
   expect_true("rsid" %in% colnames(result))
   expect_true(nrow(result) <= nrow(test_dat))
 })
+
+# --- fread_file / check_gz_support -------------------------------------------
+
+test_that("check_gz_support passes through uncompressed and non-path input", {
+  expect_true(check_gz_support("file.tsv"))
+  expect_true(check_gz_support(data.frame(a = 1)))
+  expect_true(check_gz_support(c("a.gz", "b.gz")))
+})
+
+test_that("check_gz_support errors for compressed paths without R.utils", {
+  expect_error(
+    check_gz_support("sumstats.tsv.gz", has_rutils = FALSE),
+    "R.utils"
+  )
+  expect_error(
+    check_gz_support("sumstats.txt.bz2", has_rutils = FALSE),
+    "R.utils"
+  )
+  expect_true(check_gz_support("sumstats.tsv", has_rutils = FALSE))
+})
+
+test_that("fread_file reads gzipped files", {
+  path <- tempfile(fileext = ".tsv.gz")
+  on.exit(unlink(path), add = TRUE)
+  data.table::fwrite(
+    data.frame(rsid = c("rs1", "rs2"), beta = c(0.1, -0.2)),
+    path,
+    sep = "\t"
+  )
+  result <- fread_file(path, data.table = FALSE)
+  expect_equal(nrow(result), 2L)
+  expect_equal(result$rsid, c("rs1", "rs2"))
+})

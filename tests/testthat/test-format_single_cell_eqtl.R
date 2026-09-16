@@ -26,11 +26,9 @@ make_onek1k_df <- function(n = 5, multi_cell = FALSE) {
 }
 
 write_tsv <- function(df, path) {
-  # compress = "none": some paths below use a .gz extension (to exercise
-  # filename-based cell-type inference), but data.table::fread() only
-  # requires the optional R.utils package for genuinely gzip-compressed
-  # content, not for the extension alone -- writing plain text keeps these
-  # tests independent of that unlisted dependency.
+  # compress = "none": some paths below use a .gz extension purely to
+  # exercise filename-based cell-type inference, and fread() does not need
+  # the content to actually be gzipped to open them.
   data.table::fwrite(df, path, sep = "\t", compress = "none")
   path
 }
@@ -255,9 +253,8 @@ test_that("format_sceqtl_1m_scbloodnl cis_only filters to CisTrans == 'cis'", {
 })
 
 test_that("format_sceqtl_1m_scbloodnl infers cell_type from filename", {
-  # A .gz-suffixed path requires the (Suggests-only) R.utils package for
-  # data.table::fread() to open it at all, regardless of actual content.
-  skip_if_not_installed("R.utils")
+  # A .gz-suffixed path requires R.utils for fread() to open it at all,
+  # regardless of actual content -- guaranteed via Imports (issue #20).
   path <- file.path(tempdir(), "CD4T_expression_eQTLsFDR-ProbeLevel.txt.gz")
   write_tsv(make_scbloodnl_df(), path)
   result <- format_sceqtl_1m_scbloodnl(path)
@@ -354,7 +351,6 @@ test_that("format_sceqtl_dynamic_cseqtl excludes variants in mhc_region", {
 })
 
 test_that("format_sceqtl_dynamic_cseqtl infers cell_type from filename", {
-  skip_if_not_installed("R.utils")
   path <- file.path(tempdir(), "CD4T_500kb_combined.MR.tsv.gz")
   write_tsv(make_dynamic_df(), path)
   result <- format_sceqtl_dynamic_cseqtl(path)

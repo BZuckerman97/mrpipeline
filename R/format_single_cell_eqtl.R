@@ -40,7 +40,7 @@ read_vcf_data <- function(file) {
     "\t"
   )[[1]]
 
-  data.table::fread(
+  fread_file(
     file,
     skip = n_skip + 1L,
     header = FALSE,
@@ -154,7 +154,7 @@ format_single_cell_onek1k <- function(
   eqtl_file_path <- cell_type_info$path_to_eqtl_file
   cli::cli_inform("Reading OneK1K eQTL data for {.val {onek1k_cell_type}}...")
 
-  eqtl_data <- data.table::fread(
+  eqtl_data <- fread_file(
     eqtl_file_path,
     nThread = parallel::detectCores()
   ) |>
@@ -302,7 +302,7 @@ format_sceqtl_1m_scbloodnl <- function(
 
   cli::cli_inform("Reading 1M-scBloodNL data from {.path {basename(file)}}...")
 
-  dt <- data.table::fread(file, nThread = parallel::detectCores()) |>
+  dt <- fread_file(file, nThread = parallel::detectCores()) |>
     as.data.frame()
 
   if (nrow(dt) == 0L) {
@@ -626,7 +626,7 @@ format_sceqtl_dynamic_cseqtl <- function(
     "Reading dynamic_cseqtl data from {.path {basename(file)}}..."
   )
 
-  dt <- data.table::fread(file, nThread = parallel::detectCores()) |>
+  dt <- fread_file(file, nThread = parallel::detectCores()) |>
     as.data.frame()
 
   if (nrow(dt) == 0L) {

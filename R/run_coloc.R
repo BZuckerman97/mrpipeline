@@ -534,7 +534,7 @@ run_coloc <- function(
   # to orient the MAF correctly: EAF = MAF if A1 == effect allele, else 1 - MAF.
 
   if (!is.null(ref_frq) && file.exists(ref_frq)) {
-    frq <- data.table::fread(ref_frq, data.table = FALSE)
+    frq <- fread_file(ref_frq, data.table = FALSE)
     # Identify SNPs missing EAF in both datasets
     needs_eaf <- is.na(harmonised$eaf.exposure) & is.na(harmonised$eaf.outcome)
     if (any(needs_eaf)) {
