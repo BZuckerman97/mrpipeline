@@ -321,6 +321,58 @@ test_that("mr_result summary works", {
   expect_message(summary(res), "MR Results")
 })
 
+test_that("mr_result summary reports the harmonisation breakdown", {
+  raw <- data.frame(
+    SNP = paste0("rs", 1:5),
+    mr_keep = c(TRUE, TRUE, TRUE, FALSE, FALSE),
+    palindromic = c(FALSE, FALSE, TRUE, TRUE, FALSE),
+    ambiguous = c(FALSE, FALSE, FALSE, TRUE, FALSE),
+    remove = c(FALSE, FALSE, FALSE, FALSE, TRUE),
+    stringsAsFactors = FALSE
+  )
+  res <- new_mr_result(
+    results = data.frame(
+      exposure = "exp1",
+      outcome = "out1",
+      method = "IVW",
+      nsnp = 3,
+      b = 0.1,
+      se = 0.05,
+      pval = 0.01,
+      stringsAsFactors = FALSE
+    ),
+    f_stats = list(per_snp = rep(30, 3), mean = 30, min = 25),
+    harmonisation = raw,
+    params = list(exposure_id = "exp1", outcome_id = "out1")
+  )
+  expect_message(summary(res), "Harmonisation")
+  expect_message(summary(res), "5 candidate SNPs -> 3 kept, 2 dropped")
+  expect_message(summary(res), "ambiguous")
+})
+
+test_that("mr_result summary omits harmonisation when there is none", {
+  res <- new_mr_result(
+    results = data.frame(
+      exposure = "exp1",
+      outcome = "out1",
+      method = "IVW",
+      nsnp = 3,
+      b = 0.1,
+      se = 0.05,
+      pval = 0.01,
+      stringsAsFactors = FALSE
+    ),
+    f_stats = list(per_snp = rep(30, 3), mean = 30, min = 25),
+    params = list(exposure_id = "exp1", outcome_id = "out1")
+  )
+  # Older result objects carry no harmonisation field at all
+  expect_message(summary(res), "MR Results")
+  expect_false(any(grepl(
+    "Harmonisation",
+    capture_messages(summary(res))
+  )))
+})
+
 test_that("mr_result summary shows status for failed results", {
   res <- new_mr_result(
     status = "no_instruments",
@@ -385,6 +437,15 @@ test_that("run_mr returns Wald ratio for single instrument", {
   expect_equal(result$status, "success")
   expect_equal(nrow(result$results), 1)
   expect_equal(result$results$method, "Wald ratio")
+
+  # run_mr() carries the unfiltered harmonisation through (issue #17):
+  # `instruments` stays the kept set, `harmonisation` explains the rest
+  expect_true(all(
+    c("mr_keep", "palindromic", "ambiguous", "remove") %in%
+      names(result$harmonisation)
+  ))
+  expect_gte(nrow(result$harmonisation), nrow(result$instruments))
+  expect_true(all(result$instruments$mr_keep))
 
   # IVW, egger, weighted_median should be skipped
   expect_true(all(
