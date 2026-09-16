@@ -1107,9 +1107,13 @@ print_harmonisation_summary <- function(harmonisation) {
 #' Called by [run_mr()] for every `$results`-producing method that runs while
 #' `ld_correct = TRUE` but has no correlated implementation (registry
 #' `ld_correctable = FALSE`), so `ld_correct` is never silently ignored: it is
-#' either applied, or visibly not applied. Diagnostics (`steiger`,
-#' `pleiotropy`, `heterogeneity`, `loo`) do not warn -- they produce no
-#' estimate row.
+#' either applied, or visibly not applied. The diagnostics `pleiotropy`,
+#' `heterogeneity` and `loo` never reach here: they are computed from the
+#' correlated fits (see [heterogeneity_correlated()],
+#' [pleiotropy_correlated()], [loo_correlated()]). `steiger` is the one
+#' method exempt on purpose -- the Steiger direction test compares per-SNP
+#' r^2 values and involves no weight matrix, so LD correction is not a
+#' concept for it.
 #'
 #' @param method The shortcut or raw method name, as the user passed it.
 #'
@@ -1121,4 +1125,201 @@ warn_no_ld_correction <- function(method) {
     "{.val {method}} has no LD-corrected form; running uncorrected."
   )
   invisible(NULL)
+}
+
+#' Identifier columns every diagnostics frame starts with
+#'
+#' The `id.exposure`, `id.outcome`, `outcome`, `exposure` values TwoSampleMR
+#' puts at the front of `mr_heterogeneity()` / `mr_pleiotropy_test()` output,
+#' so the LD-corrected frames built here have the same shape as the
+#' uncorrected ones.
+#'
+#' @param harmonised Harmonised instrument data frame.
+#'
+#' @return A one-row data frame.
+#'
+#' @keywords internal
+diag_ids <- function(harmonised) {
+  data.frame(
+    id.exposure = harmonised$id.exposure[1],
+    id.outcome = harmonised$id.outcome[1],
+    outcome = harmonised$outcome[1],
+    exposure = harmonised$exposure[1],
+    stringsAsFactors = FALSE
+  )
+}
+
+#' GLS weight matrix for correlated instruments
+#'
+#' `O = diag(se_y) R diag(se_y)`: the matrix `MendelianRandomization::mr_ivw()`
+#' and `mr_egger()` solve when `correl = TRUE`, and the one whose inverse
+#' [loo_correlated()] updates.
+#'
+#' @param ld_matrix Signed, aligned LD correlation matrix.
+#' @param se_outcome Outcome standard errors, in the matrix's row order.
+#'
+#' @return A numeric matrix.
+#'
+#' @keywords internal
+gls_weight_matrix <- function(ld_matrix, se_outcome) {
+  outer(se_outcome, se_outcome) * ld_matrix
+}
+
+#' Cochran's Q from the correlated fits
+#'
+#' The generalised heterogeneity statistic for correlated instruments,
+#' `Q = r' O^-1 r` on the GLS residuals, as `mr_ivw(correl = TRUE)@Heter.Stat`
+#' (`n - 1` df; identical for fixed and random effects, since Q depends only
+#' on the estimate and the weight matrix) and `mr_egger(correl = TRUE)@Heter.Stat`
+#' (`n - 2` df, needs `n >= 3`). Same columns and row order as
+#' [TwoSampleMR::mr_heterogeneity()] (Egger first), plus `ld_corrected`;
+#' the `method` labels are TwoSampleMR's so the column is the only thing
+#' that differs between the two arms.
+#'
+#' @param ld_input An `MRInput` carrying the correlation matrix.
+#' @param harmonised Harmonised instrument data frame (for the id columns).
+#'
+#' @return A data frame with columns `id.exposure`, `id.outcome`, `outcome`,
+#'   `exposure`, `method`, `Q`, `Q_df`, `Q_pval`, `ld_corrected`.
+#'
+#' @keywords internal
+heterogeneity_correlated <- function(ld_input, harmonised) {
+  n <- length(ld_input@betaX)
+  ivw <- MendelianRandomization::mr_ivw(
+    ld_input,
+    correl = TRUE,
+    model = "fixed"
+  )
+  rows <- data.frame(
+    method = "Inverse variance weighted",
+    Q = ivw@Heter.Stat[1],
+    Q_df = n - 1,
+    Q_pval = ivw@Heter.Stat[2],
+    stringsAsFactors = FALSE
+  )
+  if (n >= 3) {
+    egger <- MendelianRandomization::mr_egger(ld_input, correl = TRUE)
+    rows <- rbind(
+      data.frame(
+        method = "MR Egger",
+        Q = egger@Heter.Stat[1],
+        Q_df = n - 2,
+        Q_pval = egger@Heter.Stat[2],
+        stringsAsFactors = FALSE
+      ),
+      rows
+    )
+  }
+  cbind(diag_ids(harmonised), rows, ld_corrected = TRUE)
+}
+
+#' Egger intercept from the correlated fit
+#'
+#' `mr_egger(correl = TRUE)@Intercept` with its standard error and p-value,
+#' in the columns of [TwoSampleMR::mr_pleiotropy_test()] plus `ld_corrected`.
+#'
+#' @inheritParams heterogeneity_correlated
+#'
+#' @return A one-row data frame with columns `id.exposure`, `id.outcome`,
+#'   `outcome`, `exposure`, `egger_intercept`, `se`, `pval`, `ld_corrected`.
+#'
+#' @keywords internal
+pleiotropy_correlated <- function(ld_input, harmonised) {
+  egger <- MendelianRandomization::mr_egger(ld_input, correl = TRUE)
+  cbind(
+    diag_ids(harmonised),
+    data.frame(
+      egger_intercept = egger@Intercept,
+      se = egger@StdError.Int,
+      pval = egger@Pvalue.Int,
+      stringsAsFactors = FALSE
+    ),
+    ld_corrected = TRUE
+  )
+}
+
+#' Leave-one-out IVW with correlated instruments
+#'
+#' The correlated counterpart of [TwoSampleMR::mr_leaveoneout()]: the
+#' random-effects IVW estimate with each instrument dropped in turn, plus the
+#' pooled `"All"` row, fitted with the GLS weight matrix. There is no upstream
+#' implementation -- `MendelianRandomization::mr_loo()` takes no `correl`
+#' argument and never reads the correlation slot.
+#'
+#' Not n refits of `mr_ivw()`, which would be n solves of an (n-1)x(n-1)
+#' system (O(n^4) overall: 15 s at n = 300, minutes at n = 600). The full
+#' inverse `W = O^-1` is computed once and the inverse with SNP `i` removed
+#' is obtained by the Schur-complement identity
+#' `W[-i, -i] - W[-i, i] W[i, -i] / W[i, i]` -- O(n^2) per SNP, O(n^3) in
+#' total, exact (agrees with refits to machine precision). With that in hand
+#' the estimate is exactly what `mr_ivw(correl = TRUE, model = "random")`
+#' computes: `b = (bx' W bx)^-1 bx' W by`, residual SE
+#' `sqrt(r' W r / (m - 1))` with `m` instruments in the fit, standard error
+#' `sqrt(1 / (bx' W bx)) * max(rse, 1)`, normal p-value. `model = "random"`
+#' matches `mr_leaveoneout()`'s default, so the two arms differ only in the
+#' weight matrix.
+#'
+#' The update divides by `W[i, i]`, so on a near-singular `O` it inherits the
+#' full inverse's rounding error; below `rcond_min` the function falls back to
+#' a direct solve per SNP instead. (An `O` that bad already makes the headline
+#' `mr_ivw()` fit unstable; `run_mr()` warns about it at the source.)
+#'
+#' @param harmonised Harmonised instrument data frame, in the matrix's row
+#'   order.
+#' @param ld_matrix Signed, aligned LD correlation matrix.
+#' @param rcond_min Reciprocal-condition-number threshold below which direct
+#'   per-SNP solves replace the block-inverse update.
+#'
+#' @return A data frame in the columns of [TwoSampleMR::mr_leaveoneout()]
+#'   (`exposure`, `outcome`, `id.exposure`, `id.outcome`, `samplesize`,
+#'   `SNP`, `b`, `se`, `p`) plus `ld_corrected`; one row per dropped SNP and
+#'   a final `"All"` row.
+#'
+#' @keywords internal
+loo_correlated <- function(harmonised, ld_matrix, rcond_min = 1e-10) {
+  bx <- harmonised$beta.exposure
+  by <- harmonised$beta.outcome
+  n <- length(bx)
+  omega <- gls_weight_matrix(ld_matrix, harmonised$se.outcome)
+  w_full <- solve(omega)
+  direct <- rcond(omega) < rcond_min
+
+  fit <- function(w, x, y) {
+    xwx <- as.numeric(t(x) %*% w %*% x)
+    b <- as.numeric(t(x) %*% w %*% y) / xwx
+    r <- y - b * x
+    rse <- sqrt(as.numeric(t(r) %*% w %*% r) / (length(x) - 1))
+    se <- sqrt(1 / xwx) * max(rse, 1)
+    c(b = b, se = se, p = 2 * stats::pnorm(-abs(b / se)))
+  }
+
+  dropped <- t(vapply(
+    seq_len(n),
+    function(i) {
+      keep <- seq_len(n)[-i]
+      w_i <- if (direct) {
+        solve(omega[keep, keep, drop = FALSE])
+      } else {
+        w_full[keep, keep, drop = FALSE] -
+          tcrossprod(w_full[keep, i]) / w_full[i, i]
+      }
+      fit(w_i, bx[keep], by[keep])
+    },
+    numeric(3)
+  ))
+  all <- fit(w_full, bx, by)
+
+  data.frame(
+    exposure = harmonised$exposure[1],
+    outcome = harmonised$outcome[1],
+    id.exposure = harmonised$id.exposure[1],
+    id.outcome = harmonised$id.outcome[1],
+    samplesize = (harmonised$samplesize.outcome %||% NA_real_)[1],
+    SNP = c(harmonised$SNP, "All"),
+    b = c(dropped[, "b"], all[["b"]]),
+    se = c(dropped[, "se"], all[["se"]]),
+    p = c(dropped[, "p"], all[["p"]]),
+    ld_corrected = TRUE,
+    stringsAsFactors = FALSE
+  )
 }

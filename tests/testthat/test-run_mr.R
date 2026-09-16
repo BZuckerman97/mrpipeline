@@ -951,3 +951,130 @@ test_that("a single instrument with ld_correct = TRUE gives the Wald ratio and s
   expect_false(any(grepl("LD-corrected form", out$warnings)))
   expect_message(summary(res), "Not applicable: 1 instrument")
 })
+
+test_that("on the bundled panel the diagnostics match the correlated fits exactly", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  # The bundled panel has almost no LD, so corrected and uncorrected values
+  # nearly coincide here; the real-LD assertions live in
+  # test-ld-diagnostics.R. This checks the plumbing against hand-computed
+  # correlated quantities.
+  out <- run_cd40(
+    instrument_region = cd40_region,
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "egger", "heterogeneity", "loo")
+  )
+  res <- out$result
+  expect_equal(res$status, "success")
+
+  h <- res$instruments
+  ld <- res$ld_matrix
+  n <- nrow(h)
+  omega <- diag(h$se.outcome) %*% ld %*% diag(h$se.outcome)
+  w <- solve(omega)
+  bx <- h$beta.exposure
+  by <- h$beta.outcome
+  b_gls <- as.numeric(solve(t(bx) %*% w %*% bx) %*% (t(bx) %*% w %*% by))
+  r <- by - b_gls * bx
+  q_hand <- as.numeric(t(r) %*% w %*% r)
+
+  ht <- res$heterogeneity
+  expect_equal(ht$method, c("MR Egger", "Inverse variance weighted"))
+  expect_true(all(ht$ld_corrected))
+  ivw_row <- ht[ht$method == "Inverse variance weighted", ]
+  expect_equal(ivw_row$Q, q_hand, tolerance = 1e-8)
+  expect_equal(ivw_row$Q_df, n - 1)
+  expect_equal(
+    ivw_row$Q_pval,
+    stats::pchisq(q_hand, n - 1, lower.tail = FALSE),
+    tolerance = 1e-8
+  )
+  expect_equal(ht$Q_df[ht$method == "MR Egger"], n - 2)
+
+  input <- MendelianRandomization::mr_input(
+    bx = bx,
+    bxse = h$se.exposure,
+    by = by,
+    byse = h$se.outcome,
+    correlation = ld
+  )
+  egger <- MendelianRandomization::mr_egger(input, correl = TRUE)
+  expect_equal(
+    res$pleiotropy$egger_intercept,
+    egger@Intercept,
+    tolerance = 1e-8
+  )
+  expect_equal(res$pleiotropy$pval, egger@Pvalue.Int, tolerance = 1e-8)
+  expect_true(res$pleiotropy$ld_corrected)
+
+  expect_equal(nrow(res$loo), n + 1)
+  expect_true(all(res$loo$ld_corrected))
+  all_row <- res$loo[res$loo$SNP == "All", ]
+  ivw_random <- res$results[res$results$method == "IVW (random effects)", ]
+  expect_equal(all_row$b, ivw_random$b, tolerance = 1e-8)
+  expect_equal(all_row$se, ivw_random$se, tolerance = 1e-8)
+
+  # summary() says which frames came from the correlated fits
+  expect_message(
+    summary(res),
+    "Heterogeneity test \\(Cochran's Q\\) \\[LD-corrected\\]"
+  )
+  expect_message(summary(res), "Leave-one-out analysis \\[LD-corrected\\]")
+  expect_message(summary(res), "Diagnostics from the correlated fits")
+
+  # ... and the leave-one-out frame keeps TwoSampleMR's shape for plotting
+  skip_if_not_installed("ggplot2")
+  # TwoSampleMR::mr_leaveoneout_plot() returns one ggplot per exposure/outcome
+  p <- plot(res, type = "loo")
+  expect_type(p, "list")
+  expect_s3_class(p[[1]], "ggplot")
+})
+
+test_that("ld_correct = FALSE leaves the diagnostics as TwoSampleMR returns them, marked uncorrected", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  out <- run_cd40(
+    instrument_region = cd40_region,
+    bfile = bfile,
+    methods = c("ivw_random", "egger", "heterogeneity", "loo")
+  )
+  res <- out$result
+  expect_false(any(res$heterogeneity$ld_corrected))
+  expect_false(res$pleiotropy$ld_corrected)
+  expect_false(any(res$loo$ld_corrected))
+
+  h <- res$instruments
+  expect_equal(
+    res$heterogeneity[, setdiff(names(res$heterogeneity), "ld_corrected")],
+    TwoSampleMR::mr_heterogeneity(h),
+    ignore_attr = TRUE
+  )
+  expect_equal(
+    res$loo[, setdiff(names(res$loo), "ld_corrected")],
+    TwoSampleMR::mr_leaveoneout(h),
+    ignore_attr = TRUE
+  )
+  expect_false(any(grepl(
+    "Cochran's Q\\) \\[LD-corrected\\]",
+    capture_messages(summary(res))
+  )))
+})
+
+test_that("two LD-corrected instruments give an IVW-only heterogeneity row", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  out <- run_cd40(
+    instruments = cd40_three_snps()[1:2],
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "heterogeneity")
+  )
+  ht <- out$result$heterogeneity
+  expect_equal(ht$method, "Inverse variance weighted")
+  expect_equal(ht$Q_df, 1)
+  expect_true(ht$ld_corrected)
+})

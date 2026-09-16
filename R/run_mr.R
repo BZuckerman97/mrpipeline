@@ -61,13 +61,30 @@
 #' the same thing at every instrument count; `MendelianRandomization`'s own
 #' default would switch to fixed effects below 4 instruments.
 #'
-#' Every other method has no correlated form and runs on the uncorrected
-#' data: a warning names each such method, and its `$results` row carries
-#' `ld_corrected = FALSE`. `ld_correct` is never silently ignored -- it is
-#' either applied, or visibly not applied. To compare corrected and
-#' uncorrected estimates, call `run_mr()` twice and pass both results to
-#' [forest_plot()] as a named list: one `mr_result` is always one instrument
-#' set under one weight matrix.
+#' Every other `$results` method has no correlated form and runs on the
+#' uncorrected data: a warning names each such method, and its row carries
+#' `ld_corrected = FALSE`. The diagnostics come from the correlated fits
+#' too: `$heterogeneity` holds the generalised Cochran Q for correlated
+#' instruments (`Q = r' O^-1 r` on the GLS residuals, from
+#' `mr_ivw()@Heter.Stat` and `mr_egger()@Heter.Stat`), `$pleiotropy` the
+#' correlated Egger intercept (`mr_egger()@Intercept`), and `$loo` a
+#' per-SNP correlated random-effects refit (a block-inverse update, so it
+#' stays O(n^3)). Each of those frames carries an `ld_corrected` column on
+#' both arms. `steiger` is the one thing left as-is: the Steiger direction
+#' test compares per-SNP r^2 values and involves no weight matrix.
+#' `ld_correct` is never silently ignored -- it is either applied, or
+#' visibly not applied. To compare corrected and uncorrected estimates, call
+#' `run_mr()` twice and pass both results to [forest_plot()] as a named
+#' list: one `mr_result` is always one instrument set under one weight
+#' matrix.
+#'
+#' If the GLS weight matrix is near-singular (reciprocal condition number
+#' below `1e-10`) `run_mr()` warns that every LD-corrected estimate is
+#' unstable. The usual causes are identical or near-identical instruments
+#' (r^2 ~ 1, from absent clumping or a manual set with a duplicated
+#' variant) and more instruments than reference-panel individuals, which
+#' makes the sample correlation matrix singular; clump more stringently or
+#' drop the duplicate.
 #'
 #' Random effects are multiplicative: the standard error is inflated by
 #' `max(RSE, 1)`, never deflated, so when the instruments are under-dispersed
@@ -669,6 +686,25 @@ run_mr <- function(
       byse = harmonised$se.outcome,
       correlation = ld_mat
     )
+    # Every LD-corrected fit solves this matrix; a near-singular one makes
+    # all of them unstable, and until now that happened silently.
+    ld_rcond <- rcond(gls_weight_matrix(ld_mat, harmonised$se.outcome))
+    if (ld_rcond < 1e-10) {
+      cli::cli_warn(c(
+        paste0(
+          "The LD weight matrix for {.val {exposure_id}} is near-singular ",
+          "(reciprocal condition number {signif(ld_rcond, 2)}); every ",
+          "LD-corrected estimate is unstable."
+        ),
+        "i" = paste0(
+          "Usual causes: identical or near-identical instruments (r2 ~ 1, ",
+          "from absent clumping or a manual set with a duplicated variant), ",
+          "or more instruments than reference-panel individuals, which makes ",
+          "the sample correlation matrix singular."
+        ),
+        "i" = "Clump more stringently or drop the duplicate."
+      ))
+    }
   }
 
   timing[["ld_correction"]] <- proc.time()[["elapsed"]] - t0
@@ -1027,7 +1063,8 @@ run_mr <- function(
 
   # Pleiotropy test -- Egger intercept (requires >= 3 SNPs).
   # Runs automatically when "egger" is in methods; the "pleiotropy" shortcut
-  # also triggers it independently (e.g. without Egger).
+  # also triggers it independently (e.g. without Egger). Under ld_correct the
+  # intercept comes from the correlated Egger fit (issue #31).
   pleiotropy_result <- NULL
   if ("pleiotropy" %in% methods || "egger" %in% methods) {
     t0 <- proc.time()[["elapsed"]]
@@ -1037,7 +1074,14 @@ run_mr <- function(
     } else {
       pleiotropy_result <- tryCatch(
         {
-          TwoSampleMR::mr_pleiotropy_test(harmonised)
+          if (ld_correct) {
+            pleiotropy_correlated(ld_input, harmonised)
+          } else {
+            cbind(
+              TwoSampleMR::mr_pleiotropy_test(harmonised),
+              ld_corrected = FALSE
+            )
+          }
         },
         error = function(e) {
           cli::cli_warn(
@@ -1054,7 +1098,8 @@ run_mr <- function(
     timing[["mr_pleiotropy"]] <- proc.time()[["elapsed"]] - t0
   }
 
-  # Heterogeneity test -- Cochran's Q (requires >= 2 SNPs).
+  # Heterogeneity test -- Cochran's Q (requires >= 2 SNPs). Under ld_correct
+  # this is the generalised Q from the correlated fits (issue #31).
   heterogeneity_result <- NULL
   if ("heterogeneity" %in% methods) {
     t0 <- proc.time()[["elapsed"]]
@@ -1064,7 +1109,14 @@ run_mr <- function(
     } else {
       heterogeneity_result <- tryCatch(
         {
-          TwoSampleMR::mr_heterogeneity(harmonised)
+          if (ld_correct) {
+            heterogeneity_correlated(ld_input, harmonised)
+          } else {
+            cbind(
+              TwoSampleMR::mr_heterogeneity(harmonised),
+              ld_corrected = FALSE
+            )
+          }
         },
         error = function(e) {
           cli::cli_warn(
@@ -1083,6 +1135,7 @@ run_mr <- function(
 
   # Leave-one-out analysis (requires >= 3 SNPs -- with 2, dropping one just
   # reproduces the remaining SNP's Wald ratio, which isn't informative).
+  # Under ld_correct each refit uses the reduced weight matrix (issue #31).
   loo_result <- NULL
   if ("loo" %in% methods) {
     t0 <- proc.time()[["elapsed"]]
@@ -1092,7 +1145,14 @@ run_mr <- function(
     } else {
       loo_result <- tryCatch(
         {
-          TwoSampleMR::mr_leaveoneout(harmonised)
+          if (ld_correct) {
+            loo_correlated(harmonised, ld_mat)
+          } else {
+            cbind(
+              TwoSampleMR::mr_leaveoneout(harmonised),
+              ld_corrected = FALSE
+            )
+          }
         },
         error = function(e) {
           cli::cli_warn(

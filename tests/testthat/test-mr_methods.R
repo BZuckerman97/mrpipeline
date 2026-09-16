@@ -52,6 +52,12 @@ test_that("registry is internally consistent", {
   # LD support is claimed only by naming the function that provides it,
   # and never claimed without one.
   expect_equal(reg$ld_correctable, !is.na(reg$engine_ld))
+  # The three diagnostics are computed from the correlated fits (issue #31);
+  # Steiger compares per-SNP r2 and has no weight matrix.
+  expect_true(all(reg$ld_correctable[
+    reg$shortcut %in% c("pleiotropy", "heterogeneity", "loo")
+  ]))
+  expect_false(reg$ld_correctable[reg$shortcut %in% "steiger"])
 
   # An effects model is stated exactly where the distinction applies.
   expect_equal(
