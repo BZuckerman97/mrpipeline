@@ -6,8 +6,10 @@
 # outcome; `bug` is the same data with the effect/other allele columns
 # swapped and beta/eaf untouched -- exactly what the mis-read file produces.
 
-# Harmonise with TwoSampleMR's progress messages silenced.
-hf <- function(...) suppressMessages(harmonise_and_filter(...))
+# Harmonise with TwoSampleMR's progress messages silenced, returning the
+# analysed (filtered, deduplicated) frame. `harmonise_and_filter()` returns
+# list(data =, raw =); tests that need the unfiltered frame call it directly.
+hf <- function(...) suppressMessages(harmonise_and_filter(...)$data)
 
 # 12 SNPs in TwoSampleMR outcome format: 10 non-palindromic, plus rs11 (C/G,
 # eaf 0.05) and rs12 (A/T, eaf 0.20), palindromic with unambiguous

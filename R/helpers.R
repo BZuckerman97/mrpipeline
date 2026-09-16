@@ -47,7 +47,13 @@ plink_option <- function(param) {
 #' @param verbose Logical. Passed to [check_allele_orientation()]. Default
 #'   `FALSE`. A check that cannot reach a verdict warns regardless.
 #'
-#' @return A data frame of harmonised data, filtered and deduplicated.
+#' @return A named list with elements:
+#'   - `data`: the harmonised data, filtered to `mr_keep == TRUE` and
+#'     deduplicated -- what the analysis runs on
+#'   - `raw`: the complete, unfiltered [TwoSampleMR::harmonise_data()] output,
+#'     every row and every column, including the `mr_keep`, `palindromic`,
+#'     `ambiguous` and `remove` flags that explain *why* a variant was
+#'     dropped (GitHub issue #17)
 #'
 #' @importFrom rlang .data
 #' @keywords internal
@@ -80,16 +86,17 @@ harmonise_and_filter <- function(
   # Guard: return 0-row frame if harmonisation produced no usable output
   # (e.g. no SNP overlap, or all SNPs removed as palindromic). This lets
   # run_mr() hit its nrow == 0 early-return rather than erroring on a missing
-  # `mr_keep` column.
+  # `mr_keep` column. `raw` is still handed back, because a harmonisation that
+  # produced nothing usable is precisely when the caller wants to see why.
   if (nrow(harmonised) == 0 || !"mr_keep" %in% names(harmonised)) {
-    return(harmonised[0, , drop = FALSE])
+    return(list(data = harmonised[0, , drop = FALSE], raw = harmonised))
   }
 
-  harmonised <- harmonised |>
+  filtered <- harmonised |>
     dplyr::filter(.data$mr_keep == TRUE) |>
     dplyr::filter(!duplicated(.data$SNP))
 
-  harmonised
+  list(data = filtered, raw = harmonised)
 }
 
 #' Detect swapped effect/other alleles from harmonised allele frequencies
@@ -975,4 +982,118 @@ validate_harmonise_action <- function(action) {
     )
   }
   action
+}
+
+#' Summarise what happened during harmonisation
+#'
+#' Counts, from the unfiltered [TwoSampleMR::harmonise_data()] output, how
+#' many variants were carried forward and why the rest were not. Used by
+#' [summary.mr_result()] and [summary.coloc_result()].
+#'
+#' A variant can carry more than one flag -- an ambiguous variant is by
+#' definition palindromic -- so the reason counts are *not* a partition of
+#' `n_dropped` and must not be presented as one. Which flags actually cost a
+#' variant its place depends on the harmonisation action: `remove` at every
+#' level, `ambiguous` from level 2, `palindromic` only at level 3 (see
+#' [validate_harmonise_action()]). `n_incomplete` covers the separate case of
+#' a variant dropped by `harmonise_data()` for missing beta/se rather than
+#' for any allele problem.
+#'
+#' @param raw The `raw` element of [harmonise_and_filter()]'s return value.
+#'
+#' @return A named list of integers: `n_candidates`, `n_kept`, `n_dropped`,
+#'   `n_duplicate`, `n_palindromic`, `n_ambiguous`, `n_incompatible` and
+#'   `n_incomplete`. All zero when `raw` is empty or lacks the flag columns.
+#'
+#' @keywords internal
+harmonisation_summary <- function(raw) {
+  zeros <- list(
+    n_candidates = 0L,
+    n_kept = 0L,
+    n_dropped = 0L,
+    n_duplicate = 0L,
+    n_palindromic = 0L,
+    n_ambiguous = 0L,
+    n_incompatible = 0L,
+    n_incomplete = 0L
+  )
+  if (is.null(raw) || !is.data.frame(raw) || nrow(raw) == 0) {
+    return(zeros)
+  }
+
+  flag <- function(col) {
+    if (col %in% names(raw)) {
+      !is.na(raw[[col]]) & raw[[col]]
+    } else {
+      rep(FALSE, nrow(raw))
+    }
+  }
+  mr_keep <- flag("mr_keep")
+  palindromic <- flag("palindromic")
+  ambiguous <- flag("ambiguous")
+  remove <- flag("remove")
+
+  duplicate <- if ("SNP" %in% names(raw)) {
+    mr_keep & duplicated(raw$SNP)
+  } else {
+    rep(FALSE, nrow(raw))
+  }
+
+  list(
+    n_candidates = nrow(raw),
+    n_kept = sum(mr_keep & !duplicate),
+    n_dropped = sum(!mr_keep),
+    n_duplicate = sum(duplicate),
+    n_palindromic = sum(palindromic),
+    n_ambiguous = sum(ambiguous),
+    n_incompatible = sum(remove),
+    # Dropped by harmonise_data() for missing beta/se rather than for any
+    # allele problem -- invisible in the three flags above.
+    n_incomplete = sum(!mr_keep & !remove & !ambiguous & !palindromic)
+  ) |>
+    lapply(as.integer)
+}
+
+#' Print a harmonisation breakdown
+#'
+#' Shared by [summary.mr_result()] and [summary.coloc_result()]. Prints
+#' nothing when there is no harmonisation record to describe (older result
+#' objects, or a run that never reached harmonisation).
+#'
+#' @param harmonisation The `harmonisation` field of an `mr_result` or
+#'   `coloc_result`.
+#'
+#' @return `invisible(NULL)`, called for its output.
+#'
+#' @keywords internal
+print_harmonisation_summary <- function(harmonisation) {
+  h <- harmonisation_summary(harmonisation)
+  if (h$n_candidates == 0L) {
+    return(invisible(NULL))
+  }
+
+  cli::cli_h2("Harmonisation")
+  cli::cli_bullets(c(
+    "*" = "{h$n_candidates} candidate SNP{?s} -> {h$n_kept} kept, {h$n_dropped} dropped"
+  ))
+
+  # Reason counts overlap (every ambiguous variant is palindromic), so they
+  # are listed rather than summed, and only non-zero ones are shown.
+  reasons <- c(
+    "palindromic" = h$n_palindromic,
+    "ambiguous" = h$n_ambiguous,
+    "incompatible alleles" = h$n_incompatible,
+    "incomplete beta/se" = h$n_incomplete
+  )
+  reasons <- reasons[reasons > 0]
+  if (length(reasons) > 0) {
+    lines <- paste(reasons, names(reasons)) # nolint: object_usage_linter.
+    cli::cli_bullets(c("*" = "Flagged: {lines}"))
+  }
+  if (h$n_duplicate > 0) {
+    cli::cli_bullets(c(
+      "*" = "{h$n_duplicate} duplicate SNP row{?s} dropped after filtering"
+    ))
+  }
+  invisible(NULL)
 }

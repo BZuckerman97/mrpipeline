@@ -13,6 +13,7 @@ new_coloc_result(
   coloc_prop_test = NULL,
   n_snps = 0L,
   harmonised_data = data.frame(),
+  harmonisation = data.frame(),
   methods_skipped = character(),
   params = list(),
   status = "success",
@@ -36,7 +37,18 @@ new_coloc_result(
 
 \item{n_snps}{Integer. Number of SNPs used in the analysis.}
 
-\item{harmonised_data}{Data frame of harmonised data used for analysis.}
+\item{harmonised_data}{Data frame of the harmonised data the analysis
+actually ran on: filtered, and subset and reordered by
+\code{\link[=align_to_ld_matrix]{align_to_ld_matrix()}} to match the LD matrix, so its rows correspond
+one-to-one with the coloc datasets. The plotting functions rely on that
+correspondence.}
+
+\item{harmonisation}{Data frame. The complete, unfiltered
+\code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}} output -- every candidate variant, with
+the \code{mr_keep}, \code{palindromic}, \code{ambiguous} and \code{remove} flags that explain
+why each one was or was not carried forward. Kept separate from
+\code{harmonised_data} rather than replacing it (GitHub issue #17); see
+\code{\link[=harmonisation_summary]{harmonisation_summary()}}.}
 
 \item{methods_skipped}{Named character vector: names are method names,
 values are reasons for skipping.}

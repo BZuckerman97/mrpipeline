@@ -504,13 +504,15 @@ run_mr <- function(
     log_pval = FALSE
   )
 
-  harmonised <- harmonise_and_filter(
+  harmonisation <- harmonise_and_filter(
     exposure_iv,
     outcome_data,
     allele_check = allele_check,
     action = harmonise_action,
     check = FALSE
   )
+  harmonised <- harmonisation$data
+  harmonisation <- harmonisation$raw
 
   timing[["harmonisation"]] <- proc.time()[["elapsed"]] - t0
 
@@ -518,7 +520,10 @@ run_mr <- function(
     cli::cli_warn(
       "No variants remaining after harmonisation for {.val {exposure_id}}."
     )
+    # The unfiltered frame goes back even here -- an empty result is exactly
+    # when the caller needs to see which flag cost each variant its place.
     return(new_mr_result(
+      harmonisation = harmonisation,
       status = "no_harmonised_variants",
       status_reason = paste0(
         "No variants remaining after harmonisation for '",
@@ -973,6 +978,7 @@ run_mr <- function(
   new_mr_result(
     results = results_df,
     instruments = harmonised,
+    harmonisation = harmonisation,
     f_stats = f_stats,
     steiger = steiger_result,
     pleiotropy = pleiotropy_result,

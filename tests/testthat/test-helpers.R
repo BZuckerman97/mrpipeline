@@ -105,13 +105,20 @@ test_that("harmonise_and_filter returns filtered deduplicated data", {
     stringsAsFactors = FALSE
   )
 
-  result <- harmonise_and_filter(exposure, outcome)
+  out <- harmonise_and_filter(exposure, outcome)
+  result <- out$data
 
   # Should have no duplicate SNPs
 
   expect_false(any(duplicated(result$SNP)))
   # Should only contain mr_keep == TRUE rows
   expect_true(all(result$mr_keep))
+
+  # `raw` keeps everything the filter threw away (issue #17)
+  expect_true(nrow(out$raw) >= nrow(result))
+  expect_true(all(
+    c("mr_keep", "palindromic", "ambiguous", "remove") %in% names(out$raw)
+  ))
 })
 
 # --- check_allele_orientation / last_allele_check ----------------------------
@@ -773,4 +780,78 @@ test_that("the allele check verdict does not depend on action", {
     )
     expect_equal(last_allele_check()$status, "fail")
   }
+})
+
+# --- harmonisation_summary ---------------------------------------------------
+
+test_that("harmonisation_summary returns zeros for empty or flagless input", {
+  for (empty in list(NULL, data.frame(), "not a frame")) {
+    h <- harmonisation_summary(empty)
+    expect_equal(h$n_candidates, 0L)
+    expect_equal(h$n_kept, 0L)
+    expect_equal(h$n_dropped, 0L)
+  }
+
+  # A frame with rows but no flag columns: counted as candidates, nothing else
+  h <- harmonisation_summary(data.frame(SNP = c("rs1", "rs2")))
+  expect_equal(h$n_candidates, 2L)
+  expect_equal(h$n_kept, 0L)
+  expect_equal(h$n_dropped, 2L)
+})
+
+test_that("harmonisation_summary counts each reason", {
+  raw <- data.frame(
+    SNP = paste0("rs", 1:6),
+    mr_keep = c(TRUE, TRUE, FALSE, FALSE, FALSE, TRUE),
+    palindromic = c(FALSE, TRUE, TRUE, FALSE, FALSE, FALSE),
+    ambiguous = c(FALSE, FALSE, TRUE, FALSE, FALSE, FALSE),
+    remove = c(FALSE, FALSE, FALSE, TRUE, FALSE, FALSE),
+    stringsAsFactors = FALSE
+  )
+  h <- harmonisation_summary(raw)
+  expect_equal(h$n_candidates, 6L)
+  expect_equal(h$n_kept, 3L)
+  expect_equal(h$n_dropped, 3L)
+  expect_equal(h$n_palindromic, 2L)
+  expect_equal(h$n_ambiguous, 1L)
+  expect_equal(h$n_incompatible, 1L)
+  # rs5 carries no flag: dropped for missing beta/se, which the three allele
+  # flags cannot show.
+  expect_equal(h$n_incomplete, 1L)
+  # Reasons overlap (rs3 is both palindromic and ambiguous), so they do not
+  # sum to n_dropped -- the summary must not present them as a partition.
+  expect_gt(
+    h$n_palindromic + h$n_ambiguous + h$n_incompatible + h$n_incomplete,
+    h$n_dropped
+  )
+})
+
+test_that("harmonisation_summary counts duplicate SNP rows separately", {
+  raw <- data.frame(
+    SNP = c("rs1", "rs1", "rs2"),
+    mr_keep = TRUE,
+    palindromic = FALSE,
+    ambiguous = FALSE,
+    remove = FALSE,
+    stringsAsFactors = FALSE
+  )
+  h <- harmonisation_summary(raw)
+  expect_equal(h$n_candidates, 3L)
+  expect_equal(h$n_kept, 2L)
+  expect_equal(h$n_duplicate, 1L)
+  expect_equal(h$n_dropped, 0L)
+})
+
+test_that("harmonisation_summary tolerates NA flags", {
+  raw <- data.frame(
+    SNP = c("rs1", "rs2"),
+    mr_keep = c(TRUE, NA),
+    palindromic = c(NA, TRUE),
+    ambiguous = NA,
+    remove = NA,
+    stringsAsFactors = FALSE
+  )
+  expect_no_condition(h <- harmonisation_summary(raw))
+  expect_equal(h$n_candidates, 2L)
+  expect_equal(h$n_kept, 1L)
 })

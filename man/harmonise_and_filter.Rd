@@ -34,7 +34,15 @@ checked its instruments together with a sample of shared SNPs via
 \code{FALSE}. A check that cannot reach a verdict warns regardless.}
 }
 \value{
-A data frame of harmonised data, filtered and deduplicated.
+A named list with elements:
+\itemize{
+\item \code{data}: the harmonised data, filtered to \code{mr_keep == TRUE} and
+deduplicated -- what the analysis runs on
+\item \code{raw}: the complete, unfiltered \code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}} output,
+every row and every column, including the \code{mr_keep}, \code{palindromic},
+\code{ambiguous} and \code{remove} flags that explain \emph{why} a variant was
+dropped (GitHub issue #17)
+}
 }
 \description{
 Wraps \code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}}, runs the allele orientation check
