@@ -26,7 +26,7 @@ checked its instruments together with a sample of shared SNPs via
 \code{\link[=check_allele_orientation_gwas]{check_allele_orientation_gwas()}}. Default \code{TRUE}.}
 
 \item{verbose}{Logical. Passed to \code{\link[=check_allele_orientation]{check_allele_orientation()}}. Default
-\code{FALSE}.}
+\code{FALSE}. A check that cannot reach a verdict warns regardless.}
 }
 \value{
 A data frame of harmonised data, filtered and deduplicated.

@@ -159,6 +159,49 @@ reading the header. Validating a supplied \code{eaf} against a \code{ref_frq} pa
 at ingestion is a planned extension.
 }
 
+\section{If the check cannot run}{
+
+The frequency-based check needs allele frequencies in \emph{both} datasets.
+OR-only GWAS files are common -- \code{format_gwas()} derives beta from the
+Z-score for them -- and such files often ship without a frequency column,
+so the check reports that it could not reach a verdict and warns that
+orientation is unverified for that pair.
+
+The frequency comparison is not the only way to settle orientation, and
+the alternative needs no frequencies at all: \strong{anchor on a variant whose
+effect direction for the trait is established beyond doubt}, and see
+whether the file agrees with the literature or contradicts it. Verifying a
+cutaneous melanoma GWAS carrying no usable frequencies:\tabular{llll}{
+   Variant \tab Effect allele \tab OR \tab Expected \cr
+   rs1805007 (MC1R R151C) \tab C (wild type) \tab 0.637 \tab T, the red-hair allele, strongly raises risk -- correct \cr
+   rs16891982 (SLC45A2) \tab C (dark L374) \tab 0.523 \tab dark allele protective -- correct \cr
+   rs12203592 (IRF4) \tab C \tab 0.701 \tab T (lighter / freckling) increases risk -- correct \cr
+}
+
+
+Read with the alleles swapped, all three would contradict well-replicated
+melanoma genetics. The same approach settles an AMD dataset using CFH
+rs1061170 and ARMS2 rs10490924, and generalises to any trait with a decent
+GWAS history.
+
+Two further checks come free in many designs:
+\itemize{
+\item \strong{Positive controls double as orientation tests.} If an instrument
+expected to raise risk comes out protective, orientation is a prime
+suspect.
+\item \strong{Cross-dataset concordance.} Two independent GWAS of the same trait
+should agree in direction at shared variants; if they do not, one of
+them is wrong.
+}
+
+One scope note: for a \strong{negative control expecting no association},
+orientation is largely moot, since a sign error does not turn a null into
+a non-null.
+
+Once orientation is confirmed this way, \code{allele_check = "none"} silences
+the unverified warning for that pair.
+}
+
 \section{Automatic odds-ratio to log-odds conversion}{
 
 Some GWAS files (particularly older EBI deposits) report effect sizes as odds
