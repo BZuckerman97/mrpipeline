@@ -99,6 +99,16 @@
 #'   it is skipped when fewer than 10 informative non-palindromic SNPs carry
 #'   both allele frequencies. The full record is available afterwards from
 #'   [last_allele_check()] in every mode.
+#' @param harmonise_action `1`, `2` (default) or `3`, passed to
+#'   [TwoSampleMR::harmonise_data()]. `1` assumes every allele is on the
+#'   forward strand; `2` infers the positive strand, resolving palindromic
+#'   variants from their allele frequencies; `3` additionally drops every
+#'   palindromic, ambiguous or incompatible SNP. Only palindrome handling
+#'   differs -- non-palindromic variants are aligned by allele letter at all
+#'   three levels. Reach for `3` when the frequencies that level `2` relies
+#'   on cannot be trusted: a failed allele orientation check makes every
+#'   palindromic strand call in that pair unreliable, and a dataset without
+#'   allele frequencies gives level `2` nothing to resolve them with.
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
@@ -149,6 +159,7 @@ run_mr <- function(
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
   allele_check = c("error", "warn", "none"),
+  harmonise_action = 2,
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -158,6 +169,7 @@ run_mr <- function(
   }
 
   allele_check <- rlang::arg_match(allele_check)
+  harmonise_action <- validate_harmonise_action(harmonise_action)
 
   shortcut_methods <- c(
     "ivw",
@@ -203,7 +215,8 @@ run_mr <- function(
     ld_correct = ld_correct,
     exposure_n = exposure_n,
     presso_n_dist = presso_n_dist,
-    allele_check = allele_check
+    allele_check = allele_check,
+    harmonise_action = harmonise_action
   )
 
   timing <- numeric(0)
@@ -435,6 +448,7 @@ run_mr <- function(
     outcome,
     instrument_snps = exposure_iv$SNP,
     allele_check = allele_check,
+    action = harmonise_action,
     verbose = verbose
   )
 
@@ -494,6 +508,7 @@ run_mr <- function(
     exposure_iv,
     outcome_data,
     allele_check = allele_check,
+    action = harmonise_action,
     check = FALSE
   )
 

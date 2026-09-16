@@ -725,3 +725,52 @@ test_that("fread_file reads gzipped files", {
   expect_equal(nrow(result), 2L)
   expect_equal(result$rsid, c("rs1", "rs2"))
 })
+
+# --- validate_harmonise_action / harmonise_and_filter(action =) --------------
+
+test_that("validate_harmonise_action accepts 1, 2 and 3 unchanged", {
+  # Not coerced: harmonise_data() puts `action` in its output, so 2 -> 2L
+  # would leave mrpipeline's harmonised frame differing from a plain
+  # harmonise_data() call by that column's storage mode alone.
+  expect_identical(validate_harmonise_action(1), 1)
+  expect_identical(validate_harmonise_action(2), 2)
+  expect_identical(validate_harmonise_action(3L), 3L)
+})
+
+test_that("validate_harmonise_action rejects anything else", {
+  # TwoSampleMR accepts a vector (one action per outcome); run_mr() and
+  # run_coloc() handle a single outcome, so a vector is a mistake, not a
+  # recycling opportunity.
+  for (bad in list(0, 4, 2.5, "2", c(2, 3), NA, NULL, TRUE)) {
+    expect_error(validate_harmonise_action(bad), "action")
+  }
+})
+
+test_that("harmonise_action = 3 drops palindromic SNPs", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+
+  # The fixture is 10 non-palindromic SNPs plus rs11 (C/G) and rs12 (A/T).
+  expect_equal(nrow(hf(f$exposure, f$ok)), 12L)
+  expect_equal(nrow(hf(f$exposure, f$ok, action = 2)), 12L)
+
+  dropped <- hf(f$exposure, f$ok, action = 3)
+  expect_equal(nrow(dropped), 10L)
+  expect_false(any(c("rs11", "rs12") %in% dropped$SNP))
+})
+
+test_that("the allele check verdict does not depend on action", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+
+  # Only palindrome handling differs between levels, and the check excludes
+  # palindromic variants anyway -- so a swapped-allele outcome must still be
+  # caught at every level.
+  for (a in 1:3) {
+    expect_error(
+      hf(f$exposure, f$bug, action = a),
+      class = "mrpipeline_allele_check_error"
+    )
+    expect_equal(last_allele_check()$status, "fail")
+  }
+})

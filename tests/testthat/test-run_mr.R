@@ -42,6 +42,21 @@ test_that("run_mr validates allele_check argument", {
   )
 })
 
+test_that("run_mr validates harmonise_action argument", {
+  for (bad in list(0, 4, "2", c(2, 3), NA)) {
+    expect_error(
+      run_mr(
+        exposure = data.frame(),
+        exposure_id = "test",
+        outcome = data.frame(),
+        outcome_id = "test",
+        harmonise_action = bad
+      ),
+      "action"
+    )
+  }
+})
+
 test_that("run_mr validates exclude_regions argument", {
   expect_error(
     run_mr(

@@ -8,6 +8,7 @@ harmonise_and_filter(
   exposure,
   outcome,
   allele_check = c("error", "warn", "none"),
+  action = 2,
   check = TRUE,
   verbose = FALSE
 )
@@ -19,6 +20,10 @@ harmonise_and_filter(
 
 \item{allele_check}{One of \code{"error"} (default), \code{"warn"} or \code{"none"}.
 Passed to \code{\link[=check_allele_orientation]{check_allele_orientation()}}.}
+
+\item{action}{\code{1}, \code{2} (default) or \code{3}. Passed to
+\code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}}; see \code{\link[=validate_harmonise_action]{validate_harmonise_action()}} for
+what each level does.}
 
 \item{check}{Logical. If \code{FALSE}, skip the allele orientation check
 entirely (nothing is recorded). Used by \code{\link[=run_mr]{run_mr()}}, which has already

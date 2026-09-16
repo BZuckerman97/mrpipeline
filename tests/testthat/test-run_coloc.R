@@ -47,6 +47,25 @@ test_that("run_coloc validates allele_check argument", {
   )
 })
 
+test_that("run_coloc validates harmonise_action argument", {
+  for (bad in list(0, 4, "2", c(2, 3), NA)) {
+    expect_error(
+      run_coloc(
+        exposure = data.frame(),
+        exposure_id = "test",
+        outcome = data.frame(),
+        outcome_id = "test",
+        gene_chr = "1",
+        gene_start = 1,
+        gene_end = 2,
+        bfile = "dummy",
+        harmonise_action = bad
+      ),
+      "action"
+    )
+  }
+})
+
 test_that("run_coloc errors when outcome_type = 'cc' without outcome_s", {
   expect_error(
     run_coloc(

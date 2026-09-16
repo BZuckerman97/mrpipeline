@@ -141,6 +141,16 @@
 #'   fewer than 10 informative non-palindromic SNPs carry both allele
 #'   frequencies. The full record is available afterwards from
 #'   [last_allele_check()] in every mode.
+#' @param harmonise_action `1`, `2` (default) or `3`, passed to
+#'   [TwoSampleMR::harmonise_data()]. `1` assumes every allele is on the
+#'   forward strand; `2` infers the positive strand, resolving palindromic
+#'   variants from their allele frequencies; `3` additionally drops every
+#'   palindromic, ambiguous or incompatible SNP. Only palindrome handling
+#'   differs -- non-palindromic variants are aligned by allele letter at all
+#'   three levels. Reach for `3` when the frequencies that level `2` relies
+#'   on cannot be trusted: a failed allele orientation check makes every
+#'   palindromic strand call in that pair unreliable, and a dataset without
+#'   allele frequencies gives level `2` nothing to resolve them with.
 #' @param verbose Logical. If `TRUE`, emit informational messages via
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
@@ -203,6 +213,7 @@ run_coloc <- function(
   exclude_regions = NULL,
   ref_frq = NULL,
   allele_check = c("error", "warn", "none"),
+  harmonise_action = 2,
   verbose = TRUE
 ) {
   # --- Validate arguments ---------------------------------------------------
@@ -214,6 +225,7 @@ run_coloc <- function(
   exposure_type <- rlang::arg_match(exposure_type)
   outcome_type <- rlang::arg_match(outcome_type)
   allele_check <- rlang::arg_match(allele_check)
+  harmonise_action <- validate_harmonise_action(harmonise_action)
   methods <- match.arg(
     methods,
     choices = c("abf", "susie", "signals", "prop_test"),
@@ -259,7 +271,8 @@ run_coloc <- function(
     susie_repeat_until_convergence = susie_repeat_until_convergence,
     exclude_regions = exclude_regions,
     ref_frq = ref_frq,
-    allele_check = allele_check
+    allele_check = allele_check,
+    harmonise_action = harmonise_action
   )
 
   timing <- numeric(0)
@@ -423,6 +436,7 @@ run_coloc <- function(
     exposure_filt,
     outcome_data,
     allele_check = allele_check,
+    action = harmonise_action,
     verbose = verbose
   )
 
