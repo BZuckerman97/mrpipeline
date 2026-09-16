@@ -101,7 +101,10 @@ shortcut list was hard-coded in three places that had drifted apart, which
 is how `ivw_fe` came to be half-wired (GitHub issue #27).
 
 ```{r method-registry-full}
-knitr::kable(mrpipeline::mr_methods(detail = "full"))
+tab <- mrpipeline::mr_methods(detail = "full")
+# Backticks keep MathJax from reading `$results` ... `$steiger` as maths.
+tab$output <- paste0("`", tab$output, "`")
+knitr::kable(tab)
 ```
 
 `ld_correctable` is declared, not inferred -- nothing inspects upstream

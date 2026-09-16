@@ -379,7 +379,11 @@ estimator, whether `ld_correct = TRUE` applies to it, how many instruments it
 needs, and where its result lands on the `mr_result`:
 
 ```{r method-table}
-knitr::kable(mrpipeline::mr_methods())
+tab <- mrpipeline::mr_methods()
+# Backticks render the field names as code, which keeps MathJax from reading
+# `$results` ... `$steiger` as an inline formula.
+tab$output <- paste0("`", tab$output, "`")
+knitr::kable(tab)
 ```
 
 `mr_methods(detail = "full")` adds the automatic Wald-ratio path (used when
