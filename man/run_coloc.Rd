@@ -34,6 +34,7 @@ run_coloc(
   exclude_regions = NULL,
   ref_frq = NULL,
   allele_check = c("error", "warn", "none"),
+  harmonise_action = 2,
   verbose = TRUE
 )
 }
@@ -142,6 +143,17 @@ every harmonised SNP in the colocalization window and is skipped when
 fewer than 10 informative non-palindromic SNPs carry both allele
 frequencies. The full record is available afterwards from
 \code{\link[=last_allele_check]{last_allele_check()}} in every mode.}
+
+\item{harmonise_action}{\code{1}, \code{2} (default) or \code{3}, passed to
+\code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}}. \code{1} assumes every allele is on the
+forward strand; \code{2} infers the positive strand, resolving palindromic
+variants from their allele frequencies; \code{3} additionally drops every
+palindromic, ambiguous or incompatible SNP. Only palindrome handling
+differs -- non-palindromic variants are aligned by allele letter at all
+three levels. Reach for \code{3} when the frequencies that level \code{2} relies
+on cannot be trusted: a failed allele orientation check makes every
+palindromic strand call in that pair unreliable, and a dataset without
+allele frequencies gives level \code{2} nothing to resolve them with.}
 
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.

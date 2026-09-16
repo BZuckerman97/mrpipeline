@@ -10,6 +10,7 @@ check_allele_orientation_gwas(
   instrument_snps,
   allele_check = c("error", "warn", "none"),
   n_sample = 1000L,
+  action = 2,
   verbose = FALSE,
   call = rlang::caller_env()
 )
@@ -28,6 +29,12 @@ include in the check set.}
 
 \item{n_sample}{Integer. Maximum number of non-instrument shared SNPs to
 add. Default \code{1000L}.}
+
+\item{action}{\code{1}, \code{2} (default) or \code{3}. Passed to
+\code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}}, so that the check describes the same
+harmonisation the analysis will use. The verdict itself is unaffected:
+\code{action} gates only the frequency-based second flip applied to
+palindromic variants, which the check excludes anyway.}
 
 \item{verbose}{Logical. Passed to \code{\link[=check_allele_orientation]{check_allele_orientation()}}. A check
 that cannot reach a verdict warns regardless.}

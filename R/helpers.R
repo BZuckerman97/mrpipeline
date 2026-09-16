@@ -37,6 +37,9 @@ plink_option <- function(param) {
 #' @param outcome Data frame of formatted outcome data.
 #' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
 #'   Passed to [check_allele_orientation()].
+#' @param action `1`, `2` (default) or `3`. Passed to
+#'   [TwoSampleMR::harmonise_data()]; see [validate_harmonise_action()] for
+#'   what each level does.
 #' @param check Logical. If `FALSE`, skip the allele orientation check
 #'   entirely (nothing is recorded). Used by [run_mr()], which has already
 #'   checked its instruments together with a sample of shared SNPs via
@@ -52,14 +55,17 @@ harmonise_and_filter <- function(
   exposure,
   outcome,
   allele_check = c("error", "warn", "none"),
+  action = 2,
   check = TRUE,
   verbose = FALSE
 ) {
   allele_check <- rlang::arg_match(allele_check)
+  action <- validate_harmonise_action(action)
 
   harmonised <- TwoSampleMR::harmonise_data(
     exposure_dat = exposure,
-    outcome_dat = outcome
+    outcome_dat = outcome,
+    action = action
   )
 
   if (check) {
@@ -415,6 +421,11 @@ check_allele_orientation <- function(
 #' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
 #' @param n_sample Integer. Maximum number of non-instrument shared SNPs to
 #'   add. Default `1000L`.
+#' @param action `1`, `2` (default) or `3`. Passed to
+#'   [TwoSampleMR::harmonise_data()], so that the check describes the same
+#'   harmonisation the analysis will use. The verdict itself is unaffected:
+#'   `action` gates only the frequency-based second flip applied to
+#'   palindromic variants, which the check excludes anyway.
 #' @param verbose Logical. Passed to [check_allele_orientation()]. A check
 #'   that cannot reach a verdict warns regardless.
 #' @param call Environment reported in the condition. Default
@@ -429,10 +440,12 @@ check_allele_orientation_gwas <- function(
   instrument_snps,
   allele_check = c("error", "warn", "none"),
   n_sample = 1000L,
+  action = 2,
   verbose = FALSE,
   call = rlang::caller_env()
 ) {
   allele_check <- rlang::arg_match(allele_check)
+  action <- validate_harmonise_action(action)
 
   skipped <- function() {
     check_allele_orientation(
@@ -487,7 +500,8 @@ check_allele_orientation_gwas <- function(
 
   harmonised <- suppressMessages(TwoSampleMR::harmonise_data(
     exposure_dat = exposure_sub,
-    outcome_dat = outcome_data
+    outcome_dat = outcome_data,
+    action = action
   ))
 
   check_allele_orientation(
@@ -909,4 +923,56 @@ check_gz_support <- function(path, has_rutils = NULL) {
     )
   }
   invisible(TRUE)
+}
+
+#' Validate a TwoSampleMR harmonisation action level
+#'
+#' [TwoSampleMR::harmonise_data()] accepts `action` as a vector, applying a
+#' different level per outcome. `run_mr()` and `run_coloc()` handle exactly
+#' one outcome, so a vector here is a mistake worth catching rather than
+#' silently recycling.
+#'
+#' The three levels:
+#'
+#' | `action` | Behaviour |
+#' |---|---|
+#' | 1 | Assume all alleles are on the forward strand: no frequency-based flip |
+#' | 2 | Infer the positive strand, resolving palindromes from allele frequencies (default) |
+#' | 3 | As 2, but set `mr_keep = FALSE` for every palindromic, ambiguous or incompatible SNP |
+#'
+#' Only the palindrome handling differs. The letter-based alignment of
+#' non-palindromic variants -- negating `beta.outcome` and replacing
+#' `eaf.outcome` with `1 - eaf.outcome` when the outcome's effect allele is
+#' the exposure's other allele -- happens at every level, which is why
+#' [check_allele_orientation()]'s verdict does not depend on `action`.
+#'
+#' @param action Value to validate.
+#'
+#' @return `action`, unchanged. It is deliberately not coerced to integer:
+#'   [TwoSampleMR::harmonise_data()] embeds `action` as a column in its
+#'   output, so coercing `2` to `2L` would make `mrpipeline`'s harmonised
+#'   frame differ from a plain `harmonise_data()` call on the same data by
+#'   the storage mode of that column alone.
+#'
+#' @keywords internal
+validate_harmonise_action <- function(action) {
+  ok <- is.numeric(action) &&
+    length(action) == 1L &&
+    !is.na(action) &&
+    action %in% 1:3
+  if (!ok) {
+    cli::cli_abort(
+      c(
+        "{.arg action} must be a single value of {.val {1:3}}.",
+        "x" = "Got {.val {action}}.",
+        "i" = paste0(
+          "{.val {1}} assumes the forward strand, {.val {2}} resolves ",
+          "palindromes from allele frequencies, {.val {3}} drops every ",
+          "palindromic, ambiguous or incompatible SNP."
+        )
+      ),
+      call = rlang::caller_env()
+    )
+  }
+  action
 }
