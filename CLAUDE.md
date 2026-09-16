@@ -13,9 +13,12 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 - `format_pqtl_ukbppp()` -- Format UKB-PPP pQTL data to TwoSampleMR exposure format
 - `format_single_cell_onek1k()` -- Format OneK1K single-cell eQTL data
 - `last_allele_check()` -- Record of the most recent harmonisation allele orientation check (detects A1/A2 = REF/ALT files, issue #18)
+- `mr_methods()` -- Table of every method `run_mr()` accepts: estimator (fixed/random), LD-correctability, minimum instruments, output field. Rendered from the internal registry that drives dispatch, so it cannot drift (issue #27)
 
 **Internal helpers** (not exported, in `R/helpers.R`):
-`harmonise_and_filter()`, `check_allele_orientation()`, `check_allele_orientation_gwas()`, `compute_ld_matrix()`, `clump_instruments()`, `align_to_ld_matrix()`, `eaf_to_maf()`, `resolve_sample_size()`
+`harmonise_and_filter()`, `check_allele_orientation()`, `check_allele_orientation_gwas()`, `compute_ld_matrix()`, `clump_instruments()`, `align_to_ld_matrix()`, `eaf_to_maf()`, `resolve_sample_size()`, `warn_no_ld_correction()`
+
+**Method registry** (in `R/mr_methods.R`): `mr_method_registry()` is the single source of truth for what `run_mr()` can run -- shortcut, label, fixed/random model, `ld_correctable`, `min_instruments`, output field, engine per LD path. `run_mr()` validates, dispatches, computes skip reasons and emits the "no LD-corrected form" warnings from it; `mr_methods()` exports it; `rd_method_table()` renders it into `?run_mr` via roxygen `@eval`; `mr_method_entry()` / `mr_result_row()` build every `$results` row from it. **Adding a method means adding a registry row** -- never a new hard-coded name list. `empty_mr_results()` (in `R/mr_result.R`) is the zero-row `$results` schema.
 
 **S3 classes:** `mr_result` (from `run_mr()`), `coloc_result` (from `run_coloc()`)
 

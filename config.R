@@ -114,7 +114,7 @@ cfg <- list(
   mr_pval_thresh = 5e-8,
   mr_rsq_thresh = 0.001,
   mr_window = 100000L, # bp either side of cis region for instrument search
-  mr_methods = c("ivw", "egger", "weighted_median"),
+  mr_method_shortcuts = c("ivw_random", "egger", "weighted_median"),
 
   # Exclude MHC from instruments (chr6:26-34 Mb)
   mhc_region = data.frame(chr = "6", start = 26e6, end = 34e6),

@@ -1,8 +1,10 @@
 #' Create an mr_result object
 #'
 #' @param results Data frame with columns: exposure, outcome, method, nsnp,
-#'   b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
-#'   [TwoSampleMR::generate_odds_ratios()]).
+#'   b, se, pval, ld_corrected (logical: whether the LD matrix was used for
+#'   that fit), model (`"random"`, `"fixed"` or `NA`), plus or, or_lci95,
+#'   or_uci95 (and lo_ci, up_ci) from [TwoSampleMR::generate_odds_ratios()]
+#'   on a successful run. Defaults to [empty_mr_results()].
 #' @param instruments Data frame of harmonised (and clumped) instrument data:
 #'   the kept variants the MR estimates are computed from.
 #' @param harmonisation Data frame. The complete, unfiltered
@@ -32,7 +34,7 @@
 #'
 #' @keywords internal
 new_mr_result <- function(
-  results = data.frame(),
+  results = empty_mr_results(),
   instruments = data.frame(),
   harmonisation = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
@@ -65,6 +67,32 @@ new_mr_result <- function(
       timing = timing
     ),
     class = "mr_result"
+  )
+}
+
+#' Empty `$results` frame carrying the full column schema
+#'
+#' Used as the `results` default of [new_mr_result()] (so every early return
+#' has the same shape as a successful run) and by `run_mr()` when no method
+#' produced an estimate. The OR columns are appended by
+#' `TwoSampleMR::generate_odds_ratios()` in `run_mr()`, not here.
+#'
+#' @return A zero-row data frame with columns `exposure`, `outcome`,
+#'   `method`, `nsnp`, `b`, `se`, `pval`, `ld_corrected`, `model`.
+#'
+#' @keywords internal
+empty_mr_results <- function() {
+  data.frame(
+    exposure = character(),
+    outcome = character(),
+    method = character(),
+    nsnp = integer(),
+    b = numeric(),
+    se = numeric(),
+    pval = numeric(),
+    ld_corrected = logical(),
+    model = character(),
+    stringsAsFactors = FALSE
   )
 }
 
@@ -127,10 +155,13 @@ print.mr_result <- function(x, ...) {
     ""
   }
 
+  # The shortest view still says which estimator ran.
+  ld_tag <- if (isTRUE(primary$ld_corrected)) " [LD-corrected]" else "" # nolint: object_usage_linter.
+
   cli::cli_inform(c(
     "{primary$exposure} -> {primary$outcome}",
     "i" = paste0(
-      "{primary$method}: b = {round(primary$b, 4)}, ",
+      "{primary$method}{ld_tag}: b = {round(primary$b, 4)}, ",
       "se = {round(primary$se, 4)}, p = {signif(primary$pval, 3)}{or_str}"
     ),
     "i" = "{nsnp} SNP{?s}, mean F = {round(mean_f, 1)}"
@@ -181,6 +212,7 @@ summary.mr_result <- function(object, ...) {
   # Results table
   cli::cli_h2("Method estimates")
   res <- object$results
+  ld_run <- !is.null(object$ld_matrix)
   for (i in seq_len(nrow(res))) {
     # nolint next: object_usage_linter.
     or_str <- if ("or" %in% names(res) && !is.na(res$or[i])) {
@@ -196,9 +228,31 @@ summary.mr_result <- function(object, ...) {
     } else {
       ""
     }
+    # Say which estimator ran: the effects model where the label does not
+    # already carry it (MR Egger), and the LD status on an LD-corrected run.
+    tags <- character()
+    model_i <- (res$model %||% NA_character_)[i]
+    if (
+      !is.na(model_i) &&
+        !stringr::str_detect(res$method[i], stringr::fixed(model_i))
+    ) {
+      tags <- c(tags, paste(model_i, "effects"))
+    }
+    if (ld_run) {
+      tags <- c(
+        tags,
+        if (isTRUE(res$ld_corrected[i])) "LD-corrected" else "not LD-corrected"
+      )
+    }
+    # nolint next: object_usage_linter.
+    tag_str <- if (length(tags) > 0) {
+      paste0(" [", paste(tags, collapse = ", "), "]")
+    } else {
+      ""
+    }
     cli::cli_bullets(c(
       "*" = paste0(
-        "{res$method[i]}: b = {round(res$b[i], 4)}, ",
+        "{res$method[i]}{tag_str}: b = {round(res$b[i], 4)}, ",
         "se = {round(res$se[i], 4)}, p = {signif(res$pval[i], 3)}{or_str} ",
         "({res$nsnp[i]} SNPs)"
       )
@@ -265,11 +319,33 @@ summary.mr_result <- function(object, ...) {
     }
   }
 
-  # LD correction
-  if (!is.null(object$ld_matrix)) {
-    cli::cli_alert_info(
-      "LD-corrected analysis ({nrow(object$ld_matrix)} SNPs in LD matrix)"
-    )
+  # LD correction -- keyed off what each row records, not off the presence
+  # of the matrix, so a run whose methods all lacked a correlated form is
+  # never announced as "LD-corrected".
+  if (ld_run) {
+    cli::cli_h2("LD correction")
+    n_ld <- nrow(object$ld_matrix) # nolint: object_usage_linter.
+    if (length(object$f_stats$per_snp) == 1) {
+      cli::cli_bullets(c(
+        "i" = "Not applicable: 1 instrument (Wald ratio)"
+      ))
+    } else {
+      applied <- res$method[res$ld_corrected %in% TRUE]
+      not_applied <- res$method[!(res$ld_corrected %in% TRUE)]
+      applied_str <- paste(applied, collapse = ", ") # nolint: object_usage_linter.
+      if (length(applied) == 0) {
+        applied_str <- "none"
+      }
+      lines <- c(
+        "i" = "{n_ld}-SNP LD matrix from the reference panel",
+        "v" = "Applied to: {applied_str}"
+      )
+      if (length(not_applied) > 0) {
+        not_applied_str <- paste(not_applied, collapse = ", ") # nolint: object_usage_linter.
+        lines <- c(lines, "!" = "Not applied to: {not_applied_str}")
+      }
+      cli::cli_bullets(lines)
+    }
   }
 
   invisible(object)

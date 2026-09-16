@@ -7,6 +7,7 @@ reference:
     desc: Run Mendelian randomisation and inspect results.
     contents:
       - run_mr
+      - mr_methods
       - print.mr_result
       - summary.mr_result
       - plot.mr_result

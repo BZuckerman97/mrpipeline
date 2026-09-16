@@ -5,7 +5,7 @@
 \title{Create an mr_result object}
 \usage{
 new_mr_result(
-  results = data.frame(),
+  results = empty_mr_results(),
   instruments = data.frame(),
   harmonisation = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
@@ -23,8 +23,10 @@ new_mr_result(
 }
 \arguments{
 \item{results}{Data frame with columns: exposure, outcome, method, nsnp,
-b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
-\code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}).}
+b, se, pval, ld_corrected (logical: whether the LD matrix was used for
+that fit), model (\code{"random"}, \code{"fixed"} or \code{NA}), plus or, or_lci95,
+or_uci95 (and lo_ci, up_ci) from \code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}
+on a successful run. Defaults to \code{\link[=empty_mr_results]{empty_mr_results()}}.}
 
 \item{instruments}{Data frame of harmonised (and clumped) instrument data:
 the kept variants the MR estimates are computed from.}

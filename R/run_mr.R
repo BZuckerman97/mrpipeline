@@ -16,24 +16,65 @@
 #'   `instruments_strict` controls whether missing IDs are an error or warning.
 #'
 #' @section Method dispatch:
-#' Methods are dispatched based on the number of instruments after clumping:
-#' - 1 SNP: Wald ratio only; all other methods skipped
-#' - 2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
-#'   are attempted; Egger, weighted median, and PRESSO require >= 3 SNPs
-#' - 3+ SNPs: all methods in `methods` are attempted
+#' Every method is looked up in the package's method registry -- see
+#' [mr_methods()] and the *Available methods* section below for what each
+#' shortcut runs, whether it can be LD-corrected, and how many instruments
+#' it needs. Dispatch depends on the number of instruments after clumping:
+#' - 1 SNP: Wald ratio only; every multi-SNP method is skipped
+#' - 2+ SNPs: `ivw_random`, `ivw_fixed`, `conmix`, `heterogeneity` and any
+#'   raw TwoSampleMR method are attempted; `egger`, `weighted_median`,
+#'   `presso`, `pleiotropy` and `loo` require >= 3 SNPs
 #'
-#' Generic TwoSampleMR methods (raw `mr_*` names) are dispatched via
-#' `TwoSampleMR::mr()` and errors are caught and reported as skipped.
+#' Raw TwoSampleMR methods (`mr_*` names from
+#' `TwoSampleMR::mr_method_list()$obj` that have no shortcut, e.g.
+#' `"mr_raps"`) are dispatched via `TwoSampleMR::mr()` under TwoSampleMR's
+#' own label; errors are caught and reported in `$methods_skipped`. Names
+#' that are the engine behind a shortcut (`mr_ivw`, `mr_ivw_fe`,
+#' `mr_egger_regression`, `mr_weighted_median`) are refused with a pointer
+#' to the shortcut, so the same estimator cannot enter unlabelled and
+#' uncorrected.
 #'
-#' When `ld_correct = TRUE`, IVW and Egger use
-#' `MendelianRandomization::mr_ivw()` and `MendelianRandomization::mr_egger()`
-#' with `correl = TRUE`.
+#' ConMix reports `se = NA`: `MendelianRandomization::mr_conmix()` returns a
+#' confidence interval that may be asymmetric or multi-modal rather than a
+#' standard error, so the `or_lci95`/`or_uci95` columns are `NA` for it too.
 #'
 #' When `"egger"` is in `methods` and there are >= 3 instruments,
 #' `TwoSampleMR::mr_pleiotropy_test()` (the Egger intercept test) is always
 #' run automatically and its result stored in `$pleiotropy`. You do not need
 #' to add `"pleiotropy"` to `methods` separately. The `"pleiotropy"` shortcut
 #' remains available for running the intercept test without Egger.
+#'
+#' @section LD correction:
+#' `ld_correct = TRUE` computes a signed LD matrix for the instruments from
+#' `bfile` and re-orients it to the exposure's effect alleles. Instruments
+#' absent from the reference panel, or with ambiguous palindromic alleles,
+#' are dropped at that step, so an LD-corrected run can have fewer
+#' instruments than the same call uncorrected.
+#'
+#' Methods with a correlated form -- `ivw_random`, `ivw_fixed` and `egger`
+#' -- are then fitted by generalised least squares through
+#' `MendelianRandomization` with `correl = TRUE`: the weight matrix is
+#' `diag(se_y) %*% R %*% diag(se_y)` in place of `diag(se_y^2)`, so two
+#' instruments in LD are no longer counted as two independent looks at the
+#' causal effect. The IVW estimator is pinned explicitly (`model = "random"`
+#' for `ivw_random`, `"fixed"` for `ivw_fixed`) so that each shortcut means
+#' the same thing at every instrument count; `MendelianRandomization`'s own
+#' default would switch to fixed effects below 4 instruments.
+#'
+#' Every other method has no correlated form and runs on the uncorrected
+#' data: a warning names each such method, and its `$results` row carries
+#' `ld_corrected = FALSE`. `ld_correct` is never silently ignored -- it is
+#' either applied, or visibly not applied. To compare corrected and
+#' uncorrected estimates, call `run_mr()` twice and pass both results to
+#' [forest_plot()] as a named list: one `mr_result` is always one instrument
+#' set under one weight matrix.
+#'
+#' Random effects are multiplicative: the standard error is inflated by
+#' `max(RSE, 1)`, never deflated, so when the instruments are under-dispersed
+#' the random- and fixed-effect results coincide exactly.
+#'
+#' @eval rd_method_table()
+#'
 #' @param exposure Data frame of formatted exposure data (output of
 #'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
 #' @param exposure_id Character. Identifier for the exposure (e.g. protein
@@ -61,21 +102,17 @@
 #' @param exclude_regions Data frame with columns `chr`, `start`, `end` defining
 #'   genomic regions to exclude instruments from, or `NULL`. For example, to
 #'   exclude the MHC region: `data.frame(chr = "6", start = 26e6, end = 34e6)`.
-#' @param methods Character vector of MR methods to run. Named shortcuts:
-#'   `"ivw"` (IVW random effects), `"ivw_fe"` (IVW fixed effects),
-#'   `"egger"` (MR Egger), `"weighted_median"` (weighted median),
-#'   `"presso"` (MR-PRESSO), `"conmix"` (ContMix), `"steiger"` (Steiger
-#'   filtering), `"pleiotropy"` (Egger intercept test; result stored in
-#'   `$pleiotropy`, not `$results`), `"heterogeneity"` (Cochran's Q test via
-#'   [TwoSampleMR::mr_heterogeneity()]; result stored in `$heterogeneity`,
-#'   not `$results`; requires >= 2 instruments), `"loo"` (leave-one-out
-#'   analysis via [TwoSampleMR::mr_leaveoneout()]; result stored in `$loo`,
-#'   not `$results`; requires >= 3 instruments). You may also pass any
-#'   method name from `TwoSampleMR::mr_method_list()$obj` directly (e.g.
-#'   `"mr_simple_median"`, `"mr_raps"`). Note: `"ivw_fe"` does not support
-#'   `ld_correct = TRUE`.
-#' @param ld_correct Logical. Use LD-corrected IVW/Egger via the
-#'   `MendelianRandomization` package. Requires `bfile`. Default `FALSE`.
+#' @param methods Character vector of methods to run. Named shortcuts (see
+#'   [mr_methods()] and the *Available methods* section): `"ivw_random"`,
+#'   `"ivw_fixed"`, `"egger"`, `"weighted_median"`, `"presso"`, `"conmix"`,
+#'   `"steiger"`, `"pleiotropy"`, `"heterogeneity"`, `"loo"`. You may also
+#'   pass any raw method name from `TwoSampleMR::mr_method_list()$obj` that
+#'   has no shortcut (e.g. `"mr_raps"`, `"mr_weighted_mode"`); raw names are
+#'   never LD-corrected. The former shortcuts `"ivw"` and `"ivw_fe"` are
+#'   accepted with a warning and mapped to `"ivw_random"` and `"ivw_fixed"`.
+#' @param ld_correct Logical. Fit `ivw_random`, `ivw_fixed` and `egger` by
+#'   GLS with the instruments' LD matrix (see the *LD correction* section).
+#'   Requires `bfile`. Default `FALSE`.
 #' @param exposure_n Numeric. Exposure sample size. If `NULL`, inferred from
 #'   `samplesize.exposure` column.
 #' @param presso_n_dist Integer. Number of distributions for MR-PRESSO. Default
@@ -114,10 +151,13 @@
 #'   Default `TRUE`.
 #'
 #' @return An `mr_result` object. Check `result$status` for `"success"` vs
-#'   failure reasons. The `$results` data frame includes `or`, `or_lci95`, and
-#'   `or_uci95` columns (from [TwoSampleMR::generate_odds_ratios()]) alongside
-#'   the raw `b` and `se`. The `$timing` field contains a named numeric
-#'   vector of elapsed seconds for each major step.
+#'   failure reasons. Each `$results` row states the estimator that produced
+#'   it: `method` (the label), `model` (`"random"`, `"fixed"`, or `NA` where
+#'   the distinction does not apply) and `ld_corrected` (whether the LD
+#'   matrix was used for that fit), alongside `nsnp`, `b`, `se`, `pval` and
+#'   the `or`, `or_lci95`, `or_uci95` columns from
+#'   [TwoSampleMR::generate_odds_ratios()]. The `$timing` field contains a
+#'   named numeric vector of elapsed seconds for each major step.
 #'
 #' @examples
 #' \dontrun{
@@ -130,12 +170,28 @@
 #'   outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
 #'   bfile = bfile,
-#'   methods = c("ivw", "egger", "weighted_median")
+#'   methods = c("ivw_random", "egger", "weighted_median")
 #' )
 #' result
 #' summary(result)
+#'
+#' # LD-corrected: both IVW estimators by GLS; weighted median warns and
+#' # runs uncorrected. Compare arms by passing both results to forest_plot().
+#' corrected <- run_mr(
+#'   exposure = cd40_exposure,
+#'   exposure_id = "CD40",
+#'   outcome = sjogren_outcome,
+#'   outcome_id = "SjD",
+#'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   bfile = bfile,
+#'   ld_correct = TRUE,
+#'   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+#' )
+#' corrected$results[, c("method", "model", "ld_corrected", "b", "se")]
+#' forest_plot(list("Uncorrected" = result, "LD-corrected" = corrected))
 #' }
 #'
+#' @seealso [mr_methods()] for the table of methods and what each supports.
 #' @export
 run_mr <- function(
   exposure,
@@ -152,7 +208,14 @@ run_mr <- function(
   instruments = NULL,
   instruments_strict = FALSE,
   exclude_regions = NULL,
-  methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
+  methods = c(
+    "ivw_random",
+    "egger",
+    "weighted_median",
+    "presso",
+    "conmix",
+    "steiger"
+  ),
   ld_correct = FALSE,
   exposure_n = NULL,
   presso_n_dist = 1000,
@@ -171,25 +234,61 @@ run_mr <- function(
   allele_check <- rlang::arg_match(allele_check)
   harmonise_action <- validate_harmonise_action(harmonise_action)
 
-  shortcut_methods <- c(
-    "ivw",
-    "ivw_fe",
-    "egger",
-    "weighted_median",
-    "presso",
-    "conmix",
-    "steiger",
-    "pleiotropy",
-    "heterogeneity",
-    "loo"
+  # Every method name is resolved against the registry (see mr_methods()):
+  # it is the only source of shortcut names, minimum instrument counts and
+  # LD-correctability used anywhere in this function.
+  registry <- mr_method_registry()
+  shortcut_methods <- registry$shortcut[!is.na(registry$shortcut)]
+
+  # The former "ivw"/"ivw_fe" names are normalised here so nothing downstream
+  # ever sees them. Warned on every call: a pipeline looping over exposures
+  # should keep seeing it.
+  aliases <- c(ivw = "ivw_random", ivw_fe = "ivw_fixed")
+  is_alias <- methods %in% names(aliases)
+  if (any(is_alias)) {
+    old <- methods[is_alias] # nolint: object_usage_linter.
+    new <- unname(aliases[methods[is_alias]]) # nolint: object_usage_linter.
+    cli::cli_warn(c(
+      "{cli::qty(length(old))}Method shortcut{?s} {.val {old}} {?is/are} deprecated; using {.val {new}}.",
+      "i" = paste0(
+        "{.val ivw_random} is multiplicative random effects at every ",
+        "instrument count, including with {.code ld_correct = TRUE} ",
+        "(previously fixed effects below 4 instruments)."
+      )
+    ))
+    methods[is_alias] <- new
+  }
+  methods <- unique(methods)
+
+  # Raw TwoSampleMR names that are the engine behind a shortcut are refused:
+  # accepting them would let the same estimator in unlabelled, with no
+  # `model` and never LD-corrected. Derived from the registry's engine
+  # column, so a new shortcut shadows its raw name automatically.
+  tsm_all <- TwoSampleMR::mr_method_list()$obj
+  raw_engine <- stringr::str_remove(registry$engine, "^TwoSampleMR::")
+  shadowed <- stats::setNames(
+    registry$shortcut[!is.na(registry$shortcut) & raw_engine %in% tsm_all],
+    raw_engine[!is.na(registry$shortcut) & raw_engine %in% tsm_all]
   )
-  tsm_available <- setdiff(TwoSampleMR::mr_method_list()$obj, "mr_wald_ratio")
+  hit <- methods[methods %in% names(shadowed)]
+  if (length(hit) > 0) {
+    use <- unname(shadowed[hit]) # nolint: object_usage_linter.
+    cli::cli_abort(c(
+      "{cli::qty(length(hit))}{.val {hit}} {?is/are} the function{?s} behind the {.val {use}} shortcut{?s}.",
+      "i" = paste0(
+        "Use the shortcut instead, so that {.arg ld_correct} and the ",
+        "{.field model} column apply to it."
+      )
+    ))
+  }
+
+  tsm_available <- setdiff(tsm_all, c("mr_wald_ratio", names(shadowed)))
   unknown_methods <- setdiff(methods, c(shortcut_methods, tsm_available))
   if (length(unknown_methods) > 0) {
     cli::cli_abort(
       c(
         "Unknown method{?s}: {.val {unknown_methods}}.",
-        "i" = "Named shortcuts: {.val {shortcut_methods}}.",
+        "i" = "See {.fn mr_methods} for the named shortcuts.",
         "i" = "Or pass any name from {.code TwoSampleMR::mr_method_list()}."
       )
     )
@@ -548,6 +647,7 @@ run_mr <- function(
   t0 <- proc.time()[["elapsed"]]
 
   ld_mat <- NULL
+  ld_input <- NULL
   if (ld_correct) {
     ld_mat <- compute_ld_matrix(
       snps = harmonised$SNP,
@@ -559,9 +659,40 @@ run_mr <- function(
     aligned <- align_to_ld_matrix(harmonised, ld_mat)
     harmonised <- aligned$data
     ld_mat <- aligned$ld_matrix
+    # One correlated MRInput serves every LD-corrected method below. The
+    # matrix, not the `correl` flag, is what carries the correction:
+    # mr_ivw()/mr_egger() read it from this object.
+    ld_input <- MendelianRandomization::mr_input(
+      bx = harmonised$beta.exposure,
+      bxse = harmonised$se.exposure,
+      by = harmonised$beta.outcome,
+      byse = harmonised$se.outcome,
+      correlation = ld_mat
+    )
   }
 
   timing[["ld_correction"]] <- proc.time()[["elapsed"]] - t0
+
+  # Alignment can drop every instrument (none in the panel, or all ambiguous
+  # palindromes); without this guard dispatch would fall into the multi-SNP
+  # branch with zero rows and fail inside the GLS fit.
+  if (nrow(harmonised) == 0) {
+    cli::cli_warn(
+      "No instruments remaining after LD alignment for {.val {exposure_id}}."
+    )
+    return(new_mr_result(
+      harmonisation = harmonisation,
+      ld_matrix = ld_mat,
+      status = "no_harmonised_variants",
+      status_reason = paste0(
+        "No instruments remaining after LD alignment for '",
+        exposure_id,
+        "'"
+      ),
+      params = params,
+      timing = timing
+    ))
+  }
 
   # --- F-statistics ---------------------------------------------------------
 
@@ -578,171 +709,193 @@ run_mr <- function(
   results_list <- list()
   methods_skipped <- character()
 
+  # Skip reason when a method's registry minimum exceeds the instrument
+  # count; NULL when it can run.
+  too_few <- function(entry) {
+    if (n_snps < entry$min_instruments) {
+      paste0("Requires >= ", entry$min_instruments, " instruments")
+    } else {
+      NULL
+    }
+  }
+
   # Wald ratio for single instrument
 
   if (n_snps == 1) {
     t0 <- proc.time()[["elapsed"]]
     wald <- TwoSampleMR::mr(harmonised, method_list = "mr_wald_ratio")
-    results_list[["Wald ratio"]] <- data.frame(
-      exposure = exposure_id,
-      outcome = outcome_id,
-      method = "Wald ratio",
+    results_list[["wald"]] <- mr_result_row(
+      mr_method_entry(label = "Wald ratio"),
+      exposure_id,
+      outcome_id,
       nsnp = wald$nsnp,
       b = wald$b,
       se = wald$se,
       pval = wald$pval,
-      stringsAsFactors = FALSE
+      ld_corrected = FALSE
     )
-    timing[["mr_ivw"]] <- proc.time()[["elapsed"]] - t0
+    timing[["mr_wald_ratio"]] <- proc.time()[["elapsed"]] - t0
 
-    # Skip all multi-SNP methods (shortcuts + any raw TwoSampleMR names)
-    multi_shortcut_names <- c(
-      "ivw",
-      "ivw_fe",
-      "egger",
-      "weighted_median",
-      "presso",
-      "conmix"
-    )
-    generic_tsm_methods <- setdiff(methods, c(multi_shortcut_names, "steiger"))
-    all_multi <- c(
-      intersect(methods, multi_shortcut_names),
-      generic_tsm_methods
-    )
-    for (m in all_multi) {
+    # Skip every multi-SNP estimator (shortcuts + any raw TwoSampleMR names).
+    # The diagnostics record their own instrument-count reasons below.
+    multi <- registry$shortcut[
+      !is.na(registry$shortcut) &
+        registry$output == "$results" &
+        registry$min_instruments > 1
+    ]
+    generic_tsm_methods <- methods[!methods %in% shortcut_methods]
+    for (m in c(intersect(methods, multi), generic_tsm_methods)) {
       methods_skipped[m] <- "Only 1 instrument (Wald ratio used)"
     }
   } else {
-    # IVW
-    if ("ivw" %in% methods) {
+    # IVW, multiplicative random effects
+    if ("ivw_random" %in% methods) {
       t0 <- proc.time()[["elapsed"]]
+      entry <- mr_method_entry("ivw_random")
       if (ld_correct) {
-        mr_input <- MendelianRandomization::mr_input(
-          bx = harmonised$beta.exposure,
-          bxse = harmonised$se.exposure,
-          by = harmonised$beta.outcome,
-          byse = harmonised$se.outcome,
-          correlation = ld_mat
+        # `model` is pinned: MendelianRandomization's "default" is fixed
+        # effects below 4 instruments, which would silently change the
+        # estimator this shortcut names (issue #27).
+        fit <- MendelianRandomization::mr_ivw(
+          ld_input,
+          correl = TRUE,
+          model = "random"
         )
-        ivw_res <- MendelianRandomization::mr_ivw(mr_input, correl = TRUE)
-        results_list[["IVW (LD-corrected)"]] <- data.frame(
-          exposure = exposure_id,
-          outcome = outcome_id,
-          method = "IVW (LD-corrected)",
-          nsnp = ivw_res@SNPs,
-          b = ivw_res@Estimate,
-          se = ivw_res@StdError,
-          pval = ivw_res@Pvalue,
-          stringsAsFactors = FALSE
+        results_list[["ivw_random"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
+          nsnp = fit@SNPs,
+          b = fit@Estimate,
+          se = fit@StdError,
+          pval = fit@Pvalue,
+          ld_corrected = TRUE
         )
       } else {
-        ivw_mr <- TwoSampleMR::mr(harmonised, method_list = "mr_ivw")
-        results_list[["IVW"]] <- data.frame(
-          exposure = exposure_id,
-          outcome = outcome_id,
-          method = "Inverse variance weighted",
-          nsnp = ivw_mr$nsnp,
-          b = ivw_mr$b,
-          se = ivw_mr$se,
-          pval = ivw_mr$pval,
-          stringsAsFactors = FALSE
+        fit <- TwoSampleMR::mr(harmonised, method_list = "mr_ivw")
+        results_list[["ivw_random"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
+          nsnp = fit$nsnp,
+          b = fit$b,
+          se = fit$se,
+          pval = fit$pval,
+          ld_corrected = FALSE
         )
       }
-      timing[["mr_ivw"]] <- proc.time()[["elapsed"]] - t0
+      timing[["mr_ivw_random"]] <- proc.time()[["elapsed"]] - t0
     }
 
-    # IVW fixed effects
-    if ("ivw_fe" %in% methods) {
+    # IVW, fixed effects
+    if ("ivw_fixed" %in% methods) {
       t0 <- proc.time()[["elapsed"]]
+      entry <- mr_method_entry("ivw_fixed")
       if (ld_correct) {
-        cli::cli_warn(
-          "{.val 'ivw_fe'} does not support ld_correct; running uncorrected."
+        fit <- MendelianRandomization::mr_ivw(
+          ld_input,
+          correl = TRUE,
+          model = "fixed"
+        )
+        results_list[["ivw_fixed"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
+          nsnp = fit@SNPs,
+          b = fit@Estimate,
+          se = fit@StdError,
+          pval = fit@Pvalue,
+          ld_corrected = TRUE
+        )
+      } else {
+        fit <- TwoSampleMR::mr(harmonised, method_list = "mr_ivw_fe")
+        results_list[["ivw_fixed"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
+          nsnp = fit$nsnp,
+          b = fit$b,
+          se = fit$se,
+          pval = fit$pval,
+          ld_corrected = FALSE
         )
       }
-      ivw_fe_mr <- TwoSampleMR::mr(harmonised, method_list = "mr_ivw_fe")
-      results_list[["IVW (fixed effects)"]] <- data.frame(
-        exposure = exposure_id,
-        outcome = outcome_id,
-        method = "IVW (fixed effects)",
-        nsnp = ivw_fe_mr$nsnp,
-        b = ivw_fe_mr$b,
-        se = ivw_fe_mr$se,
-        pval = ivw_fe_mr$pval,
-        stringsAsFactors = FALSE
-      )
-      timing[["mr_ivw_fe"]] <- proc.time()[["elapsed"]] - t0
+      timing[["mr_ivw_fixed"]] <- proc.time()[["elapsed"]] - t0
     }
 
-    # Egger (requires >= 3 SNPs)
+    # Egger (requires >= 3 SNPs; always multiplicative random effects on
+    # both paths -- mr_egger() has no model argument)
     if ("egger" %in% methods) {
       t0 <- proc.time()[["elapsed"]]
-      if (n_snps < 3) {
-        methods_skipped["egger"] <- "Requires >= 3 instruments"
+      entry <- mr_method_entry("egger")
+      reason <- too_few(entry)
+      if (!is.null(reason)) {
+        methods_skipped["egger"] <- reason
       } else if (ld_correct) {
-        mr_input <- MendelianRandomization::mr_input(
-          bx = harmonised$beta.exposure,
-          bxse = harmonised$se.exposure,
-          by = harmonised$beta.outcome,
-          byse = harmonised$se.outcome,
-          correlation = ld_mat
-        )
-        egger_res <- MendelianRandomization::mr_egger(mr_input, correl = TRUE)
-        results_list[["Egger (LD-corrected)"]] <- data.frame(
-          exposure = exposure_id,
-          outcome = outcome_id,
-          method = "MR Egger (LD-corrected)",
-          nsnp = egger_res@SNPs,
-          b = egger_res@Estimate,
-          se = egger_res@StdError.Est,
-          pval = egger_res@Pvalue.Est,
-          stringsAsFactors = FALSE
+        fit <- MendelianRandomization::mr_egger(ld_input, correl = TRUE)
+        results_list[["egger"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
+          nsnp = fit@SNPs,
+          b = fit@Estimate,
+          se = fit@StdError.Est,
+          pval = fit@Pvalue.Est,
+          ld_corrected = TRUE
         )
       } else {
-        egger_mr <- TwoSampleMR::mr(
-          harmonised,
-          method_list = "mr_egger_regression"
-        )
-        results_list[["Egger"]] <- data.frame(
-          exposure = exposure_id,
-          outcome = outcome_id,
-          method = "MR Egger",
-          nsnp = egger_mr$nsnp,
-          b = egger_mr$b,
-          se = egger_mr$se,
-          pval = egger_mr$pval,
-          stringsAsFactors = FALSE
+        fit <- TwoSampleMR::mr(harmonised, method_list = "mr_egger_regression")
+        results_list[["egger"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
+          nsnp = fit$nsnp,
+          b = fit$b,
+          se = fit$se,
+          pval = fit$pval,
+          ld_corrected = FALSE
         )
       }
       timing[["mr_egger"]] <- proc.time()[["elapsed"]] - t0
     }
 
-    # Weighted median (requires >= 3 SNPs)
+    # Weighted median (requires >= 3 SNPs; no LD-corrected form)
     if ("weighted_median" %in% methods) {
       t0 <- proc.time()[["elapsed"]]
-      if (n_snps < 3) {
-        methods_skipped["weighted_median"] <- "Requires >= 3 instruments"
+      entry <- mr_method_entry("weighted_median")
+      reason <- too_few(entry)
+      if (!is.null(reason)) {
+        methods_skipped["weighted_median"] <- reason
       } else {
-        wm_mr <- TwoSampleMR::mr(harmonised, method_list = "mr_weighted_median")
-        results_list[["Weighted median"]] <- data.frame(
-          exposure = exposure_id,
-          outcome = outcome_id,
-          method = "Weighted median",
-          nsnp = wm_mr$nsnp,
-          b = wm_mr$b,
-          se = wm_mr$se,
-          pval = wm_mr$pval,
-          stringsAsFactors = FALSE
+        if (ld_correct) {
+          warn_no_ld_correction("weighted_median")
+        }
+        fit <- TwoSampleMR::mr(harmonised, method_list = "mr_weighted_median")
+        results_list[["weighted_median"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
+          nsnp = fit$nsnp,
+          b = fit$b,
+          se = fit$se,
+          pval = fit$pval,
+          ld_corrected = FALSE
         )
       }
       timing[["mr_weighted_median"]] <- proc.time()[["elapsed"]] - t0
     }
 
-    # MR-PRESSO (requires >= 3 SNPs)
+    # MR-PRESSO (requires >= 3 SNPs; no LD-corrected form)
     if ("presso" %in% methods) {
       t0 <- proc.time()[["elapsed"]]
-      if (n_snps < 3) {
-        methods_skipped["presso"] <- "Requires >= 3 instruments"
+      entry <- mr_method_entry("presso")
+      reason <- too_few(entry)
+      if (!is.null(reason)) {
+        methods_skipped["presso"] <- reason
       } else {
+        if (ld_correct) {
+          warn_no_ld_correction("presso")
+        }
         presso_result <- tryCatch(
           {
             TwoSampleMR::run_mr_presso(
@@ -761,15 +914,15 @@ run_mr <- function(
           presso_main <- presso_result[[1]]$`Main MR results`
           # Use "Raw" estimate (row 1)
           if (!is.null(presso_main) && nrow(presso_main) > 0) {
-            results_list[["PRESSO"]] <- data.frame(
-              exposure = exposure_id,
-              outcome = outcome_id,
-              method = "MR-PRESSO",
+            results_list[["presso"]] <- mr_result_row(
+              entry,
+              exposure_id,
+              outcome_id,
               nsnp = n_snps,
               b = presso_main$`Causal Estimate`[1],
               se = presso_main$Sd[1],
               pval = presso_main$`P-value`[1],
-              stringsAsFactors = FALSE
+              ld_corrected = FALSE
             )
           }
         }
@@ -777,9 +930,13 @@ run_mr <- function(
       timing[["mr_presso"]] <- proc.time()[["elapsed"]] - t0
     }
 
-    # ConMix
+    # ConMix (no LD-corrected form: mr_conmix() takes no correlation matrix)
     if ("conmix" %in% methods) {
       t0 <- proc.time()[["elapsed"]]
+      entry <- mr_method_entry("conmix")
+      if (ld_correct) {
+        warn_no_ld_correction("conmix")
+      }
       conmix_result <- tryCatch(
         {
           mr_input <- MendelianRandomization::mr_input(
@@ -797,36 +954,29 @@ run_mr <- function(
       )
 
       if (!is.null(conmix_result)) {
-        results_list[["ConMix"]] <- data.frame(
-          exposure = exposure_id,
-          outcome = outcome_id,
-          method = "ConMix",
+        results_list[["conmix"]] <- mr_result_row(
+          entry,
+          exposure_id,
+          outcome_id,
           nsnp = n_snps,
           b = conmix_result@Estimate,
           se = NA_real_,
           pval = conmix_result@Pvalue,
-          stringsAsFactors = FALSE
+          ld_corrected = FALSE
         )
       }
       timing[["mr_conmix"]] <- proc.time()[["elapsed"]] - t0
     }
 
-    # Generic TwoSampleMR methods (raw mr_* names not handled by shortcuts)
-    shortcut_names <- c(
-      "ivw",
-      "ivw_fe",
-      "egger",
-      "weighted_median",
-      "presso",
-      "conmix",
-      "steiger",
-      "pleiotropy",
-      "heterogeneity",
-      "loo"
-    )
-    generic_tsm <- methods[!methods %in% shortcut_names]
+    # Raw TwoSampleMR methods (names with no shortcut), under TwoSampleMR's
+    # own label. Never LD-corrected.
+    passthrough <- mr_method_entry(engine = "TwoSampleMR::mr")
+    generic_tsm <- methods[!methods %in% shortcut_methods]
     for (m in generic_tsm) {
       t0 <- proc.time()[["elapsed"]]
+      if (ld_correct) {
+        warn_no_ld_correction(m)
+      }
       generic_res <- tryCatch(
         {
           TwoSampleMR::mr(harmonised, method_list = m)
@@ -838,15 +988,16 @@ run_mr <- function(
         }
       )
       if (!is.null(generic_res) && nrow(generic_res) > 0) {
-        results_list[[m]] <- data.frame(
-          exposure = exposure_id,
-          outcome = outcome_id,
-          method = generic_res$method,
+        results_list[[m]] <- mr_result_row(
+          passthrough,
+          exposure_id,
+          outcome_id,
           nsnp = generic_res$nsnp,
           b = generic_res$b,
           se = generic_res$se,
           pval = generic_res$pval,
-          stringsAsFactors = FALSE
+          ld_corrected = FALSE,
+          label = generic_res$method
         )
       }
       timing[[paste0("mr_generic_", m)]] <- proc.time()[["elapsed"]] - t0
@@ -880,8 +1031,9 @@ run_mr <- function(
   pleiotropy_result <- NULL
   if ("pleiotropy" %in% methods || "egger" %in% methods) {
     t0 <- proc.time()[["elapsed"]]
-    if (n_snps < 3) {
-      methods_skipped["pleiotropy"] <- "Requires >= 3 instruments"
+    reason <- too_few(mr_method_entry("pleiotropy"))
+    if (!is.null(reason)) {
+      methods_skipped["pleiotropy"] <- reason
     } else {
       pleiotropy_result <- tryCatch(
         {
@@ -906,8 +1058,9 @@ run_mr <- function(
   heterogeneity_result <- NULL
   if ("heterogeneity" %in% methods) {
     t0 <- proc.time()[["elapsed"]]
-    if (n_snps < 2) {
-      methods_skipped["heterogeneity"] <- "Requires >= 2 instruments"
+    reason <- too_few(mr_method_entry("heterogeneity"))
+    if (!is.null(reason)) {
+      methods_skipped["heterogeneity"] <- reason
     } else {
       heterogeneity_result <- tryCatch(
         {
@@ -933,8 +1086,9 @@ run_mr <- function(
   loo_result <- NULL
   if ("loo" %in% methods) {
     t0 <- proc.time()[["elapsed"]]
-    if (n_snps < 3) {
-      methods_skipped["loo"] <- "Requires >= 3 instruments"
+    reason <- too_few(mr_method_entry("loo"))
+    if (!is.null(reason)) {
+      methods_skipped["loo"] <- reason
     } else {
       loo_result <- tryCatch(
         {
@@ -958,17 +1112,7 @@ run_mr <- function(
   # --- Assemble results -----------------------------------------------------
 
   if (length(results_list) == 0) {
-    results_df <- data.frame(
-      exposure = character(),
-      outcome = character(),
-      method = character(),
-      nsnp = integer(),
-      b = numeric(),
-      se = numeric(),
-      pval = numeric(),
-      stringsAsFactors = FALSE
-    )
-    results_df <- TwoSampleMR::generate_odds_ratios(results_df)
+    results_df <- TwoSampleMR::generate_odds_ratios(empty_mr_results())
   } else {
     results_df <- do.call(rbind, results_list)
     rownames(results_df) <- NULL

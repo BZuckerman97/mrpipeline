@@ -61,7 +61,7 @@ run_mr_batch <- function(exposure, outcome, outcome_id, bfile, cfg) {
         pval_thresh = cfg$mr_pval_thresh,
         rsq_thresh = cfg$mr_rsq_thresh,
         window = cfg$mr_window,
-        methods = cfg$mr_methods,
+        methods = cfg$mr_method_shortcuts,
         exclude_regions = cfg$mhc_region
       ),
       error = function(e) {
@@ -85,6 +85,8 @@ summarise_mr_list <- function(mr_list) {
       return(data.frame(
         exposure_id = pheno,
         method = NA_character_,
+        model = NA_character_,
+        ld_corrected = NA,
         b = NA_real_,
         se = NA_real_,
         pval = NA_real_,
@@ -97,6 +99,8 @@ summarise_mr_list <- function(mr_list) {
     data.frame(
       exposure_id = pheno,
       method = r$method,
+      model = r$model,
+      ld_corrected = r$ld_corrected,
       b = r$b,
       se = r$se,
       pval = r$pval,

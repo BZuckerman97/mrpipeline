@@ -19,7 +19,7 @@ run_mr(
   instruments = NULL,
   instruments_strict = FALSE,
   exclude_regions = NULL,
-  methods = c("ivw", "egger", "weighted_median", "presso", "conmix", "steiger"),
+  methods = c("ivw_random", "egger", "weighted_median", "presso", "conmix", "steiger"),
   ld_correct = FALSE,
   exposure_n = NULL,
   presso_n_dist = 1000,
@@ -72,22 +72,18 @@ are missing from exposure data. If \code{FALSE}, warn. Default \code{FALSE}.}
 genomic regions to exclude instruments from, or \code{NULL}. For example, to
 exclude the MHC region: \code{data.frame(chr = "6", start = 26e6, end = 34e6)}.}
 
-\item{methods}{Character vector of MR methods to run. Named shortcuts:
-\code{"ivw"} (IVW random effects), \code{"ivw_fe"} (IVW fixed effects),
-\code{"egger"} (MR Egger), \code{"weighted_median"} (weighted median),
-\code{"presso"} (MR-PRESSO), \code{"conmix"} (ContMix), \code{"steiger"} (Steiger
-filtering), \code{"pleiotropy"} (Egger intercept test; result stored in
-\verb{$pleiotropy}, not \verb{$results}), \code{"heterogeneity"} (Cochran's Q test via
-\code{\link[TwoSampleMR:mr_heterogeneity]{TwoSampleMR::mr_heterogeneity()}}; result stored in \verb{$heterogeneity},
-not \verb{$results}; requires >= 2 instruments), \code{"loo"} (leave-one-out
-analysis via \code{\link[TwoSampleMR:mr_leaveoneout]{TwoSampleMR::mr_leaveoneout()}}; result stored in \verb{$loo},
-not \verb{$results}; requires >= 3 instruments). You may also pass any
-method name from \code{TwoSampleMR::mr_method_list()$obj} directly (e.g.
-\code{"mr_simple_median"}, \code{"mr_raps"}). Note: \code{"ivw_fe"} does not support
-\code{ld_correct = TRUE}.}
+\item{methods}{Character vector of methods to run. Named shortcuts (see
+\code{\link[=mr_methods]{mr_methods()}} and the \emph{Available methods} section): \code{"ivw_random"},
+\code{"ivw_fixed"}, \code{"egger"}, \code{"weighted_median"}, \code{"presso"}, \code{"conmix"},
+\code{"steiger"}, \code{"pleiotropy"}, \code{"heterogeneity"}, \code{"loo"}. You may also
+pass any raw method name from \code{TwoSampleMR::mr_method_list()$obj} that
+has no shortcut (e.g. \code{"mr_raps"}, \code{"mr_weighted_mode"}); raw names are
+never LD-corrected. The former shortcuts \code{"ivw"} and \code{"ivw_fe"} are
+accepted with a warning and mapped to \code{"ivw_random"} and \code{"ivw_fixed"}.}
 
-\item{ld_correct}{Logical. Use LD-corrected IVW/Egger via the
-\code{MendelianRandomization} package. Requires \code{bfile}. Default \code{FALSE}.}
+\item{ld_correct}{Logical. Fit \code{ivw_random}, \code{ivw_fixed} and \code{egger} by
+GLS with the instruments' LD matrix (see the \emph{LD correction} section).
+Requires \code{bfile}. Default \code{FALSE}.}
 
 \item{exposure_n}{Numeric. Exposure sample size. If \code{NULL}, inferred from
 \code{samplesize.exposure} column.}
@@ -134,10 +130,13 @@ Default \code{TRUE}.}
 }
 \value{
 An \code{mr_result} object. Check \code{result$status} for \code{"success"} vs
-failure reasons. The \verb{$results} data frame includes \code{or}, \code{or_lci95}, and
-\code{or_uci95} columns (from \code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}) alongside
-the raw \code{b} and \code{se}. The \verb{$timing} field contains a named numeric
-vector of elapsed seconds for each major step.
+failure reasons. Each \verb{$results} row states the estimator that produced
+it: \code{method} (the label), \code{model} (\code{"random"}, \code{"fixed"}, or \code{NA} where
+the distinction does not apply) and \code{ld_corrected} (whether the LD
+matrix was used for that fit), alongside \code{nsnp}, \code{b}, \code{se}, \code{pval} and
+the \code{or}, \code{or_lci95}, \code{or_uci95} columns from
+\code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}. The \verb{$timing} field contains a
+named numeric vector of elapsed seconds for each major step.
 }
 \description{
 Runs MR with automatic instrument selection (cis-MR, genome-wide, or manual)
@@ -160,26 +159,85 @@ applies \code{pval_thresh}, then LD-clumps.
 
 \section{Method dispatch}{
 
-Methods are dispatched based on the number of instruments after clumping:
+Every method is looked up in the package's method registry -- see
+\code{\link[=mr_methods]{mr_methods()}} and the \emph{Available methods} section below for what each
+shortcut runs, whether it can be LD-corrected, and how many instruments
+it needs. Dispatch depends on the number of instruments after clumping:
 \itemize{
-\item 1 SNP: Wald ratio only; all other methods skipped
-\item 2+ SNPs: IVW, IVW-FE, ConMix, Steiger, and any raw TwoSampleMR methods
-are attempted; Egger, weighted median, and PRESSO require >= 3 SNPs
-\item 3+ SNPs: all methods in \code{methods} are attempted
+\item 1 SNP: Wald ratio only; every multi-SNP method is skipped
+\item 2+ SNPs: \code{ivw_random}, \code{ivw_fixed}, \code{conmix}, \code{heterogeneity} and any
+raw TwoSampleMR method are attempted; \code{egger}, \code{weighted_median},
+\code{presso}, \code{pleiotropy} and \code{loo} require >= 3 SNPs
 }
 
-Generic TwoSampleMR methods (raw \verb{mr_*} names) are dispatched via
-\code{TwoSampleMR::mr()} and errors are caught and reported as skipped.
+Raw TwoSampleMR methods (\verb{mr_*} names from
+\code{TwoSampleMR::mr_method_list()$obj} that have no shortcut, e.g.
+\code{"mr_raps"}) are dispatched via \code{TwoSampleMR::mr()} under TwoSampleMR's
+own label; errors are caught and reported in \verb{$methods_skipped}. Names
+that are the engine behind a shortcut (\code{mr_ivw}, \code{mr_ivw_fe},
+\code{mr_egger_regression}, \code{mr_weighted_median}) are refused with a pointer
+to the shortcut, so the same estimator cannot enter unlabelled and
+uncorrected.
 
-When \code{ld_correct = TRUE}, IVW and Egger use
-\code{MendelianRandomization::mr_ivw()} and \code{MendelianRandomization::mr_egger()}
-with \code{correl = TRUE}.
+ConMix reports \code{se = NA}: \code{MendelianRandomization::mr_conmix()} returns a
+confidence interval that may be asymmetric or multi-modal rather than a
+standard error, so the \code{or_lci95}/\code{or_uci95} columns are \code{NA} for it too.
 
 When \code{"egger"} is in \code{methods} and there are >= 3 instruments,
 \code{TwoSampleMR::mr_pleiotropy_test()} (the Egger intercept test) is always
 run automatically and its result stored in \verb{$pleiotropy}. You do not need
 to add \code{"pleiotropy"} to \code{methods} separately. The \code{"pleiotropy"} shortcut
 remains available for running the intercept test without Egger.
+}
+
+\section{LD correction}{
+
+\code{ld_correct = TRUE} computes a signed LD matrix for the instruments from
+\code{bfile} and re-orients it to the exposure's effect alleles. Instruments
+absent from the reference panel, or with ambiguous palindromic alleles,
+are dropped at that step, so an LD-corrected run can have fewer
+instruments than the same call uncorrected.
+
+Methods with a correlated form -- \code{ivw_random}, \code{ivw_fixed} and \code{egger}
+-- are then fitted by generalised least squares through
+\code{MendelianRandomization} with \code{correl = TRUE}: the weight matrix is
+\code{diag(se_y) \%*\% R \%*\% diag(se_y)} in place of \code{diag(se_y^2)}, so two
+instruments in LD are no longer counted as two independent looks at the
+causal effect. The IVW estimator is pinned explicitly (\code{model = "random"}
+for \code{ivw_random}, \code{"fixed"} for \code{ivw_fixed}) so that each shortcut means
+the same thing at every instrument count; \code{MendelianRandomization}'s own
+default would switch to fixed effects below 4 instruments.
+
+Every other method has no correlated form and runs on the uncorrected
+data: a warning names each such method, and its \verb{$results} row carries
+\code{ld_corrected = FALSE}. \code{ld_correct} is never silently ignored -- it is
+either applied, or visibly not applied. To compare corrected and
+uncorrected estimates, call \code{run_mr()} twice and pass both results to
+\code{\link[=forest_plot]{forest_plot()}} as a named list: one \code{mr_result} is always one instrument
+set under one weight matrix.
+
+Random effects are multiplicative: the standard error is inflated by
+\code{max(RSE, 1)}, never deflated, so when the instruments are under-dispersed
+the random- and fixed-effect results coincide exactly.
+}
+
+\section{Available methods}{
+
+Rendered from \code{\link[=mr_methods]{mr_methods()}}. \code{label} is the \code{method} value written to
+\verb{$results}; \code{model} the effects model; \code{LD} whether \code{ld_correct = TRUE}
+applies; \verb{min n} the minimum number of instruments.\tabular{lllllll}{
+   shortcut \tab description \tab label \tab output \tab model \tab LD \tab min n \cr
+   \code{ivw_random} \tab IVW, multiplicative random effects \tab IVW (random effects) \tab \verb{$results} \tab random \tab yes \tab 2 \cr
+   \code{ivw_fixed} \tab IVW, fixed effects \tab IVW (fixed effects) \tab \verb{$results} \tab fixed \tab yes \tab 2 \cr
+   \code{egger} \tab MR Egger regression \tab MR Egger \tab \verb{$results} \tab random \tab yes \tab 3 \cr
+   \code{weighted_median} \tab Weighted median \tab Weighted median \tab \verb{$results} \tab -- \tab no \tab 3 \cr
+   \code{presso} \tab MR-PRESSO outlier test \tab MR-PRESSO \tab \verb{$results} \tab -- \tab no \tab 3 \cr
+   \code{conmix} \tab Contamination mixture \tab ConMix \tab \verb{$results} \tab -- \tab no \tab 2 \cr
+   \code{steiger} \tab Steiger directionality test \tab -- \tab \verb{$steiger} \tab -- \tab no \tab 1 \cr
+   \code{pleiotropy} \tab Egger intercept (pleiotropy) test \tab -- \tab \verb{$pleiotropy} \tab -- \tab no \tab 3 \cr
+   \code{heterogeneity} \tab Cochran's Q heterogeneity test \tab -- \tab \verb{$heterogeneity} \tab -- \tab no \tab 2 \cr
+   \code{loo} \tab Leave-one-out IVW \tab -- \tab \verb{$loo} \tab -- \tab no \tab 3 \cr
+}
 }
 
 \examples{
@@ -193,10 +251,28 @@ result <- run_mr(
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   bfile = bfile,
-  methods = c("ivw", "egger", "weighted_median")
+  methods = c("ivw_random", "egger", "weighted_median")
 )
 result
 summary(result)
+
+# LD-corrected: both IVW estimators by GLS; weighted median warns and
+# runs uncorrected. Compare arms by passing both results to forest_plot().
+corrected <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile,
+  ld_correct = TRUE,
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+)
+corrected$results[, c("method", "model", "ld_corrected", "b", "se")]
+forest_plot(list("Uncorrected" = result, "LD-corrected" = corrected))
 }
 
+}
+\seealso{
+\code{\link[=mr_methods]{mr_methods()}} for the table of methods and what each supports.
 }
