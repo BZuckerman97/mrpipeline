@@ -498,6 +498,34 @@ the default value for `plink_threads` and `plink_memory` in
 and
 [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md).
 
+### `fread_file()`, `check_gz_support()`
+
+Every user-supplied file path in the package is read via
+[`fread_file()`](https://github.com/BZuckerman97/mrpipeline/reference/fread_file.md),
+a thin wrapper around
+[`data.table::fread()`](https://rdrr.io/pkg/data.table/man/fread.html)
+that first calls
+[`check_gz_support()`](https://github.com/BZuckerman97/mrpipeline/reference/check_gz_support.md).
+
+GWAS summary statistics are distributed gzipped as a matter of course,
+but `data.table` lists `R.utils` – the package `fread()` needs to
+decompress `.gz`/`.bz2` – only in `Suggests`. That made a documented
+capability depend on an undeclared package: a downstream project hit
+`"To read gz files directly, fread() requires 'R.utils'"` on a clean
+machine because nothing in the dependency chain pulled it in (issue
+\#20). `R.utils` is therefore in `mrpipeline`’s **`Imports`**, which
+also means `renv` captures it in every downstream lockfile
+automatically. Do not move it back to `Suggests`.
+
+[`check_gz_support()`](https://github.com/BZuckerman97/mrpipeline/reference/check_gz_support.md)
+is the backstop for a broken library rather than an expected failure
+mode: it aborts with an actionable `cli` message at the top of the call
+stack instead of deep inside `fread()`, which matters for a pipeline
+that may already have spent minutes on earlier targets. Its `has_rutils`
+argument (`NULL` by default, meaning “look it up with
+[`requireNamespace()`](https://rdrr.io/r/base/ns-load.html), but only
+for a compressed path”) exists so tests can exercise the failure branch.
+
 ### `eaf_to_maf()`, `resolve_sample_size()`
 
 ## Code Conventions

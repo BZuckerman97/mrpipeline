@@ -733,6 +733,35 @@ as the default value for <code>plink_threads</code> and
 <code><a href="../reference/run_coloc.html">run_coloc()</a></code>.</p>
 </div>
 <div class="section level3">
+<h3 id="fread_file-check_gz_support">
+<code>fread_file()</code>, <code>check_gz_support()</code><a class="anchor" aria-label="anchor" href="#fread_file-check_gz_support"></a>
+</h3>
+<p>Every user-supplied file path in the package is read via
+<code><a href="../reference/fread_file.html">fread_file()</a></code>, a thin wrapper around
+<code><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">data.table::fread()</a></code> that first calls
+<code><a href="../reference/check_gz_support.html">check_gz_support()</a></code>.</p>
+<p>GWAS summary statistics are distributed gzipped as a matter of
+course, but <code>data.table</code> lists <code>R.utils</code> – the
+package <code>fread()</code> needs to decompress
+<code>.gz</code>/<code>.bz2</code> – only in <code>Suggests</code>. That
+made a documented capability depend on an undeclared package: a
+downstream project hit
+<code>"To read gz files directly, fread() requires 'R.utils'"</code> on
+a clean machine because nothing in the dependency chain pulled it in
+(issue #20). <code>R.utils</code> is therefore in
+<code>mrpipeline</code>’s <strong><code>Imports</code></strong>, which
+also means <code>renv</code> captures it in every downstream lockfile
+automatically. Do not move it back to <code>Suggests</code>.</p>
+<p><code><a href="../reference/check_gz_support.html">check_gz_support()</a></code> is the backstop for a broken library
+rather than an expected failure mode: it aborts with an actionable
+<code>cli</code> message at the top of the call stack instead of deep
+inside <code>fread()</code>, which matters for a pipeline that may
+already have spent minutes on earlier targets. Its
+<code>has_rutils</code> argument (<code>NULL</code> by default, meaning
+“look it up with <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>, but only for a
+compressed path”) exists so tests can exercise the failure branch.</p>
+</div>
+<div class="section level3">
 <h3 id="eaf_to_maf-resolve_sample_size">
 <code>eaf_to_maf()</code>, <code>resolve_sample_size()</code><a class="anchor" aria-label="anchor" href="#eaf_to_maf-resolve_sample_size"></a>
 </h3>
