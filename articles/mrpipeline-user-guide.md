@@ -302,6 +302,49 @@ Once confirmed that way, `allele_check = "none"` silences the warning
 for that pair – and, being recorded in `result$params$allele_check`, the
 decision stays reviewable.
 
+### Choosing how palindromes are harmonised
+
+`harmonise_action` (on both
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+and
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md))
+sets the `action` level
+[`TwoSampleMR::harmonise_data()`](https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html)
+uses:
+
+| `harmonise_action` | Behaviour |
+|----|----|
+| 1 | Assume all alleles are on the forward strand: no frequency-based flip |
+| 2 (default) | Infer the positive strand, resolving palindromes from allele frequencies |
+| 3 | As 2, but drop every palindromic, ambiguous or incompatible SNP |
+
+Only palindrome handling differs – non-palindromic variants are aligned
+by allele letter at every level, so the orientation check’s verdict is
+the same whichever you pick.
+
+Reach for `3` when the frequencies level `2` relies on cannot be
+trusted. That is exactly the situation after a failed orientation check:
+a swapped effect allele and a swapped frequency cancel for a palindromic
+SNP, so its strand call is unreliable even where the beta looks
+unchanged. It also covers the case above, where no frequencies are
+available at all – level `2` has nothing to resolve palindromes with, so
+dropping them is the honest choice:
+
+``` r
+
+result <- run_mr(
+  exposure, "RPS", outcome, "Malignant melanoma",
+  instruments = ivs,
+  harmonise_action = 3,   # drop palindromic SNPs rather than guess their strand
+  allele_check = "none"   # orientation confirmed by anchor variant instead
+)
+result$params$harmonise_action
+```
+
+The cost is instruments: dropping palindromes can remove a meaningful
+share of a small cis-MR’s SNPs, so check `result$results$nsnp`
+afterwards.
+
 ## Running MR Analyses
 
 ### Cis-MR (quick start with API clumping)

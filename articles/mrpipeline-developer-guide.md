@@ -422,6 +422,33 @@ passes `check = FALSE` because it has already checked a larger set via
 [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
 keeps the default because its window is already large.
 
+`action` (exposed as `harmonise_action` on both entry points, validated
+by
+[`validate_harmonise_action()`](https://github.com/BZuckerman97/mrpipeline/reference/validate_harmonise_action.md)
+and recorded in `params`) passes straight through to `harmonise_data()`.
+Only palindrome handling differs between the three levels – `1` skips
+the frequency-based flip entirely, `2` applies it, `3` sets
+`mr_keep = FALSE` for every palindromic, ambiguous or incompatible SNP
+so
+[`harmonise_and_filter()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonise_and_filter.md)’s
+existing `mr_keep` filter drops them. The letter-based alignment of
+non-palindromic variants happens at all three levels, which is why
+[`check_allele_orientation()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.md)’s
+verdict does not depend on `action` (there is a test asserting the
+swapped-allele fixture still fails at 1, 2 and 3).
+[`check_allele_orientation_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.md)
+takes the same `action` so the check describes the harmonisation the
+analysis will actually use.
+
+[`validate_harmonise_action()`](https://github.com/BZuckerman97/mrpipeline/reference/validate_harmonise_action.md)
+deliberately does *not* coerce to integer. `harmonise_data()` embeds
+`action` as a column in its output, so `2` -\> `2L` would leave
+mrpipeline’s harmonised frame differing from a plain `harmonise_data()`
+call by that column’s storage mode alone – which a test asserts against.
+It does reject vectors: TwoSampleMR accepts one action per outcome, but
+both entry points handle exactly one outcome, so a vector is a mistake
+rather than a recycling opportunity.
+
 ### `check_allele_orientation()`
 
 The verdict behind `allele_check` (GitHub issue \#18). Some GWAS files

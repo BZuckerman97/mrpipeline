@@ -76,6 +76,7 @@ untouched, and effectively random with respect to genomic position.</p>
 <span>  <span class="va">instrument_snps</span>,</span>
 <span>  allele_check <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"warn"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  n_sample <span class="op">=</span> <span class="fl">1000L</span>,</span>
+<span>  action <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  call <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/stack.html" class="external-link">caller_env</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -107,6 +108,14 @@ include in the check set.</p></dd>
 <dt id="arg-n-sample">n_sample<a class="anchor" aria-label="anchor" href="#arg-n-sample"></a></dt>
 <dd><p>Integer. Maximum number of non-instrument shared SNPs to
 add. Default <code>1000L</code>.</p></dd>
+
+
+<dt id="arg-action">action<a class="anchor" aria-label="anchor" href="#arg-action"></a></dt>
+<dd><p><code>1</code>, <code>2</code> (default) or <code>3</code>. Passed to
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html" class="external-link">TwoSampleMR::harmonise_data()</a></code>, so that the check describes the same
+harmonisation the analysis will use. The verdict itself is unaffected:
+<code>action</code> gates only the frequency-based second flip applied to
+palindromic variants, which the check excludes anyway.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

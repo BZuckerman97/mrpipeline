@@ -29,6 +29,7 @@ run_mr(
   plink_threads = plink_option("threads"),
   plink_memory = plink_option("memory"),
   allele_check = c("error", "warn", "none"),
+  harmonise_action = 2,
   verbose = TRUE
 )
 ```
@@ -164,6 +165,20 @@ run_mr(
   available afterwards from
   [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
   in every mode.
+
+- harmonise_action:
+
+  `1`, `2` (default) or `3`, passed to
+  [`TwoSampleMR::harmonise_data()`](https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html).
+  `1` assumes every allele is on the forward strand; `2` infers the
+  positive strand, resolving palindromic variants from their allele
+  frequencies; `3` additionally drops every palindromic, ambiguous or
+  incompatible SNP. Only palindrome handling differs – non-palindromic
+  variants are aligned by allele letter at all three levels. Reach for
+  `3` when the frequencies that level `2` relies on cannot be trusted: a
+  failed allele orientation check makes every palindromic strand call in
+  that pair unreliable, and a dataset without allele frequencies gives
+  level `2` nothing to resolve them with.
 
 - verbose:
 

@@ -68,6 +68,7 @@ and optional sensitivity analyses. Returns an <code>mr_result</code> S3 object.<
 <span>  plink_threads <span class="op">=</span> <span class="fu"><a href="plink_option.html">plink_option</a></span><span class="op">(</span><span class="st">"threads"</span><span class="op">)</span>,</span>
 <span>  plink_memory <span class="op">=</span> <span class="fu"><a href="plink_option.html">plink_option</a></span><span class="op">(</span><span class="st">"memory"</span><span class="op">)</span>,</span>
 <span>  allele_check <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"warn"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  harmonise_action <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -202,6 +203,19 @@ datasets, so it works even for a cis-MR with a handful of instruments;
 it is skipped when fewer than 10 informative non-palindromic SNPs carry
 both allele frequencies. The full record is available afterwards from
 <code><a href="last_allele_check.html">last_allele_check()</a></code> in every mode.</p></dd>
+
+
+<dt id="arg-harmonise-action">harmonise_action<a class="anchor" aria-label="anchor" href="#arg-harmonise-action"></a></dt>
+<dd><p><code>1</code>, <code>2</code> (default) or <code>3</code>, passed to
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html" class="external-link">TwoSampleMR::harmonise_data()</a></code>. <code>1</code> assumes every allele is on the
+forward strand; <code>2</code> infers the positive strand, resolving palindromic
+variants from their allele frequencies; <code>3</code> additionally drops every
+palindromic, ambiguous or incompatible SNP. Only palindrome handling
+differs – non-palindromic variants are aligned by allele letter at all
+three levels. Reach for <code>3</code> when the frequencies that level <code>2</code> relies
+on cannot be trusted: a failed allele orientation check makes every
+palindromic strand call in that pair unreliable, and a dataset without
+allele frequencies gives level <code>2</code> nothing to resolve them with.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

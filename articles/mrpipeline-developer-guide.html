@@ -638,6 +638,31 @@ stale. <code><a href="../reference/run_mr.html">run_mr()</a></code> passes <code
 it has already checked a larger set via
 <code><a href="../reference/check_allele_orientation_gwas.html">check_allele_orientation_gwas()</a></code>; <code><a href="../reference/run_coloc.html">run_coloc()</a></code>
 keeps the default because its window is already large.</p>
+<p><code>action</code> (exposed as <code>harmonise_action</code> on both
+entry points, validated by <code><a href="../reference/validate_harmonise_action.html">validate_harmonise_action()</a></code> and
+recorded in <code>params</code>) passes straight through to
+<code>harmonise_data()</code>. Only palindrome handling differs between
+the three levels – <code>1</code> skips the frequency-based flip
+entirely, <code>2</code> applies it, <code>3</code> sets
+<code>mr_keep = FALSE</code> for every palindromic, ambiguous or
+incompatible SNP so <code><a href="../reference/harmonise_and_filter.html">harmonise_and_filter()</a></code>’s existing
+<code>mr_keep</code> filter drops them. The letter-based alignment of
+non-palindromic variants happens at all three levels, which is why
+<code><a href="../reference/check_allele_orientation.html">check_allele_orientation()</a></code>’s verdict does not depend on
+<code>action</code> (there is a test asserting the swapped-allele
+fixture still fails at 1, 2 and 3).
+<code><a href="../reference/check_allele_orientation_gwas.html">check_allele_orientation_gwas()</a></code> takes the same
+<code>action</code> so the check describes the harmonisation the
+analysis will actually use.</p>
+<p><code><a href="../reference/validate_harmonise_action.html">validate_harmonise_action()</a></code> deliberately does
+<em>not</em> coerce to integer. <code>harmonise_data()</code> embeds
+<code>action</code> as a column in its output, so <code>2</code> -&gt;
+<code>2L</code> would leave mrpipeline’s harmonised frame differing from
+a plain <code>harmonise_data()</code> call by that column’s storage mode
+alone – which a test asserts against. It does reject vectors:
+TwoSampleMR accepts one action per outcome, but both entry points handle
+exactly one outcome, so a vector is a mistake rather than a recycling
+opportunity.</p>
 </div>
 <div class="section level3">
 <h3 id="check_allele_orientation">

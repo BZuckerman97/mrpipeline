@@ -56,6 +56,7 @@ occurrence).</p>
 <span>  <span class="va">exposure</span>,</span>
 <span>  <span class="va">outcome</span>,</span>
 <span>  allele_check <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"warn"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  action <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  check <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -76,6 +77,12 @@ occurrence).</p>
 <dt id="arg-allele-check">allele_check<a class="anchor" aria-label="anchor" href="#arg-allele-check"></a></dt>
 <dd><p>One of <code>"error"</code> (default), <code>"warn"</code> or <code>"none"</code>.
 Passed to <code><a href="check_allele_orientation.html">check_allele_orientation()</a></code>.</p></dd>
+
+
+<dt id="arg-action">action<a class="anchor" aria-label="anchor" href="#arg-action"></a></dt>
+<dd><p><code>1</code>, <code>2</code> (default) or <code>3</code>. Passed to
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html" class="external-link">TwoSampleMR::harmonise_data()</a></code>; see <code><a href="validate_harmonise_action.html">validate_harmonise_action()</a></code> for
+what each level does.</p></dd>
 
 
 <dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>

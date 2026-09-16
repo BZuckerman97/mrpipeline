@@ -14,6 +14,7 @@ harmonise_and_filter(
   exposure,
   outcome,
   allele_check = c("error", "warn", "none"),
+  action = 2,
   check = TRUE,
   verbose = FALSE
 )
@@ -33,6 +34,14 @@ harmonise_and_filter(
 
   One of `"error"` (default), `"warn"` or `"none"`. Passed to
   [`check_allele_orientation()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.md).
+
+- action:
+
+  `1`, `2` (default) or `3`. Passed to
+  [`TwoSampleMR::harmonise_data()`](https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html);
+  see
+  [`validate_harmonise_action()`](https://github.com/BZuckerman97/mrpipeline/reference/validate_harmonise_action.md)
+  for what each level does.
 
 - check:
 

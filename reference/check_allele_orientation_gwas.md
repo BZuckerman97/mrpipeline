@@ -23,6 +23,7 @@ check_allele_orientation_gwas(
   instrument_snps,
   allele_check = c("error", "warn", "none"),
   n_sample = 1000L,
+  action = 2,
   verbose = FALSE,
   call = rlang::caller_env()
 )
@@ -57,6 +58,15 @@ check_allele_orientation_gwas(
 
   Integer. Maximum number of non-instrument shared SNPs to add. Default
   `1000L`.
+
+- action:
+
+  `1`, `2` (default) or `3`. Passed to
+  [`TwoSampleMR::harmonise_data()`](https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html),
+  so that the check describes the same harmonisation the analysis will
+  use. The verdict itself is unaffected: `action` gates only the
+  frequency-based second flip applied to palindromic variants, which the
+  check excludes anyway.
 
 - verbose:
 
