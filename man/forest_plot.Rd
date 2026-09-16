@@ -6,9 +6,9 @@
 \usage{
 forest_plot(
   results,
-  methods = c("IVW (fixed effects)", "Inverse variance weighted", "MR Egger",
+  methods = c("IVW (fixed effects)", "IVW (random effects)", "MR Egger",
     "Weighted median"),
-  relabel = c(`Inverse variance weighted` = "IVW (random effects)"),
+  relabel = character(0),
   exponentiate = TRUE,
   xlab = NULL,
   trans = NULL,
@@ -28,12 +28,14 @@ become section labels (e.g. \code{list(Primary = res1, "Positive control" = res2
 regardless of any name given.}
 
 \item{methods}{Character vector of \code{method} values to include, in display
-order. Default puts fixed effects above random effects: \code{c("IVW (fixed effects)", "Inverse variance weighted", "MR Egger", "Weighted median")}.}
+order. Default puts fixed effects above random effects: \code{c("IVW (fixed effects)", "IVW (random effects)", "MR Egger", "Weighted median")}.
+Labels no longer encode LD correction (that lives in the \code{ld_corrected}
+column), so LD-corrected results match the same defaults.}
 
 \item{relabel}{Named character vector, \code{c(old = new)}, applied to the
 \code{method} column for display only, after row filtering/ordering -- so
-matching against \code{results$results$method} is unaffected. Default
-relabels \code{"Inverse variance weighted"} to \code{"IVW (random effects)"}.}
+matching against \code{results$results$method} is unaffected. Empty by
+default.}
 
 \item{exponentiate}{Logical. Plot on the OR scale. Default \code{TRUE}.}
 
@@ -78,7 +80,7 @@ result <- run_mr(
   outcome = sjogren_outcome, outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   bfile = bfile,
-  methods = c("ivw", "ivw_fe", "egger", "weighted_median")
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
 )
 
 # Single result: one row per method
@@ -90,6 +92,16 @@ forest_plot(list(
   "Positive control" = positive_control_result,
   "Negative control" = negative_control_result
 ))
+
+# Uncorrected vs LD-corrected arms of the same analysis
+corrected <- run_mr(
+  exposure = cd40_exposure, exposure_id = "CD40",
+  outcome = sjogren_outcome, outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  bfile = bfile, ld_correct = TRUE,
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+)
+forest_plot(list("Uncorrected" = result, "LD-corrected" = corrected))
 }
 
 }

@@ -206,7 +206,7 @@ test_that("forest_plot on a single result returns a plot with default methods", 
       outcome = "SjD",
       method = c(
         "IVW (fixed effects)",
-        "Inverse variance weighted",
+        "IVW (random effects)",
         "MR Egger",
         "Weighted median"
       ),
@@ -227,7 +227,7 @@ test_that("forest_plot sections a named list of results", {
     results = data.frame(
       exposure = "CD40",
       outcome = "SjD",
-      method = "Inverse variance weighted",
+      method = "IVW (random effects)",
       nsnp = 10,
       b = 0.1,
       se = 0.03,
@@ -239,7 +239,7 @@ test_that("forest_plot sections a named list of results", {
     results = data.frame(
       exposure = "CD40",
       outcome = "Control",
-      method = "Inverse variance weighted",
+      method = "IVW (random effects)",
       nsnp = 10,
       b = 0.02,
       se = 0.05,
@@ -257,7 +257,7 @@ test_that("forest_plot errors on an unnamed list of length > 1", {
     results = data.frame(
       exposure = "CD40",
       outcome = "SjD",
-      method = "Inverse variance weighted",
+      method = "IVW (random effects)",
       nsnp = 10,
       b = 0.1,
       se = 0.03,
@@ -284,7 +284,7 @@ test_that("forest_plot's relabel argument does not break method matching", {
     results = data.frame(
       exposure = "CD40",
       outcome = "SjD",
-      method = c("IVW (fixed effects)", "Inverse variance weighted"),
+      method = c("IVW (fixed effects)", "IVW (random effects)"),
       nsnp = 10,
       b = c(0.1, 0.12),
       se = c(0.03, 0.04),
@@ -293,14 +293,15 @@ test_that("forest_plot's relabel argument does not break method matching", {
     status = "success"
   )
 
-  # Default relabel (IVW -> "IVW (random effects)") still matches both rows.
+  # relabel is applied after matching, so both rows still match.
   p <- forest_plot(
     res,
-    methods = c("IVW (fixed effects)", "Inverse variance weighted")
+    methods = c("IVW (fixed effects)", "IVW (random effects)"),
+    relabel = c("IVW (random effects)" = "Random")
   )
   expect_s3_class(p, "ggplot")
 
-  # Relabelling disabled should also still work (no-op).
+  # Relabelling disabled (the default) should also still work.
   p_raw <- forest_plot(res, relabel = character(0))
   expect_s3_class(p_raw, "ggplot")
 })
@@ -317,10 +318,10 @@ outcome_forest_plot_fixture <- data.frame(
   ),
   outcome = c("Melanoma", "Cataract", "Melanoma", "Cataract", "Cataract"),
   method = c(
-    "Inverse variance weighted",
-    "Inverse variance weighted",
-    "Inverse variance weighted",
-    "Inverse variance weighted",
+    "IVW (random effects)",
+    "IVW (random effects)",
+    "IVW (random effects)",
+    "IVW (random effects)",
     "IVW (fixed effects)"
   ),
   or = c(1.4, 0.9, 1.3, 0.95, 0.95),
@@ -349,7 +350,7 @@ test_that("outcome_forest_plot with one method includes only matching rows", {
   p <- outcome_forest_plot(
     outcome_forest_plot_fixture,
     xlab = "OR (95% CI)",
-    method = "Inverse variance weighted"
+    method = "IVW (random effects)"
   )
   expect_s3_class(p, "ggplot")
   # The extra "IVW (fixed effects)" row for Cataract (RPS_functional) is
@@ -361,7 +362,7 @@ test_that("outcome_forest_plot with both methods keeps rows unique to one model"
   p <- outcome_forest_plot(
     outcome_forest_plot_fixture,
     xlab = "OR (95% CI)",
-    method = c("Inverse variance weighted", "IVW (fixed effects)")
+    method = c("IVW (random effects)", "IVW (fixed effects)")
   )
   # All 5 rows survive -- Cataract (RPS_functional) now has two.
   expect_equal(nrow(p$data), 5)

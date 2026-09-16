@@ -23,7 +23,7 @@
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
 #'   bfile = bfile,
-#'   methods = c("ivw", "egger", "weighted_median", "loo")
+#'   methods = c("ivw_random", "egger", "weighted_median", "loo")
 #' )
 #' plot(result, type = "scatter")
 #' plot(result, type = "forest")
@@ -339,12 +339,13 @@ plot_coloc_locuszoom <- function(
 #'   regardless of any name given.
 #' @param methods Character vector of `method` values to include, in display
 #'   order. Default puts fixed effects above random effects: `c("IVW (fixed
-#'   effects)", "Inverse variance weighted", "MR Egger", "Weighted
-#'   median")`.
+#'   effects)", "IVW (random effects)", "MR Egger", "Weighted median")`.
+#'   Labels no longer encode LD correction (that lives in the `ld_corrected`
+#'   column), so LD-corrected results match the same defaults.
 #' @param relabel Named character vector, `c(old = new)`, applied to the
 #'   `method` column for display only, after row filtering/ordering -- so
-#'   matching against `results$results$method` is unaffected. Default
-#'   relabels `"Inverse variance weighted"` to `"IVW (random effects)"`.
+#'   matching against `results$results$method` is unaffected. Empty by
+#'   default.
 #' @param exponentiate Logical. Plot on the OR scale. Default `TRUE`.
 #' @param xlab X-axis label. Defaults to `"OR (95% CI)"` if `exponentiate`,
 #'   else `"Effect (95% CI)"`.
@@ -373,7 +374,7 @@ plot_coloc_locuszoom <- function(
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
 #'   bfile = bfile,
-#'   methods = c("ivw", "ivw_fe", "egger", "weighted_median")
+#'   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
 #' )
 #'
 #' # Single result: one row per method
@@ -385,6 +386,16 @@ plot_coloc_locuszoom <- function(
 #'   "Positive control" = positive_control_result,
 #'   "Negative control" = negative_control_result
 #' ))
+#'
+#' # Uncorrected vs LD-corrected arms of the same analysis
+#' corrected <- run_mr(
+#'   exposure = cd40_exposure, exposure_id = "CD40",
+#'   outcome = sjogren_outcome, outcome_id = "SjD",
+#'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   bfile = bfile, ld_correct = TRUE,
+#'   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+#' )
+#' forest_plot(list("Uncorrected" = result, "LD-corrected" = corrected))
 #' }
 #'
 #' @export
@@ -392,11 +403,11 @@ forest_plot <- function(
   results,
   methods = c(
     "IVW (fixed effects)",
-    "Inverse variance weighted",
+    "IVW (random effects)",
     "MR Egger",
     "Weighted median"
   ),
-  relabel = c("Inverse variance weighted" = "IVW (random effects)"),
+  relabel = character(0),
   exponentiate = TRUE,
   xlab = NULL,
   trans = NULL,
@@ -492,7 +503,7 @@ forest_plot <- function(
 #'   (and any grouping columns) with `dplyr::mutate()`. See examples.
 #' @param xlab X-axis label.
 #' @param method Character vector of `method` values to include. Default
-#'   `c("Inverse variance weighted", "IVW (fixed effects)")` includes both
+#'   `c("IVW (random effects)", "IVW (fixed effects)")` includes both
 #'   wherever computed. Outcomes lacking a requested method simply
 #'   contribute no row for it -- there is no silent substitution.
 #' @param relabel Named character vector, `c(old = new)`, applied to the
@@ -545,7 +556,7 @@ forest_plot <- function(
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
 #'   bfile = bfile,
-#'   methods = c("ivw", "ivw_fe")
+#'   methods = c("ivw_random", "ivw_fixed")
 #' )
 #'
 #' mr_res <- dplyr::bind_rows(
@@ -583,9 +594,9 @@ forest_plot <- function(
 outcome_forest_plot <- function(
   mr_res,
   xlab,
-  method = c("Inverse variance weighted", "IVW (fixed effects)"),
+  method = c("IVW (random effects)", "IVW (fixed effects)"),
   relabel = c(
-    "Inverse variance weighted" = "Random effects",
+    "IVW (random effects)" = "Random effects",
     "IVW (fixed effects)" = "Fixed effects"
   ),
   colour_by = NULL,
