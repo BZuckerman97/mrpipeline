@@ -215,7 +215,10 @@ test_that("allele check is skipped below 10 informative SNPs", {
   # Drop one non-palindromic SNP: 9 informative + 2 palindromic
   keep <- f$exposure$SNP != "rs10"
 
-  expect_no_condition(res <- hf(f$exposure[keep, ], f$bug[keep, ]))
+  expect_warning(
+    res <- hf(f$exposure[keep, ], f$bug[keep, ]),
+    class = "mrpipeline_allele_check_unverified"
+  )
   expect_equal(nrow(res), 11L)
 
   rec <- last_allele_check()
@@ -224,10 +227,9 @@ test_that("allele check is skipped below 10 informative SNPs", {
   expect_equal(rec$n_complementary, 9L)
 })
 
-test_that("verbose = TRUE reports pass and skipped verdicts", {
+test_that("verbose = TRUE reports a passing verdict", {
   skip_if_not_installed("TwoSampleMR")
   f <- make_allele_fixture()
-  keep <- f$exposure$SNP != "rs10"
 
   # Silence only TwoSampleMR's base-R messages so cli's verdict gets through
   quiet_tsm <- function(expr) suppressMessages(expr, classes = "simpleMessage")
@@ -235,13 +237,58 @@ test_that("verbose = TRUE reports pass and skipped verdicts", {
     quiet_tsm(harmonise_and_filter(f$exposure, f$ok, verbose = TRUE)),
     "check passed"
   )
-  expect_message(
-    quiet_tsm(harmonise_and_filter(
+})
+
+test_that("an unreachable verdict warns regardless of verbose", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+  keep <- f$exposure$SNP != "rs10"
+
+  # The whole point of issue #21: a skip must not read as a pass in a log,
+  # so it surfaces at warning level even with verbose = FALSE.
+  for (v in c(FALSE, TRUE)) {
+    expect_warning(
+      suppressMessages(harmonise_and_filter(
+        f$exposure[keep, ],
+        f$ok[keep, ],
+        verbose = v
+      )),
+      "could not be checked"
+    )
+  }
+})
+
+test_that("allele_check = 'none' silences the unverified warning", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_fixture()
+  keep <- f$exposure$SNP != "rs10"
+
+  expect_no_warning(
+    suppressMessages(harmonise_and_filter(
       f$exposure[keep, ],
       f$ok[keep, ],
-      verbose = TRUE
-    )),
-    "check skipped"
+      allele_check = "none"
+    ))
+  )
+  expect_equal(last_allele_check()$status, "skipped")
+})
+
+test_that("the unverified warning names the exposure/outcome pair", {
+  harmonised <- data.frame(
+    SNP = paste0("rs", 1:3),
+    eaf.exposure = 0.2,
+    eaf.outcome = 0.8,
+    effect_allele.exposure = "A",
+    other_allele.exposure = "G",
+    palindromic = FALSE,
+    remove = FALSE,
+    exposure = "RPS",
+    outcome = "Malignant melanoma",
+    stringsAsFactors = FALSE
+  )
+  expect_warning(
+    check_allele_orientation(harmonised),
+    "RPS.*Malignant melanoma"
   )
 })
 
@@ -264,7 +311,10 @@ test_that("allele check is skipped when allele frequencies are all missing", {
   f$exposure$eaf.exposure <- NA_real_
   f$bug$eaf.outcome <- NA_real_
 
-  expect_no_condition(res <- hf(f$exposure, f$bug))
+  expect_warning(
+    res <- hf(f$exposure, f$bug),
+    class = "mrpipeline_allele_check_unverified"
+  )
   expect_equal(nrow(res), 10L) # palindromic SNPs dropped without EAF
 
   rec <- last_allele_check()
@@ -300,10 +350,16 @@ test_that("check_allele_orientation handles hand-built frames directly", {
   expect_false(rec$variants$complementary[rec$variants$SNP == "rs11"])
   expect_true(is.na(rec$variants$complementary[rec$variants$SNP == "rs12"]))
 
-  # Missing columns -> skipped, never an error
-  expect_no_condition(check_allele_orientation(data.frame(SNP = "rs1")))
+  # Missing columns -> skipped with a warning, never an error
+  expect_warning(
+    check_allele_orientation(data.frame(SNP = "rs1")),
+    class = "mrpipeline_allele_check_unverified"
+  )
   expect_equal(last_allele_check()$status, "skipped")
-  expect_no_condition(check_allele_orientation(data.frame()))
+  expect_warning(
+    check_allele_orientation(data.frame()),
+    class = "mrpipeline_allele_check_unverified"
+  )
   expect_equal(last_allele_check()$status, "skipped")
 
   # Invalid mode is rejected
@@ -334,13 +390,14 @@ test_that("check_allele_orientation_gwas checks instruments plus shared SNPs", {
   expect_equal(last_allele_check()$n_complementary, 0L)
 
   # n_sample caps the number of non-instrument SNPs added
-  expect_no_condition(
+  expect_warning(
     check_allele_orientation_gwas(
       f$exposure,
       f$bug,
       f$instruments,
       n_sample = 5L
-    )
+    ),
+    class = "mrpipeline_allele_check_unverified"
   )
   rec <- last_allele_check()
   expect_equal(rec$n_sampled, 5L)
@@ -353,8 +410,9 @@ test_that("check_allele_orientation_gwas checks instruments plus shared SNPs", {
   out_disjoint <- f$bug
   out_disjoint$rsids <- paste0("rs", 100 + seq_len(nrow(out_disjoint)))
   for (bad in list(out_no_eaf, out_disjoint, data.frame())) {
-    expect_no_condition(
-      check_allele_orientation_gwas(f$exposure, bad, f$instruments)
+    expect_warning(
+      check_allele_orientation_gwas(f$exposure, bad, f$instruments),
+      class = "mrpipeline_allele_check_unverified"
     )
     expect_equal(last_allele_check()$status, "skipped")
   }

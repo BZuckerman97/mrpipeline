@@ -29,10 +29,11 @@ include in the check set.}
 \item{n_sample}{Integer. Maximum number of non-instrument shared SNPs to
 add. Default \code{1000L}.}
 
-\item{verbose}{Logical. Passed to \code{\link[=check_allele_orientation]{check_allele_orientation()}}.}
+\item{verbose}{Logical. Passed to \code{\link[=check_allele_orientation]{check_allele_orientation()}}. A check
+that cannot reach a verdict warns regardless.}
 
 \item{call}{Environment reported in the condition. Default
-\code{\link[rlang:caller_env]{rlang::caller_env()}}.}
+\code{\link[rlang:stack]{rlang::caller_env()}}.}
 }
 \value{
 The diagnostic record, invisibly (see \code{\link[=last_allele_check]{last_allele_check()}}).
@@ -54,8 +55,9 @@ Cost is dominated by the rsID intersection (about 0.5 s for a 200k-SNP
 exposure against a 10M-row outcome); formatting and harmonising ~1000
 SNPs takes a few milliseconds.
 
-The check is skipped (with a \code{"skipped"} record) when the exposure lacks
-\code{SNP}/\code{eaf.exposure} or the outcome lacks the \code{\link[=format_gwas]{format_gwas()}} outcome
-columns, or when nothing overlaps.
+The check is skipped (with a \code{"skipped"} record, and a warning that
+orientation is unverified) when the exposure lacks \code{SNP}/\code{eaf.exposure} or
+the outcome lacks the \code{\link[=format_gwas]{format_gwas()}} outcome columns, or when nothing
+overlaps.
 }
 \keyword{internal}

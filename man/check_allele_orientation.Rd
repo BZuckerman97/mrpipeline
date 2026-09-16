@@ -22,7 +22,8 @@ any \code{mr_keep} filtering). Needs columns \code{SNP}, \code{eaf.exposure},
 
 \item{allele_check}{One of \code{"error"} (default), \code{"warn"} or \code{"none"}.
 Controls what happens on failure; the diagnostic record is stored in
-every mode.}
+every mode. \code{"none"} also suppresses the warning emitted when the check
+cannot reach a verdict.}
 
 \item{threshold}{Proportion of informative variants that must be
 complementary for the check to fail. Default \code{0.70}.}
@@ -35,11 +36,14 @@ verdict. Default \code{10L}.}
 record only. \code{NA} (default) when the check ran on a harmonisation that
 was not sampled.}
 
-\item{verbose}{Logical. If \code{TRUE}, report a passing or skipped verdict via
-\code{\link[cli:cli_inform]{cli::cli_inform()}}. Default \code{FALSE}.}
+\item{verbose}{Logical. If \code{TRUE}, report a passing verdict via
+\code{\link[cli:cli_abort]{cli::cli_inform()}}. A verdict that could \emph{not} be reached is always
+reported, as a warning, regardless of \code{verbose} -- unless
+\code{allele_check = "none"}, which silences it along with the check itself.
+Default \code{FALSE}.}
 
 \item{call}{Environment. The calling frame reported in the condition.
-Default \code{\link[rlang:caller_env]{rlang::caller_env()}}.}
+Default \code{\link[rlang:stack]{rlang::caller_env()}}.}
 }
 \value{
 The diagnostic record (see \code{\link[=last_allele_check]{last_allele_check()}} for its
@@ -73,7 +77,9 @@ the proportion whose \code{eaf.exposure} is closer to \code{1 - eaf.outcome} tha
 to \code{eaf.outcome} (ties, e.g. \code{eaf.outcome == 0.5}, count as \emph{not}
 complementary). The check fails when that proportion exceeds \code{threshold}
 and at least \code{min_n} informative variants were available; with fewer it
-is \code{"skipped"}. Variants with EAF near 0.5 are equally likely to fall
+is \code{"skipped"} -- and a warning says so, because a pair that could not be
+checked is not a pair that passed, and the two must not look alike in a
+log (GitHub issue #21). Variants with EAF near 0.5 are equally likely to fall
 either side, so they can only dilute the proportion towards 0.5 -- they
 cannot cause a spurious failure, only mask a real one, which the 0.70
 threshold tolerates.

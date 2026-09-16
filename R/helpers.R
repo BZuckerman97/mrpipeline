@@ -42,7 +42,7 @@ plink_option <- function(param) {
 #'   checked its instruments together with a sample of shared SNPs via
 #'   [check_allele_orientation_gwas()]. Default `TRUE`.
 #' @param verbose Logical. Passed to [check_allele_orientation()]. Default
-#'   `FALSE`.
+#'   `FALSE`. A check that cannot reach a verdict warns regardless.
 #'
 #' @return A data frame of harmonised data, filtered and deduplicated.
 #'
@@ -112,7 +112,9 @@ harmonise_and_filter <- function(
 #' to `eaf.outcome` (ties, e.g. `eaf.outcome == 0.5`, count as *not*
 #' complementary). The check fails when that proportion exceeds `threshold`
 #' and at least `min_n` informative variants were available; with fewer it
-#' is `"skipped"`. Variants with EAF near 0.5 are equally likely to fall
+#' is `"skipped"` -- and a warning says so, because a pair that could not be
+#' checked is not a pair that passed, and the two must not look alike in a
+#' log (GitHub issue #21). Variants with EAF near 0.5 are equally likely to fall
 #' either side, so they can only dilute the proportion towards 0.5 -- they
 #' cannot cause a spurious failure, only mask a real one, which the 0.70
 #' threshold tolerates.
@@ -143,7 +145,8 @@ harmonise_and_filter <- function(
 #'   `palindromic` and `remove`; otherwise the check is skipped.
 #' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
 #'   Controls what happens on failure; the diagnostic record is stored in
-#'   every mode.
+#'   every mode. `"none"` also suppresses the warning emitted when the check
+#'   cannot reach a verdict.
 #' @param threshold Proportion of informative variants that must be
 #'   complementary for the check to fail. Default `0.70`.
 #' @param min_n Minimum number of informative variants required to reach a
@@ -152,8 +155,11 @@ harmonise_and_filter <- function(
 #'   [check_allele_orientation_gwas()] added to the harmonised set, for the
 #'   record only. `NA` (default) when the check ran on a harmonisation that
 #'   was not sampled.
-#' @param verbose Logical. If `TRUE`, report a passing or skipped verdict via
-#'   [cli::cli_inform()]. Default `FALSE`.
+#' @param verbose Logical. If `TRUE`, report a passing verdict via
+#'   [cli::cli_inform()]. A verdict that could *not* be reached is always
+#'   reported, as a warning, regardless of `verbose` -- unless
+#'   `allele_check = "none"`, which silences it along with the check itself.
+#'   Default `FALSE`.
 #' @param call Environment. The calling frame reported in the condition.
 #'   Default [rlang::caller_env()].
 #'
@@ -216,6 +222,44 @@ check_allele_orientation <- function(
     stringsAsFactors = FALSE
   )
 
+  # A skip is not a pass, and the two used to look alike in a log: an
+  # informational "check skipped" scrolling past between ordinary progress
+  # messages reads as silence, i.e. as no problem found (issue #21). Warn
+  # instead, at the level a reader scans for, unless the user has switched
+  # the check off entirely.
+  unverified <- function(reason) {
+    if (allele_check == "none") {
+      return(invisible(NULL))
+    }
+    pair <- if (is.na(name_exp[1]) || is.na(name_out[1])) {
+      "Allele orientation could not be checked: "
+    } else {
+      "Allele orientation could not be checked for {.val {name_exp}} vs {.val {name_out}}: "
+    }
+    cli::cli_warn(
+      c(
+        paste0(pair, reason, "."),
+        "!" = paste0(
+          "Orientation is unverified for this pair. A mis-assigned effect ",
+          "allele inverts every estimate and leaves no other trace, so an ",
+          "unchecked pair is not the same as a clean one."
+        ),
+        "i" = paste0(
+          "Verify it by anchoring on a variant whose effect direction for ",
+          "this trait is established beyond doubt -- no frequencies needed. ",
+          "See {.code ?format_gwas}, section {.emph What does A1 mean?} ",
+          "(subsection {.emph If the check cannot run})."
+        ),
+        "i" = paste0(
+          "Silence this with {.code allele_check = \"none\"} once you have ",
+          "confirmed orientation another way."
+        )
+      ),
+      class = "mrpipeline_allele_check_unverified",
+      call = call
+    )
+  }
+
   needed <- c(
     "SNP",
     "eaf.exposure",
@@ -227,11 +271,9 @@ check_allele_orientation <- function(
   )
 
   if (nrow(harmonised) == 0 || !all(needed %in% names(harmonised))) {
-    if (verbose) {
-      cli::cli_inform(
-        "Allele orientation check skipped: no harmonised variants with allele frequencies."
-      )
-    }
+    unverified(
+      "no harmonised variants carry allele frequencies in both datasets"
+    )
     return(record("skipped", empty_variants))
   }
 
@@ -261,11 +303,9 @@ check_allele_orientation <- function(
   prop <- if (n > 0) n_comp / n else NA_real_
 
   if (n < min_n) {
-    if (verbose) {
-      cli::cli_inform(
-        "Allele orientation check skipped: only {n} informative non-palindromic SNP{?s} (need {min_n})."
-      )
-    }
+    unverified(
+      "only {n} informative non-palindromic SNP{?s} with allele frequencies in both datasets (need {min_n})"
+    )
     return(record("skipped", variants, n, n_comp, prop))
   }
 
@@ -361,9 +401,10 @@ check_allele_orientation <- function(
 #' exposure against a 10M-row outcome); formatting and harmonising ~1000
 #' SNPs takes a few milliseconds.
 #'
-#' The check is skipped (with a `"skipped"` record) when the exposure lacks
-#' `SNP`/`eaf.exposure` or the outcome lacks the [format_gwas()] outcome
-#' columns, or when nothing overlaps.
+#' The check is skipped (with a `"skipped"` record, and a warning that
+#' orientation is unverified) when the exposure lacks `SNP`/`eaf.exposure` or
+#' the outcome lacks the [format_gwas()] outcome columns, or when nothing
+#' overlaps.
 #'
 #' @param exposure Data frame of TwoSampleMR-formatted exposure data (the
 #'   full dataset passed to `run_mr()`, not just the instruments).
@@ -374,7 +415,8 @@ check_allele_orientation <- function(
 #' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
 #' @param n_sample Integer. Maximum number of non-instrument shared SNPs to
 #'   add. Default `1000L`.
-#' @param verbose Logical. Passed to [check_allele_orientation()].
+#' @param verbose Logical. Passed to [check_allele_orientation()]. A check
+#'   that cannot reach a verdict warns regardless.
 #' @param call Environment reported in the condition. Default
 #'   [rlang::caller_env()].
 #'
