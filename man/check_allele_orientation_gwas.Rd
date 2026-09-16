@@ -33,7 +33,7 @@ add. Default \code{1000L}.}
 that cannot reach a verdict warns regardless.}
 
 \item{call}{Environment reported in the condition. Default
-\code{\link[rlang:stack]{rlang::caller_env()}}.}
+\code{\link[rlang:caller_env]{rlang::caller_env()}}.}
 }
 \value{
 The diagnostic record, invisibly (see \code{\link[=last_allele_check]{last_allele_check()}}).

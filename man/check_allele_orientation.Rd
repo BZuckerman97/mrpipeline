@@ -37,13 +37,13 @@ record only. \code{NA} (default) when the check ran on a harmonisation that
 was not sampled.}
 
 \item{verbose}{Logical. If \code{TRUE}, report a passing verdict via
-\code{\link[cli:cli_abort]{cli::cli_inform()}}. A verdict that could \emph{not} be reached is always
+\code{\link[cli:cli_inform]{cli::cli_inform()}}. A verdict that could \emph{not} be reached is always
 reported, as a warning, regardless of \code{verbose} -- unless
 \code{allele_check = "none"}, which silences it along with the check itself.
 Default \code{FALSE}.}
 
 \item{call}{Environment. The calling frame reported in the condition.
-Default \code{\link[rlang:stack]{rlang::caller_env()}}.}
+Default \code{\link[rlang:caller_env]{rlang::caller_env()}}.}
 }
 \value{
 The diagnostic record (see \code{\link[=last_allele_check]{last_allele_check()}} for its
