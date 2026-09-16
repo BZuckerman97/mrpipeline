@@ -302,6 +302,40 @@ Once confirmed that way, `allele_check = "none"` silences the warning
 for that pair – and, being recorded in `result$params$allele_check`, the
 decision stays reviewable.
 
+### Inspecting what harmonisation did
+
+[`summary()`](https://rdrr.io/r/base/summary.html) prints a
+harmonisation breakdown, and the full unfiltered frame is on the result
+object as `$harmonisation`:
+
+``` r
+
+summary(result)
+#> -- Harmonisation --
+#> * 120 candidate SNPs -> 95 kept, 25 dropped
+#> * Flagged: 10 palindromic, 8 ambiguous, 7 incompatible alleles
+
+# Which variants, and why
+h <- result$harmonisation
+h[!h$mr_keep, c("SNP", "palindromic", "ambiguous", "remove")]
+```
+
+The flags overlap – every ambiguous variant is palindromic – so they do
+not sum to the dropped total, and which of them actually costs a variant
+its place depends on `harmonise_action` (below). A variant can also be
+dropped for missing beta/se, which no allele flag shows;
+[`summary()`](https://rdrr.io/r/base/summary.html) reports those as
+*incomplete beta/se*.
+
+For
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md),
+`$instruments` remains the kept set the estimates are computed from, and
+`$harmonisation` explains the rest. For
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md),
+`$harmonised_data` is still exactly the SNPs the analysis ran on –
+row-aligned with the coloc datasets, which the plots depend on – and
+`$harmonisation` sits alongside it.
+
 ### Choosing how palindromes are harmonised
 
 `harmonise_action` (on both

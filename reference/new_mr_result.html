@@ -46,6 +46,7 @@
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">new_mr_result</span><span class="op">(</span></span>
 <span>  results <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  harmonisation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  f_stats <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>per_snp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="op">)</span>, mean <span class="op">=</span> <span class="cn">NA_real_</span>, min <span class="op">=</span> <span class="cn">NA_real_</span><span class="op">)</span>,</span>
 <span>  steiger <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  pleiotropy <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -71,7 +72,16 @@ b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
 
 
 <dt id="arg-instruments">instruments<a class="anchor" aria-label="anchor" href="#arg-instruments"></a></dt>
-<dd><p>Data frame of harmonised (and clumped) instrument data.</p></dd>
+<dd><p>Data frame of harmonised (and clumped) instrument data:
+the kept variants the MR estimates are computed from.</p></dd>
+
+
+<dt id="arg-harmonisation">harmonisation<a class="anchor" aria-label="anchor" href="#arg-harmonisation"></a></dt>
+<dd><p>Data frame. The complete, unfiltered
+<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html" class="external-link">TwoSampleMR::harmonise_data()</a></code> output – every candidate variant, with
+the <code>mr_keep</code>, <code>palindromic</code>, <code>ambiguous</code> and <code>remove</code> flags that explain
+why each one was or was not carried forward. <code>instruments</code> is the subset
+of this that survived; see <code><a href="harmonisation_summary.html">harmonisation_summary()</a></code>.</p></dd>
 
 
 <dt id="arg-f-stats">f_stats<a class="anchor" aria-label="anchor" href="#arg-f-stats"></a></dt>

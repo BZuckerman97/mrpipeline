@@ -364,6 +364,34 @@ the warning for that pair – and, being recorded in
 reviewable.</p>
 </div>
 <div class="section level3">
+<h3 id="inspecting-what-harmonisation-did">Inspecting what harmonisation did<a class="anchor" aria-label="anchor" href="#inspecting-what-harmonisation-did"></a>
+</h3>
+<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> prints a harmonisation breakdown, and the full
+unfiltered frame is on the result object as
+<code>$harmonisation</code>:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
+<span><span class="co">#&gt; -- Harmonisation --</span></span>
+<span><span class="co">#&gt; * 120 candidate SNPs -&gt; 95 kept, 25 dropped</span></span>
+<span><span class="co">#&gt; * Flagged: 10 palindromic, 8 ambiguous, 7 incompatible alleles</span></span>
+<span></span>
+<span><span class="co"># Which variants, and why</span></span>
+<span><span class="va">h</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">harmonisation</span></span>
+<span><span class="va">h</span><span class="op">[</span><span class="op">!</span><span class="va">h</span><span class="op">$</span><span class="va">mr_keep</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"SNP"</span>, <span class="st">"palindromic"</span>, <span class="st">"ambiguous"</span>, <span class="st">"remove"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
+<p>The flags overlap – every ambiguous variant is palindromic – so they
+do not sum to the dropped total, and which of them actually costs a
+variant its place depends on <code>harmonise_action</code> (below). A
+variant can also be dropped for missing beta/se, which no allele flag
+shows; <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports those as <em>incomplete
+beta/se</em>.</p>
+<p>For <code><a href="../reference/run_mr.html">run_mr()</a></code>, <code>$instruments</code> remains the kept
+set the estimates are computed from, and <code>$harmonisation</code>
+explains the rest. For <code><a href="../reference/run_coloc.html">run_coloc()</a></code>,
+<code>$harmonised_data</code> is still exactly the SNPs the analysis ran
+on – row-aligned with the coloc datasets, which the plots depend on –
+and <code>$harmonisation</code> sits alongside it.</p>
+</div>
+<div class="section level3">
 <h3 id="choosing-how-palindromes-are-harmonised">Choosing how palindromes are harmonised<a class="anchor" aria-label="anchor" href="#choosing-how-palindromes-are-harmonised"></a>
 </h3>
 <p><code>harmonise_action</code> (on both <code><a href="../reference/run_mr.html">run_mr()</a></code> and
@@ -406,7 +434,7 @@ even where the beta looks unchanged. It also covers the case above,
 where no frequencies are available at all – level <code>2</code> has
 nothing to resolve palindromes with, so dropping them is the honest
 choice:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  <span class="va">exposure</span>, <span class="st">"RPS"</span>, <span class="va">outcome</span>, <span class="st">"Malignant melanoma"</span>,</span>
 <span>  instruments <span class="op">=</span> <span class="va">ivs</span>,</span>
@@ -441,7 +469,7 @@ share of a small cis-MR’s SNPs, so check
 (<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code>) and leave-one-out
 (<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code>) alongside the effect
 estimates:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
@@ -474,7 +502,7 @@ the MHC region on chromosome 6, which can introduce spurious
 associations due to complex LD structure.</p>
 <p>Supply a data frame with columns <code>chr</code>,
 <code>start</code>, and <code>end</code>:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Exclude MHC region (GRCh37 coordinates: chr6:28,477,797–33,448,354)</span></span>
 <span><span class="va">mhc_grch37</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>chr <span class="op">=</span> <span class="st">"6"</span>, start <span class="op">=</span> <span class="fl">28477797</span>, end <span class="op">=</span> <span class="fl">33448354</span><span class="op">)</span></span>
 <span></span>
@@ -491,7 +519,7 @@ associations due to complex LD structure.</p>
 <p>You can exclude multiple regions by stacking rows. For example, when
 studying age-related macular degeneration (AMD), you might exclude both
 the CFH and ARMS2/HTRA1 loci:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">amd_exclusions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  chr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1"</span>, <span class="st">"10"</span><span class="op">)</span>,</span>
 <span>  start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">196621008</span>, <span class="fl">124214077</span><span class="op">)</span>,</span>
@@ -511,7 +539,7 @@ the CFH and ARMS2/HTRA1 loci:</p>
 </h3>
 <p>You can bypass automatic instrument selection by supplying a
 character vector of rsIDs to the <code>instruments</code> argument:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
@@ -522,7 +550,7 @@ character vector of rsIDs to the <code>instruments</code> argument:</p>
 <p>By default, instruments missing from the exposure data produce a
 warning but the analysis continues with the available SNPs. Set
 <code>instruments_strict = TRUE</code> to error instead:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
@@ -541,7 +569,7 @@ warning but the analysis continues with the available SNPs. Set
 <!-- TODO: methods_skipped -->
 <p>Use <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> for a one-line summary and
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> for full details:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mr_res</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
@@ -549,7 +577,7 @@ warning but the analysis continues with the available SNPs. Set
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> produces diagnostic plots using TwoSampleMR
 plotting functions (requires <code>ggplot2</code>):</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span> <span class="co"># scatter plot (default)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"forest"</span><span class="op">)</span>  <span class="co"># per-SNP forest plot</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"funnel"</span><span class="op">)</span>  <span class="co"># funnel plot</span></span></code></pre></div>
@@ -567,11 +595,11 @@ and <code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()<
 is listed above random effects by default, and
 <code>"Inverse variance weighted"</code> is relabelled to
 <code>"IVW (random effects)"</code> for display:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
 <p>Pass a named list to section several results into one figure – e.g. a
 primary analysis alongside positive and negative controls:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  Primary <span class="op">=</span> <span class="va">mr_res</span>,</span>
 <span>  <span class="st">"Positive control"</span> <span class="op">=</span> <span class="va">positive_control_res</span>,</span>
@@ -582,7 +610,7 @@ primary analysis alongside positive and negative controls:</p>
 coloured and/or shaped by a grouping column you attach yourself
 (e.g. which instrument was used). Build the combined data frame from one
 or more results’ <code>$results</code>, then plot:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">combined</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
 <span>  <span class="va">mr_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Primary"</span><span class="op">)</span>,</span>
 <span>  <span class="va">positive_control_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Positive control"</span><span class="op">)</span>,</span>
@@ -607,7 +635,7 @@ rather than <code>ggplot2</code>. It returns a <code>forestplot</code>
 object – render it yourself with <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>, so you control the
 output device (e.g. wrap the call in
 <code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code>/<code><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off()</a></code> to save a file):</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">table_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="st">"Genetically-proxied NLRP3 inhibition"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Coronary heart disease"</span>, <span class="st">"Stroke"</span>, <span class="st">"Type 2 diabetes"</span><span class="op">)</span>,</span>
@@ -631,7 +659,7 @@ output device (e.g. wrap the call in
 <p>The simplest colocalization test uses Approximate Bayes Factors
 (ABF). Supply pre-formatted exposure data, raw outcome data, the gene
 region, and an LD reference panel:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -657,7 +685,7 @@ region, and an LD reference panel:</p>
 fine-maps each trait independently, then <code>coloc.susie()</code> and
 <code>coloc.signals()</code> test colocalization across all pairs of
 credible sets:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -676,7 +704,7 @@ credible sets:</p>
 </h3>
 <p>For case-control outcomes, set <code>outcome_type = "cc"</code> and
 provide the proportion of cases via <code>outcome_s</code>:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
@@ -696,7 +724,7 @@ provide the proportion of cases via <code>outcome_s</code>:</p>
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> for <code>coloc_result</code> objects supports
 three plot types:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>    <span class="co"># bar chart of ABF posterior probabilities (default; requires ggplot2)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span>  <span class="co"># regional association plots (requires ggplot2)</span></span></code></pre></div>
 <p><code>type = "locuszoom"</code> renders LD-coloured regional plots
@@ -714,7 +742,7 @@ build <code>bfile</code> and the coloc data actually use. Unlike the
 other two plot types, this one draws directly to the current graphics
 device (like a base R plot) and returns <code>NULL</code> – open a
 device first if you want to save it:</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">EnsDb.Hsapiens.v75</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf</a></span><span class="op">(</span><span class="st">"locuszoom_plot.pdf"</span>, width <span class="op">=</span> <span class="fl">9</span>, height <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>

@@ -19,6 +19,29 @@ filtering. The `status` field indicates success or failure:
 The `status_reason` field provides a human-readable explanation (e.g.
 `"No significant instruments in cis region for 'PCSK9'"`).
 
+#### `$instruments` vs `$harmonisation`
+
+Two frames, deliberately not one (GitHub issue \#17):
+
+- `$instruments` – the kept variants, filtered to `mr_keep == TRUE` and
+  deduplicated. What the MR estimates are computed from.
+- `$harmonisation` – the complete, unfiltered `harmonise_data()` output:
+  every candidate variant and every column, including the `mr_keep`,
+  `palindromic`, `ambiguous` and `remove` flags that say *why* a variant
+  did or did not survive.
+
+Before this, the flags were discarded inside
+[`harmonise_and_filter()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonise_and_filter.md)
+and there was no way to ask what harmonisation had done short of running
+it again.
+[`harmonise_and_filter()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonise_and_filter.md)
+now returns `list(data =, raw =)` rather than a bare frame; both callers
+unpack it immediately.
+
+`$harmonisation` is populated on the `"no_harmonised_variants"` early
+return too – a run that harmonised down to nothing is precisely when
+someone needs to see which flag cost each variant its place.
+
 #### `$results` data frame
 
 The `$results` data frame has one row per MR method and the following
@@ -121,7 +144,12 @@ call returns a `coloc_result` object — even when analysis cannot proceed
 - `coloc_prop_test` — output of `colocPropTest::coloc.prop.test()`, or
   `NULL`
 - `n_snps` — integer, number of SNPs used in the analysis
-- `harmonised_data` — data frame of harmonised data
+- `harmonised_data` — the harmonised data the analysis actually ran on:
+  filtered, then subset and reordered by
+  [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
+  so its rows correspond one-to-one with the coloc datasets
+- `harmonisation` — the complete, unfiltered `harmonise_data()` output,
+  with the `mr_keep`/`palindromic`/`ambiguous`/`remove` flags
 - `methods_skipped` — named character vector (method name → reason
   skipped)
 - `params` — list of all input parameters
@@ -421,6 +449,25 @@ passes `check = FALSE` because it has already checked a larger set via
 [`check_allele_orientation_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.md);
 [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
 keeps the default because its window is already large.
+
+[`harmonise_and_filter()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonise_and_filter.md)
+returns `list(data =, raw =)`: `data` is the filtered frame the analysis
+runs on, `raw` the complete unfiltered `harmonise_data()` output that
+the result objects store as `$harmonisation` (issue \#17). A bare frame
+plus an attribute was the alternative, and was rejected because dplyr
+operations drop attributes silently – the list makes the second frame
+impossible to lose by accident.
+
+[`harmonisation_summary()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonisation_summary.md)
+reduces `raw` to the counts both
+[`summary()`](https://rdrr.io/r/base/summary.html) methods print. Its
+one subtlety is that the reason counts *overlap* – every ambiguous
+variant is by definition palindromic – so they are listed, never summed
+into a breakdown of `n_dropped`. Which flags actually cost a variant its
+place also depends on the action level (`remove` always, `ambiguous`
+from 2, `palindromic` only at 3), and `n_incomplete` covers variants
+`harmonise_data()` drops for missing beta/se, which none of the three
+allele flags reveals.
 
 `action` (exposed as `harmonise_action` on both entry points, validated
 by

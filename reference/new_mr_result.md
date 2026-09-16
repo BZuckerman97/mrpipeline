@@ -8,6 +8,7 @@ Create an mr_result object
 new_mr_result(
   results = data.frame(),
   instruments = data.frame(),
+  harmonisation = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
   pleiotropy = NULL,
@@ -32,7 +33,18 @@ new_mr_result(
 
 - instruments:
 
-  Data frame of harmonised (and clumped) instrument data.
+  Data frame of harmonised (and clumped) instrument data: the kept
+  variants the MR estimates are computed from.
+
+- harmonisation:
+
+  Data frame. The complete, unfiltered
+  [`TwoSampleMR::harmonise_data()`](https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html)
+  output – every candidate variant, with the `mr_keep`, `palindromic`,
+  `ambiguous` and `remove` flags that explain why each one was or was
+  not carried forward. `instruments` is the subset of this that
+  survived; see
+  [`harmonisation_summary()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonisation_summary.md).
 
 - f_stats:
 

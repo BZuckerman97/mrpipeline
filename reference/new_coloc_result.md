@@ -14,6 +14,7 @@ new_coloc_result(
   coloc_prop_test = NULL,
   n_snps = 0L,
   harmonised_data = data.frame(),
+  harmonisation = data.frame(),
   methods_skipped = character(),
   params = list(),
   status = "success",
@@ -60,7 +61,21 @@ new_coloc_result(
 
 - harmonised_data:
 
-  Data frame of harmonised data used for analysis.
+  Data frame of the harmonised data the analysis actually ran on:
+  filtered, and subset and reordered by
+  [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
+  to match the LD matrix, so its rows correspond one-to-one with the
+  coloc datasets. The plotting functions rely on that correspondence.
+
+- harmonisation:
+
+  Data frame. The complete, unfiltered
+  [`TwoSampleMR::harmonise_data()`](https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html)
+  output – every candidate variant, with the `mr_keep`, `palindromic`,
+  `ambiguous` and `remove` flags that explain why each one was or was
+  not carried forward. Kept separate from `harmonised_data` rather than
+  replacing it (GitHub issue \#17); see
+  [`harmonisation_summary()`](https://github.com/BZuckerman97/mrpipeline/reference/harmonisation_summary.md).
 
 - methods_skipped:
 

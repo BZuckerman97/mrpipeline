@@ -61,7 +61,16 @@ harmonise_and_filter(
 
 ## Value
 
-A data frame of harmonised data, filtered and deduplicated.
+A named list with elements:
+
+- `data`: the harmonised data, filtered to `mr_keep == TRUE` and
+  deduplicated – what the analysis runs on
+
+- `raw`: the complete, unfiltered
+  [`TwoSampleMR::harmonise_data()`](https://mrcieu.github.io/TwoSampleMR/reference/harmonise_data.html)
+  output, every row and every column, including the `mr_keep`,
+  `palindromic`, `ambiguous` and `remove` flags that explain *why* a
+  variant was dropped (GitHub issue \#17)
 
 ## Details
 

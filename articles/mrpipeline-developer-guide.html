@@ -96,6 +96,34 @@ variants</li>
 explanation (e.g.
 <code>"No significant instruments in cis region for 'PCSK9'"</code>).</p>
 <div class="section level4">
+<h4 id="instruments-vs-harmonisation">
+<code>$instruments</code> vs <code>$harmonisation</code><a class="anchor" aria-label="anchor" href="#instruments-vs-harmonisation"></a>
+</h4>
+<p>Two frames, deliberately not one (GitHub issue #17):</p>
+<ul>
+<li>
+<code>$instruments</code> – the kept variants, filtered to
+<code>mr_keep == TRUE</code> and deduplicated. What the MR estimates are
+computed from.</li>
+<li>
+<code>$harmonisation</code> – the complete, unfiltered
+<code>harmonise_data()</code> output: every candidate variant and every
+column, including the <code>mr_keep</code>, <code>palindromic</code>,
+<code>ambiguous</code> and <code>remove</code> flags that say
+<em>why</em> a variant did or did not survive.</li>
+</ul>
+<p>Before this, the flags were discarded inside
+<code><a href="../reference/harmonise_and_filter.html">harmonise_and_filter()</a></code> and there was no way to ask what
+harmonisation had done short of running it again.
+<code><a href="../reference/harmonise_and_filter.html">harmonise_and_filter()</a></code> now returns
+<code>list(data =, raw =)</code> rather than a bare frame; both callers
+unpack it immediately.</p>
+<p><code>$harmonisation</code> is populated on the
+<code>"no_harmonised_variants"</code> early return too – a run that
+harmonised down to nothing is precisely when someone needs to see which
+flag cost each variant its place.</p>
+</div>
+<div class="section level4">
 <h4 id="results-data-frame">
 <code>$results</code> data frame<a class="anchor" aria-label="anchor" href="#results-data-frame"></a>
 </h4>
@@ -262,7 +290,15 @@ or <code>NULL</code>
 <code>n_snps</code> — integer, number of SNPs used in the
 analysis</li>
 <li>
-<code>harmonised_data</code> — data frame of harmonised data</li>
+<code>harmonised_data</code> — the harmonised data the analysis
+actually ran on: filtered, then subset and reordered by
+<code><a href="../reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code> so its rows correspond one-to-one with
+the coloc datasets</li>
+<li>
+<code>harmonisation</code> — the complete, unfiltered
+<code>harmonise_data()</code> output, with the
+<code>mr_keep</code>/<code>palindromic</code>/<code>ambiguous</code>/<code>remove</code>
+flags</li>
 <li>
 <code>methods_skipped</code> — named character vector (method name →
 reason skipped)</li>
@@ -638,6 +674,24 @@ stale. <code><a href="../reference/run_mr.html">run_mr()</a></code> passes <code
 it has already checked a larger set via
 <code><a href="../reference/check_allele_orientation_gwas.html">check_allele_orientation_gwas()</a></code>; <code><a href="../reference/run_coloc.html">run_coloc()</a></code>
 keeps the default because its window is already large.</p>
+<p><code><a href="../reference/harmonise_and_filter.html">harmonise_and_filter()</a></code> returns
+<code>list(data =, raw =)</code>: <code>data</code> is the filtered
+frame the analysis runs on, <code>raw</code> the complete unfiltered
+<code>harmonise_data()</code> output that the result objects store as
+<code>$harmonisation</code> (issue #17). A bare frame plus an attribute
+was the alternative, and was rejected because dplyr operations drop
+attributes silently – the list makes the second frame impossible to lose
+by accident.</p>
+<p><code><a href="../reference/harmonisation_summary.html">harmonisation_summary()</a></code> reduces <code>raw</code> to the
+counts both <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> methods print. Its one subtlety is
+that the reason counts <em>overlap</em> – every ambiguous variant is by
+definition palindromic – so they are listed, never summed into a
+breakdown of <code>n_dropped</code>. Which flags actually cost a variant
+its place also depends on the action level (<code>remove</code> always,
+<code>ambiguous</code> from 2, <code>palindromic</code> only at 3), and
+<code>n_incomplete</code> covers variants <code>harmonise_data()</code>
+drops for missing beta/se, which none of the three allele flags
+reveals.</p>
 <p><code>action</code> (exposed as <code>harmonise_action</code> on both
 entry points, validated by <code><a href="../reference/validate_harmonise_action.html">validate_harmonise_action()</a></code> and
 recorded in <code>params</code>) passes straight through to
