@@ -574,10 +574,14 @@ compute_ld_matrix <- function(
   rsid <- stringr::str_remove(full_names, "_.*")
   parts <- stringr::str_match(full_names, "^[^_]+_([^_]+)_([^_]+)$")
 
+  # ieugwasr builds these names from a read.table() of the .bim, which turns
+  # a lone "T" allele into logical TRUE (a single-SNP matrix, or every A1 =
+  # T). Left as "TRUE" it matches no exposure allele and the SNP is dropped
+  # at alignment.
   alleles <- data.frame(
     SNP = rsid,
-    ld_a1 = parts[, 2],
-    ld_a2 = parts[, 3],
+    ld_a1 = stringr::str_replace(parts[, 2], "^TRUE$", "T"),
+    ld_a2 = stringr::str_replace(parts[, 3], "^TRUE$", "T"),
     stringsAsFactors = FALSE
   )
 
@@ -1095,5 +1099,26 @@ print_harmonisation_summary <- function(harmonisation) {
       "*" = "{h$n_duplicate} duplicate SNP row{?s} dropped after filtering"
     ))
   }
+  invisible(NULL)
+}
+
+#' Warn that a requested method has no LD-corrected form
+#'
+#' Called by [run_mr()] for every `$results`-producing method that runs while
+#' `ld_correct = TRUE` but has no correlated implementation (registry
+#' `ld_correctable = FALSE`), so `ld_correct` is never silently ignored: it is
+#' either applied, or visibly not applied. Diagnostics (`steiger`,
+#' `pleiotropy`, `heterogeneity`, `loo`) do not warn -- they produce no
+#' estimate row.
+#'
+#' @param method The shortcut or raw method name, as the user passed it.
+#'
+#' @return `NULL`, invisibly.
+#'
+#' @keywords internal
+warn_no_ld_correction <- function(method) {
+  cli::cli_warn(
+    "{.val {method}} has no LD-corrected form; running uncorrected."
+  )
   invisible(NULL)
 }

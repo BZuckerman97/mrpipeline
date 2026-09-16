@@ -286,6 +286,8 @@ test_that("mr_result print works with results", {
       b = 0.1,
       se = 0.05,
       pval = 0.01,
+      ld_corrected = FALSE,
+      model = "random",
       stringsAsFactors = FALSE
     ),
     f_stats = list(per_snp = rep(30, 5), mean = 30, min = 25)
@@ -312,6 +314,8 @@ test_that("mr_result summary works", {
       b = c(0.1, 0.12),
       se = c(0.05, 0.06),
       pval = c(0.01, 0.02),
+      ld_corrected = FALSE,
+      model = c("random", "random"),
       stringsAsFactors = FALSE
     ),
     f_stats = list(per_snp = rep(30, 5), mean = 30, min = 25),
@@ -339,6 +343,8 @@ test_that("mr_result summary reports the harmonisation breakdown", {
       b = 0.1,
       se = 0.05,
       pval = 0.01,
+      ld_corrected = FALSE,
+      model = "random",
       stringsAsFactors = FALSE
     ),
     f_stats = list(per_snp = rep(30, 3), mean = 30, min = 25),
@@ -360,6 +366,8 @@ test_that("mr_result summary omits harmonisation when there is none", {
       b = 0.1,
       se = 0.05,
       pval = 0.01,
+      ld_corrected = FALSE,
+      model = "random",
       stringsAsFactors = FALSE
     ),
     f_stats = list(per_snp = rep(30, 3), mean = 30, min = 25),
@@ -429,7 +437,7 @@ test_that("run_mr returns Wald ratio for single instrument", {
       outcome = outcome,
       outcome_id = "test_out",
       instruments = "rs1",
-      methods = c("ivw", "egger", "weighted_median")
+      methods = c("ivw_random", "egger", "weighted_median")
     )
   })
 
@@ -449,7 +457,7 @@ test_that("run_mr returns Wald ratio for single instrument", {
 
   # IVW, egger, weighted_median should be skipped
   expect_true(all(
-    c("ivw", "egger", "weighted_median") %in%
+    c("ivw_random", "egger", "weighted_median") %in%
       names(result$methods_skipped)
   ))
 
@@ -503,17 +511,17 @@ test_that("run_mr skips egger/weighted_median/presso with 2 instruments", {
       outcome = outcome,
       outcome_id = "test_out",
       instruments = c("rs1", "rs2"),
-      methods = c("ivw", "egger", "weighted_median", "presso")
+      methods = c("ivw_random", "egger", "weighted_median", "presso")
     )
   })
 
   expect_s3_class(result, "mr_result")
 
-  # IVW should work
-  expect_true(any(stringr::str_detect(
-    result$results$method,
-    "variance weighted"
-  )))
+  # IVW should work, and the row says which estimator ran
+  expect_true("IVW (random effects)" %in% result$results$method)
+  ivw_row <- result$results[result$results$method == "IVW (random effects)", ]
+  expect_equal(ivw_row$model, "random")
+  expect_false(ivw_row$ld_corrected)
 
   # Egger, weighted_median, presso should be skipped
   expect_true("egger" %in% names(result$methods_skipped))
@@ -566,7 +574,7 @@ test_that("run_mr computes heterogeneity with 2 instruments but skips loo", {
       outcome = outcome,
       outcome_id = "test_out",
       instruments = c("rs1", "rs2"),
-      methods = c("ivw", "heterogeneity", "loo")
+      methods = c("ivw_random", "heterogeneity", "loo")
     )
   })
 
@@ -622,7 +630,7 @@ test_that("run_mr computes leave-one-out with 3 instruments", {
       outcome = outcome,
       outcome_id = "test_out",
       instruments = c("rs1", "rs2", "rs3"),
-      methods = c("ivw", "heterogeneity", "loo")
+      methods = c("ivw_random", "heterogeneity", "loo")
     )
   })
 
@@ -678,7 +686,7 @@ test_that("run_mr skips heterogeneity and loo with 1 instrument", {
       outcome = outcome,
       outcome_id = "test_out",
       instruments = "rs1",
-      methods = c("ivw", "heterogeneity", "loo")
+      methods = c("ivw_random", "heterogeneity", "loo")
     )
   })
 
@@ -701,7 +709,7 @@ test_that("run_mr detects a swapped-allele outcome even with 3 instruments", {
       outcome = outcome,
       outcome_id = "out",
       instruments = f$instruments,
-      methods = "ivw",
+      methods = "ivw_random",
       verbose = FALSE,
       ...
     ))
@@ -728,4 +736,218 @@ test_that("run_mr detects a swapped-allele outcome even with 3 instruments", {
   )
   expect_equal(result$status, "success")
   expect_equal(result$params$allele_check, "warn")
+})
+
+# --- LD correction (integration: requires bfile + plink) --------------------
+
+# Resolve the bundled reference panel, skipping cleanly where it is absent.
+ld_bfile <- function() {
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  testthat::skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  bfile
+}
+
+cd40_region <- list(chromosome = "20", start = 44746911, end = 44758502)
+
+# Three of the CD40 cis instruments: every bundled SNP is in the LD panel,
+# these three survive alignment, and ConMix converges on them (it does not on
+# every triple -- "wrong sign in by argument" from mr_conmix()).
+cd40_three_snps <- function() {
+  c("rs1883832", "rs34034261", "rs4810485")
+}
+
+# run_mr() on the bundled CD40 -> SjD data with PLINK's console output
+# captured; warnings are returned alongside the result so tests can assert
+# on them without the nested expect_warning() dance.
+run_cd40 <- function(...) {
+  warnings <- character()
+  result <- NULL
+  invisible(utils::capture.output(
+    result <- withCallingHandlers(
+      suppressMessages(run_mr(
+        exposure = cd40_exposure,
+        exposure_id = "CD40",
+        outcome = sjogren_outcome,
+        outcome_id = "SjD",
+        verbose = FALSE,
+        ...
+      )),
+      warning = function(w) {
+        warnings <<- c(warnings, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    )
+  ))
+  list(result = result, warnings = warnings)
+}
+
+test_that("ivw_fixed with ld_correct = TRUE is the hand-computed GLS estimate", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  out <- run_cd40(
+    instrument_region = cd40_region,
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+  )
+  res <- out$result
+  expect_equal(res$status, "success")
+  expect_true(all(c("ld_corrected", "model") %in% names(res$results)))
+
+  h <- res$instruments
+  ld <- res$ld_matrix
+  expect_equal(nrow(h), nrow(ld))
+  expect_gt(nrow(h), 2)
+
+  # GLS with weight matrix diag(se_y) R diag(se_y):
+  #   b  = (bx' O^-1 bx)^-1 bx' O^-1 by,  se = sqrt((bx' O^-1 bx)^-1)
+  omega <- diag(h$se.outcome) %*% ld %*% diag(h$se.outcome)
+  omega_inv <- solve(omega)
+  bx <- h$beta.exposure
+  by <- h$beta.outcome
+  b_gls <- as.numeric(
+    solve(t(bx) %*% omega_inv %*% bx) %*% (t(bx) %*% omega_inv %*% by)
+  )
+  se_gls <- sqrt(as.numeric(solve(t(bx) %*% omega_inv %*% bx)))
+
+  fixed <- res$results[res$results$method == "IVW (fixed effects)", ]
+  expect_equal(fixed$b, b_gls, tolerance = 1e-8)
+  expect_equal(fixed$se, se_gls, tolerance = 1e-8)
+  expect_true(fixed$ld_corrected)
+  expect_equal(fixed$model, "fixed")
+
+  # Random effects: same estimate, standard error never below fixed
+  random <- res$results[res$results$method == "IVW (random effects)", ]
+  expect_equal(random$b, fixed$b)
+  expect_gte(random$se, fixed$se)
+  expect_true(random$ld_corrected)
+  expect_equal(random$model, "random")
+
+  # Egger has a correlated form; weighted median does not
+  egger <- res$results[res$results$method == "MR Egger", ]
+  expect_true(egger$ld_corrected)
+  expect_equal(egger$model, "random")
+  wm <- res$results[res$results$method == "Weighted median", ]
+  expect_false(wm$ld_corrected)
+  expect_true(is.na(wm$model))
+
+  # ... and said so by name
+  expect_true(any(grepl("weighted_median", out$warnings)))
+  expect_false(any(grepl("ivw_random|ivw_fixed|egger", out$warnings)))
+})
+
+test_that("ld_correct = FALSE records every row as uncorrected and warns about nothing", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  out <- run_cd40(
+    instrument_region = cd40_region,
+    bfile = bfile,
+    methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+  )
+  expect_equal(out$result$status, "success")
+  expect_false(any(out$result$results$ld_corrected))
+  expect_equal(
+    out$result$results$model,
+    c("random", "fixed", "random", NA_character_)
+  )
+  expect_length(out$warnings, 0)
+})
+
+test_that("ivw_random stays random effects below 4 instruments when LD-corrected", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  out <- run_cd40(
+    instruments = cd40_three_snps(),
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "ivw_fixed")
+  )
+  res <- out$result
+  expect_equal(res$status, "success")
+  expect_equal(nrow(res$instruments), 3)
+  # MendelianRandomization's "default" model would be fixed effects here;
+  # the shortcut pins random (issue #27)
+  expect_equal(res$results$model, c("random", "fixed"))
+  expect_true(all(res$results$ld_corrected))
+  expect_gte(res$results$se[1], res$results$se[2])
+  expect_equal(res$results$b[1], res$results$b[2])
+})
+
+test_that("methods with no LD-corrected form warn by name and are recorded as uncorrected", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  out <- run_cd40(
+    instruments = cd40_three_snps(),
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "weighted_median", "conmix")
+  )
+  res <- out$result
+  expect_true(any(grepl(
+    '"weighted_median" has no LD-corrected form',
+    out$warnings
+  )))
+  expect_true(any(grepl('"conmix" has no LD-corrected form', out$warnings)))
+
+  by_method <- stats::setNames(res$results$ld_corrected, res$results$method)
+  expect_true(by_method[["IVW (random effects)"]])
+  expect_false(by_method[["Weighted median"]])
+  expect_false(by_method[["ConMix"]])
+
+  # summary() lists both sides; print() tags the LD-corrected primary row
+  expect_message(summary(res), "Applied to: IVW \\(random effects\\)")
+  expect_message(summary(res), "Not applied to: Weighted median, ConMix")
+  expect_message(print(res), "LD-corrected")
+})
+
+test_that("a method skipped for instrument count does not also warn about LD", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  out <- run_cd40(
+    instruments = cd40_three_snps()[1:2],
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "weighted_median")
+  )
+  res <- out$result
+  expect_equal(nrow(res$instruments), 2)
+  expect_match(res$methods_skipped[["weighted_median"]], "Requires >= 3")
+  expect_false(any(grepl("weighted_median", out$warnings)))
+  expect_equal(res$results$method, "IVW (random effects)")
+  expect_true(res$results$ld_corrected)
+})
+
+test_that("a single instrument with ld_correct = TRUE gives the Wald ratio and says LD is not applicable", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  # rs1883832's panel A1 is "T": on a single-SNP .bim ieugwasr reads that as
+  # logical TRUE, which compute_ld_matrix() must map back to "T" or the SNP
+  # is dropped at alignment and nothing is left to analyse.
+  out <- run_cd40(
+    instruments = "rs1883832",
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "weighted_median")
+  )
+  res <- out$result
+  expect_equal(res$status, "success")
+  expect_equal(res$results$method, "Wald ratio")
+  expect_false(res$results$ld_corrected)
+  expect_true(is.na(res$results$model))
+  expect_match(res$methods_skipped[["ivw_random"]], "Only 1 instrument")
+  expect_false(any(grepl("LD-corrected form", out$warnings)))
+  expect_message(summary(res), "Not applicable: 1 instrument")
 })
