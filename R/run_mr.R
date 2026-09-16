@@ -1114,6 +1114,9 @@ run_mr <- function(
   if (length(results_list) == 0) {
     results_df <- TwoSampleMR::generate_odds_ratios(empty_mr_results())
   } else {
+    # Base rbind() on purpose, not dplyr::bind_rows(): every row comes from
+    # mr_result_row() with an identical schema, and rbind() errors the moment
+    # a branch breaks that, where bind_rows() would silently fill NA.
     results_df <- do.call(rbind, results_list)
     rownames(results_df) <- NULL
     results_df <- TwoSampleMR::generate_odds_ratios(results_df)
