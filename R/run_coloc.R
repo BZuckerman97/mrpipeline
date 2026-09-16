@@ -432,13 +432,15 @@ run_coloc <- function(
 
   t0 <- proc.time()[["elapsed"]]
 
-  harmonised <- harmonise_and_filter(
+  harmonisation <- harmonise_and_filter(
     exposure_filt,
     outcome_data,
     allele_check = allele_check,
     action = harmonise_action,
     verbose = verbose
   )
+  harmonised <- harmonisation$data
+  harmonisation <- harmonisation$raw
 
   timing[["harmonisation"]] <- proc.time()[["elapsed"]] - t0
 
@@ -464,6 +466,7 @@ run_coloc <- function(
       outcome_id = outcome_id,
       n_snps = nrow(harmonised),
       harmonised_data = harmonised,
+      harmonisation = harmonisation,
       status = status,
       status_reason = reason,
       params = params,
@@ -522,6 +525,7 @@ run_coloc <- function(
       outcome_id = outcome_id,
       n_snps = nrow(harmonised),
       harmonised_data = harmonised,
+      harmonisation = harmonisation,
       status = "too_few_snps",
       status_reason = paste0(
         "Only ",
@@ -619,6 +623,7 @@ run_coloc <- function(
         outcome_id = outcome_id,
         n_snps = nrow(harmonised),
         harmonised_data = harmonised,
+        harmonisation = harmonisation,
         status = "too_few_snps",
         status_reason = paste0(
           "Only ",
@@ -853,6 +858,7 @@ run_coloc <- function(
     coloc_prop_test = coloc_prop_test_res,
     n_snps = n_snps,
     harmonised_data = harmonised,
+    harmonisation = harmonisation,
     methods_skipped = methods_skipped,
     params = params,
     timing = timing

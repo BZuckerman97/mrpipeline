@@ -3,7 +3,13 @@
 #' @param results Data frame with columns: exposure, outcome, method, nsnp,
 #'   b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
 #'   [TwoSampleMR::generate_odds_ratios()]).
-#' @param instruments Data frame of harmonised (and clumped) instrument data.
+#' @param instruments Data frame of harmonised (and clumped) instrument data:
+#'   the kept variants the MR estimates are computed from.
+#' @param harmonisation Data frame. The complete, unfiltered
+#'   [TwoSampleMR::harmonise_data()] output -- every candidate variant, with
+#'   the `mr_keep`, `palindromic`, `ambiguous` and `remove` flags that explain
+#'   why each one was or was not carried forward. `instruments` is the subset
+#'   of this that survived; see [harmonisation_summary()].
 #' @param f_stats List with elements `per_snp` (numeric vector),
 #'   `mean` (numeric scalar), `min` (numeric scalar).
 #' @param steiger Output of [TwoSampleMR::steiger_filtering()], or `NULL`.
@@ -28,6 +34,7 @@
 new_mr_result <- function(
   results = data.frame(),
   instruments = data.frame(),
+  harmonisation = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
   pleiotropy = NULL,
@@ -44,6 +51,7 @@ new_mr_result <- function(
     list(
       results = results,
       instruments = instruments,
+      harmonisation = harmonisation,
       f_stats = f_stats,
       steiger = steiger,
       pleiotropy = pleiotropy,
@@ -196,6 +204,8 @@ summary.mr_result <- function(object, ...) {
       )
     ))
   }
+
+  print_harmonisation_summary(object$harmonisation)
 
   # F-statistics
   cli::cli_h2("Instrument strength")

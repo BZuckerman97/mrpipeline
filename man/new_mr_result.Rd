@@ -7,6 +7,7 @@
 new_mr_result(
   results = data.frame(),
   instruments = data.frame(),
+  harmonisation = data.frame(),
   f_stats = list(per_snp = numeric(), mean = NA_real_, min = NA_real_),
   steiger = NULL,
   pleiotropy = NULL,
@@ -25,7 +26,14 @@ new_mr_result(
 b, se, pval, or, or_lci95, or_uci95 (and lo_ci, up_ci from
 \code{\link[TwoSampleMR:generate_odds_ratios]{TwoSampleMR::generate_odds_ratios()}}).}
 
-\item{instruments}{Data frame of harmonised (and clumped) instrument data.}
+\item{instruments}{Data frame of harmonised (and clumped) instrument data:
+the kept variants the MR estimates are computed from.}
+
+\item{harmonisation}{Data frame. The complete, unfiltered
+\code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}} output -- every candidate variant, with
+the \code{mr_keep}, \code{palindromic}, \code{ambiguous} and \code{remove} flags that explain
+why each one was or was not carried forward. \code{instruments} is the subset
+of this that survived; see \code{\link[=harmonisation_summary]{harmonisation_summary()}}.}
 
 \item{f_stats}{List with elements \code{per_snp} (numeric vector),
 \code{mean} (numeric scalar), \code{min} (numeric scalar).}
