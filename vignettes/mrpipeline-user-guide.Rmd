@@ -420,7 +420,7 @@ corrected <- run_mr(
   ld_correct = TRUE,
   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
 )
-#> Warning: 'weighted_median' has no LD-corrected form; running uncorrected.
+#> Warning: "weighted_median" has no LD-corrected form; running uncorrected.
 
 corrected$results[, c("method", "model", "ld_corrected")]
 #>                 method  model ld_corrected
@@ -448,9 +448,9 @@ and `$loo` come from the correlated fits, and each carries its own
 
 ```{r ld-diagnostics, eval = FALSE}
 corrected$heterogeneity[, c("method", "Q", "Q_df", "Q_pval", "ld_corrected")]
-#>                      method     Q Q_df Q_pval ld_corrected
-#> 1                  MR Egger  6.67    3  0.083         TRUE
-#> 2 Inverse variance weighted  8.09    4  0.088         TRUE
+#>                      method    Q Q_df Q_pval ld_corrected
+#> 1                  MR Egger 1.71    1  0.191         TRUE
+#> 2 Inverse variance weighted 2.63    2  0.268         TRUE
 ```
 
 The `method` labels in `$heterogeneity` stay TwoSampleMR's on both arms
