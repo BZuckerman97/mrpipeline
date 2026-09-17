@@ -208,13 +208,30 @@ for \code{ivw_random}, \code{"fixed"} for \code{ivw_fixed}) so that each shortcu
 the same thing at every instrument count; \code{MendelianRandomization}'s own
 default would switch to fixed effects below 4 instruments.
 
-Every other method has no correlated form and runs on the uncorrected
-data: a warning names each such method, and its \verb{$results} row carries
-\code{ld_corrected = FALSE}. \code{ld_correct} is never silently ignored -- it is
-either applied, or visibly not applied. To compare corrected and
-uncorrected estimates, call \code{run_mr()} twice and pass both results to
-\code{\link[=forest_plot]{forest_plot()}} as a named list: one \code{mr_result} is always one instrument
-set under one weight matrix.
+Every other \verb{$results} method has no correlated form and runs on the
+uncorrected data: a warning names each such method, and its row carries
+\code{ld_corrected = FALSE}. The diagnostics come from the correlated fits
+too: \verb{$heterogeneity} holds the generalised Cochran Q for correlated
+instruments (\verb{Q = r' O^-1 r} on the GLS residuals, from
+\code{mr_ivw()@Heter.Stat} and \code{mr_egger()@Heter.Stat}), \verb{$pleiotropy} the
+correlated Egger intercept (\code{mr_egger()@Intercept}), and \verb{$loo} a
+per-SNP correlated random-effects refit (a block-inverse update, so it
+stays O(n^3)). Each of those frames carries an \code{ld_corrected} column on
+both arms. \code{steiger} is the one thing left as-is: the Steiger direction
+test compares per-SNP r^2 values and involves no weight matrix.
+\code{ld_correct} is never silently ignored -- it is either applied, or
+visibly not applied. To compare corrected and uncorrected estimates, call
+\code{run_mr()} twice and pass both results to \code{\link[=forest_plot]{forest_plot()}} as a named
+list: one \code{mr_result} is always one instrument set under one weight
+matrix.
+
+If the GLS weight matrix is near-singular (reciprocal condition number
+below \code{1e-10}) \code{run_mr()} warns that every LD-corrected estimate is
+unstable. The usual causes are identical or near-identical instruments
+(r^2 ~ 1, from absent clumping or a manual set with a duplicated
+variant) and more instruments than reference-panel individuals, which
+makes the sample correlation matrix singular; clump more stringently or
+drop the duplicate.
 
 Random effects are multiplicative: the standard error is inflated by
 \code{max(RSE, 1)}, never deflated, so when the instruments are under-dispersed
@@ -234,9 +251,9 @@ applies; \verb{min n} the minimum number of instruments.\tabular{lllllll}{
    \code{presso} \tab MR-PRESSO outlier test \tab MR-PRESSO \tab \verb{$results} \tab -- \tab no \tab 3 \cr
    \code{conmix} \tab Contamination mixture \tab ConMix \tab \verb{$results} \tab -- \tab no \tab 2 \cr
    \code{steiger} \tab Steiger directionality test \tab -- \tab \verb{$steiger} \tab -- \tab no \tab 1 \cr
-   \code{pleiotropy} \tab Egger intercept (pleiotropy) test \tab -- \tab \verb{$pleiotropy} \tab -- \tab no \tab 3 \cr
-   \code{heterogeneity} \tab Cochran's Q heterogeneity test \tab -- \tab \verb{$heterogeneity} \tab -- \tab no \tab 2 \cr
-   \code{loo} \tab Leave-one-out IVW \tab -- \tab \verb{$loo} \tab -- \tab no \tab 3 \cr
+   \code{pleiotropy} \tab Egger intercept (pleiotropy) test \tab -- \tab \verb{$pleiotropy} \tab -- \tab yes \tab 3 \cr
+   \code{heterogeneity} \tab Cochran's Q heterogeneity test \tab -- \tab \verb{$heterogeneity} \tab -- \tab yes \tab 2 \cr
+   \code{loo} \tab Leave-one-out IVW \tab -- \tab \verb{$loo} \tab -- \tab yes \tab 3 \cr
 }
 }
 

@@ -42,12 +42,18 @@ of this that survived; see \code{\link[=harmonisation_summary]{harmonisation_sum
 
 \item{steiger}{Output of \code{\link[TwoSampleMR:steiger_filtering]{TwoSampleMR::steiger_filtering()}}, or \code{NULL}.}
 
-\item{pleiotropy}{Output of \code{\link[TwoSampleMR:mr_pleiotropy_test]{TwoSampleMR::mr_pleiotropy_test()}}, or \code{NULL}.}
+\item{pleiotropy}{Output of \code{\link[TwoSampleMR:mr_pleiotropy_test]{TwoSampleMR::mr_pleiotropy_test()}} plus an
+\code{ld_corrected} column, or \code{NULL}. When \code{ld_corrected} is \code{TRUE} the
+intercept is the correlated Egger fit's (\code{\link[=pleiotropy_correlated]{pleiotropy_correlated()}}).}
 
 \item{heterogeneity}{Output of \code{\link[TwoSampleMR:mr_heterogeneity]{TwoSampleMR::mr_heterogeneity()}} (Cochran's
-Q per method), or \code{NULL}.}
+Q per method) plus an \code{ld_corrected} column, or \code{NULL}. When
+\code{ld_corrected} is \code{TRUE} the Q values are the generalised statistics
+from the correlated fits (\code{\link[=heterogeneity_correlated]{heterogeneity_correlated()}}).}
 
-\item{loo}{Output of \code{\link[TwoSampleMR:mr_leaveoneout]{TwoSampleMR::mr_leaveoneout()}}, or \code{NULL}.}
+\item{loo}{Output of \code{\link[TwoSampleMR:mr_leaveoneout]{TwoSampleMR::mr_leaveoneout()}} plus an
+\code{ld_corrected} column, or \code{NULL}. When \code{ld_corrected} is \code{TRUE} each row
+is a correlated random-effects refit (\code{\link[=loo_correlated]{loo_correlated()}}).}
 
 \item{methods_skipped}{Named character vector: names are method names,
 values are reasons for skipping.}

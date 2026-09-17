@@ -86,7 +86,7 @@ mr_method_registry <- function() {
       "random",
       rep(NA_character_, 9)
     ),
-    ld_correctable = c(TRUE, TRUE, TRUE, rep(FALSE, 9)),
+    ld_correctable = c(TRUE, TRUE, TRUE, rep(FALSE, 6), TRUE, TRUE, TRUE),
     min_instruments = c(2L, 2L, 3L, 3L, 3L, 2L, 1L, 2L, 1L, 3L, 2L, 3L),
     engine = c(
       "TwoSampleMR::mr_ivw",
@@ -106,7 +106,10 @@ mr_method_registry <- function() {
       "MendelianRandomization::mr_ivw(model = \"random\")",
       "MendelianRandomization::mr_ivw(model = \"fixed\")",
       "MendelianRandomization::mr_egger",
-      rep(NA_character_, 9)
+      rep(NA_character_, 6),
+      "MendelianRandomization::mr_egger()@Intercept",
+      "MendelianRandomization::mr_ivw()@Heter.Stat / mr_egger()@Heter.Stat",
+      "mrpipeline:::loo_correlated (block-inverse GLS per dropped SNP)"
     ),
     stringsAsFactors = FALSE
   )

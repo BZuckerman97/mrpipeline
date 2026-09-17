@@ -16,8 +16,12 @@ warn_no_ld_correction(method)
 Called by \code{\link[=run_mr]{run_mr()}} for every \verb{$results}-producing method that runs while
 \code{ld_correct = TRUE} but has no correlated implementation (registry
 \code{ld_correctable = FALSE}), so \code{ld_correct} is never silently ignored: it is
-either applied, or visibly not applied. Diagnostics (\code{steiger},
-\code{pleiotropy}, \code{heterogeneity}, \code{loo}) do not warn -- they produce no
-estimate row.
+either applied, or visibly not applied. The diagnostics \code{pleiotropy},
+\code{heterogeneity} and \code{loo} never reach here: they are computed from the
+correlated fits (see \code{\link[=heterogeneity_correlated]{heterogeneity_correlated()}},
+\code{\link[=pleiotropy_correlated]{pleiotropy_correlated()}}, \code{\link[=loo_correlated]{loo_correlated()}}). \code{steiger} is the one
+method exempt on purpose -- the Steiger direction test compares per-SNP
+r^2 values and involves no weight matrix, so LD correction is not a
+concept for it.
 }
 \keyword{internal}

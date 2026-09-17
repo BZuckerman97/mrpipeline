@@ -15,10 +15,16 @@
 #' @param f_stats List with elements `per_snp` (numeric vector),
 #'   `mean` (numeric scalar), `min` (numeric scalar).
 #' @param steiger Output of [TwoSampleMR::steiger_filtering()], or `NULL`.
-#' @param pleiotropy Output of [TwoSampleMR::mr_pleiotropy_test()], or `NULL`.
+#' @param pleiotropy Output of [TwoSampleMR::mr_pleiotropy_test()] plus an
+#'   `ld_corrected` column, or `NULL`. When `ld_corrected` is `TRUE` the
+#'   intercept is the correlated Egger fit's ([pleiotropy_correlated()]).
 #' @param heterogeneity Output of [TwoSampleMR::mr_heterogeneity()] (Cochran's
-#'   Q per method), or `NULL`.
-#' @param loo Output of [TwoSampleMR::mr_leaveoneout()], or `NULL`.
+#'   Q per method) plus an `ld_corrected` column, or `NULL`. When
+#'   `ld_corrected` is `TRUE` the Q values are the generalised statistics
+#'   from the correlated fits ([heterogeneity_correlated()]).
+#' @param loo Output of [TwoSampleMR::mr_leaveoneout()] plus an
+#'   `ld_corrected` column, or `NULL`. When `ld_corrected` is `TRUE` each row
+#'   is a correlated random-effects refit ([loo_correlated()]).
 #' @param methods_skipped Named character vector: names are method names,
 #'   values are reasons for skipping.
 #' @param ld_matrix LD correlation matrix if `ld_correct = TRUE`, or `NULL`.
@@ -278,10 +284,16 @@ summary.mr_result <- function(object, ...) {
     ))
   }
 
+  # Each diagnostics frame says whether it came from the correlated fits;
+  # the heading repeats that so it cannot be read as the uncorrected one.
+  diag_tag <- function(frame) { # nolint: object_usage_linter.
+    if (isTRUE(frame$ld_corrected[1])) " [LD-corrected]" else ""
+  }
+
   # Pleiotropy test
   if (!is.null(object$pleiotropy)) {
     pt <- object$pleiotropy # nolint: object_usage_linter.
-    cli::cli_h2("Pleiotropy test (Egger intercept)")
+    cli::cli_h2("Pleiotropy test (Egger intercept){diag_tag(pt)}")
     cli::cli_bullets(c(
       "*" = "Intercept: {round(pt$egger_intercept, 4)}",
       "*" = "SE: {round(pt$se, 4)}",
@@ -292,7 +304,7 @@ summary.mr_result <- function(object, ...) {
   # Heterogeneity test (Cochran's Q)
   if (!is.null(object$heterogeneity)) {
     ht <- object$heterogeneity
-    cli::cli_h2("Heterogeneity test (Cochran's Q)")
+    cli::cli_h2("Heterogeneity test (Cochran's Q){diag_tag(ht)}")
     for (i in seq_len(nrow(ht))) {
       cli::cli_bullets(c(
         "*" = "{ht$method[i]}: Q = {round(ht$Q[i], 3)}, df = {ht$Q_df[i]}, p = {signif(ht$Q_pval[i], 3)}"
@@ -302,7 +314,7 @@ summary.mr_result <- function(object, ...) {
 
   # Leave-one-out analysis
   if (!is.null(object$loo)) {
-    cli::cli_h2("Leave-one-out analysis")
+    cli::cli_h2("Leave-one-out analysis{diag_tag(object$loo)}")
     cli::cli_bullets(c(
       "*" = paste0(
         "{nrow(object$loo)} row{?s} (per-SNP estimates plus the pooled ",
@@ -343,6 +355,23 @@ summary.mr_result <- function(object, ...) {
       if (length(not_applied) > 0) {
         not_applied_str <- paste(not_applied, collapse = ", ") # nolint: object_usage_linter.
         lines <- c(lines, "!" = "Not applied to: {not_applied_str}")
+      }
+      diag_names <- c(
+        pleiotropy = "Egger intercept",
+        heterogeneity = "Cochran's Q",
+        loo = "leave-one-out"
+      )
+      diag_on <- vapply(
+        names(diag_names),
+        function(f) isTRUE(object[[f]]$ld_corrected[1]),
+        logical(1)
+      )
+      if (any(diag_on)) {
+        diag_str <- paste(diag_names[diag_on], collapse = ", ") # nolint: object_usage_linter.
+        lines <- c(
+          lines,
+          "v" = "Diagnostics from the correlated fits: {diag_str}"
+        )
       }
       cli::cli_bullets(lines)
     }
