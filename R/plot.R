@@ -22,6 +22,7 @@
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   rsq_thresh = 0.3,
 #'   bfile = bfile,
 #'   methods = c("ivw_random", "egger", "weighted_median", "loo")
 #' )
@@ -373,6 +374,7 @@ plot_coloc_locuszoom <- function(
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   rsq_thresh = 0.3,
 #'   bfile = bfile,
 #'   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
 #' )
@@ -392,6 +394,7 @@ plot_coloc_locuszoom <- function(
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   rsq_thresh = 0.3,
 #'   bfile = bfile, ld_correct = TRUE,
 #'   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
 #' )
@@ -555,6 +558,7 @@ forest_plot <- function(
 #'   exposure = cd40_exposure, exposure_id = "CD40",
 #'   outcome = sjogren_outcome, outcome_id = "SjD",
 #'   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+#'   rsq_thresh = 0.3,
 #'   bfile = bfile,
 #'   methods = c("ivw_random", "ivw_fixed")
 #' )

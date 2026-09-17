@@ -756,11 +756,19 @@ ld_bfile <- function() {
 
 cd40_region <- list(chromosome = "20", start = 44746911, end = 44758502)
 
-# Three of the CD40 cis instruments: every bundled SNP is in the LD panel,
-# these three survive alignment, and ConMix converges on them (it does not on
-# every triple -- "wrong sign in by argument" from mr_conmix()).
+# The bundled panel is real 1000 Genomes EUR LD, so the default
+# rsq_thresh = 0.001 clumps the CD40 cis region down to one instrument. At
+# 0.3 seven survive, with pairwise |r| up to 0.53 -- enough LD that the
+# corrected and uncorrected fits differ materially.
+cd40_rsq <- 0.3
+
+# Three of the CD40 cis instruments: none palindromic, pairwise r 0.45,
+# -0.27 and -0.16 in the panel (rcond of R 0.36), and ConMix converges on
+# them (it does not on every triple -- "wrong sign in by argument" from
+# mr_conmix()). Avoid rs4810485: it is in perfect LD with rs1883832 (r = 1),
+# which makes the GLS weight matrix singular.
 cd40_three_snps <- function() {
-  c("rs1883832", "rs34034261", "rs4810485")
+  c("rs1883832", "rs4810486", "rs77048809")
 }
 
 # run_mr() on the bundled CD40 -> SjD data with PLINK's console output
@@ -794,6 +802,7 @@ test_that("ivw_fixed with ld_correct = TRUE is the hand-computed GLS estimate", 
 
   out <- run_cd40(
     instrument_region = cd40_region,
+    rsq_thresh = cd40_rsq,
     bfile = bfile,
     ld_correct = TRUE,
     methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
@@ -850,6 +859,7 @@ test_that("ld_correct = FALSE records every row as uncorrected and warns about n
 
   out <- run_cd40(
     instrument_region = cd40_region,
+    rsq_thresh = cd40_rsq,
     bfile = bfile,
     methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
   )
@@ -956,12 +966,11 @@ test_that("on the bundled panel the diagnostics match the correlated fits exactl
   skip_if_not_installed("TwoSampleMR")
   bfile <- ld_bfile()
 
-  # The bundled panel has almost no LD, so corrected and uncorrected values
-  # nearly coincide here; the real-LD assertions live in
-  # test-ld-diagnostics.R. This checks the plumbing against hand-computed
-  # correlated quantities.
+  # Checks the plumbing against hand-computed correlated quantities; the
+  # next test checks that the correction is material on this panel.
   out <- run_cd40(
     instrument_region = cd40_region,
+    rsq_thresh = cd40_rsq,
     bfile = bfile,
     ld_correct = TRUE,
     methods = c("ivw_random", "egger", "heterogeneity", "loo")
@@ -1032,12 +1041,49 @@ test_that("on the bundled panel the diagnostics match the correlated fits exactl
   expect_s3_class(p[[1]], "ggplot")
 })
 
+test_that("on the bundled panel LD correction changes the estimates and diagnostics", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  methods <- c("ivw_fixed", "heterogeneity")
+  unc <- run_cd40(
+    instrument_region = cd40_region,
+    rsq_thresh = cd40_rsq,
+    bfile = bfile,
+    methods = methods
+  )$result
+  corr <- run_cd40(
+    instrument_region = cd40_region,
+    rsq_thresh = cd40_rsq,
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = methods
+  )$result
+  expect_equal(corr$instruments$SNP, unc$instruments$SNP)
+
+  # the clumped instruments are in real LD ...
+  off_diag <- corr$ld_matrix[upper.tri(corr$ld_matrix)]
+  expect_gt(max(abs(off_diag)), 0.5)
+
+  # ... so the correlated fits move the estimate, its standard error and Q
+  q_unc <- unc$heterogeneity$Q[
+    unc$heterogeneity$method == "Inverse variance weighted"
+  ]
+  q_corr <- corr$heterogeneity$Q[
+    corr$heterogeneity$method == "Inverse variance weighted"
+  ]
+  expect_gt(abs(q_corr - q_unc) / q_unc, 0.05)
+  expect_gt(abs(corr$results$se - unc$results$se) / unc$results$se, 0.05)
+  expect_gt(abs(corr$results$b - unc$results$b) / abs(unc$results$b), 0.05)
+})
+
 test_that("ld_correct = FALSE leaves the diagnostics as TwoSampleMR returns them, marked uncorrected", {
   skip_if_not_installed("TwoSampleMR")
   bfile <- ld_bfile()
 
   out <- run_cd40(
     instrument_region = cd40_region,
+    rsq_thresh = cd40_rsq,
     bfile = bfile,
     methods = c("ivw_random", "egger", "heterogeneity", "loo")
   )

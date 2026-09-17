@@ -32,8 +32,9 @@ library(mrpipeline)
 
 # mrpipeline ships with bundled test datasets for CD40 protein and Sjogren's
 # disease -- cd40_exposure (formatted exposure) and sjogren_outcome (outcome)
-# -- plus a minimal LD reference panel, so this runs without any external
-# data.
+# -- plus a small LD reference panel of real 1000 Genomes EUR genotypes, so
+# this runs without any external data. rsq_thresh = 0.3 clumps leniently
+# enough to keep several correlated CD40 instruments.
 bfile <- sub(
   "\\.bed$", "",
   system.file("extdata", "ld_ref.bed", package = "mrpipeline")
@@ -46,6 +47,7 @@ mr_res <- run_mr(
   outcome = sjogren_outcome,
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
   bfile = bfile
 )
 mr_res

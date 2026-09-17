@@ -15,6 +15,6 @@ sjogren_outcome
 50 SNPs in the CD40 cis region on chr20, in standardised outcome format,
 matching \code{\link[=format_gwas]{format_gwas()}}'s \code{type = "outcome"} schema. One real SNP
 (\code{rs9074}) from \code{sjogren_sumstats}; 49 synthetic SNPs with realistic
-effect sizes to match the bundled LD reference panel
+effect sizes, covering the same SNPs as the bundled LD reference panel
 (\verb{inst/extdata/ld_ref.*}) and \code{cd40_exposure}.
 }

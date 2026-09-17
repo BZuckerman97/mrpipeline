@@ -1,8 +1,9 @@
 # Example: CD40 → Sjögren's Disease (MR + colocalization)
 #
-# Uses bundled test data and the minimal LD reference panel shipped with the
-# package. All 50 SNPs overlap across exposure, outcome, and LD panel, so this
-# runs without any external downloads.
+# Uses bundled test data and the LD reference panel shipped with the package
+# (1000 Genomes EUR genotypes; see data-raw/ld_ref.R). All 50 SNPs overlap
+# across exposure, outcome, and LD panel, so this runs without any external
+# downloads.
 
 library(mrpipeline)
 
@@ -22,6 +23,7 @@ mr_res <- run_mr(
   outcome = sjogren_outcome,
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
   bfile = bfile,
   methods = c("ivw", "egger", "weighted_median", "steiger")
 )
