@@ -363,6 +363,7 @@ result <- run_mr(
   outcome = sjogren_outcome,
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
   bfile = bfile,
   methods = c("ivw_random", "egger", "weighted_median", "heterogeneity", "loo")
 )
@@ -409,26 +410,45 @@ out too small. `ld_correct = TRUE` computes the instruments' LD matrix from
 Egger estimators by generalised least squares with that matrix as the weight
 structure (through `MendelianRandomization` with `correl = TRUE`):
 
+The example uses the LD reference panel bundled with the package (real 1000
+Genomes EUR genotypes for the 50 CD40-region SNPs). Its instruments are
+clumped at `rsq_thresh = 0.3` rather than the default 0.001: against real LD
+the default leaves a single CD40 instrument, while 0.3 keeps seven with
+pairwise |r| up to 0.53 -- a typical lenient cis-MR set, and one with
+something to correct for.
+
 ```{r ld-correct, eval = FALSE}
+bfile <- sub(
+  "\\.bed$",
+  "",
+  system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+)
+
 corrected <- run_mr(
   exposure = cd40_exposure,
   exposure_id = "CD40",
   outcome = sjogren_outcome,
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
   bfile = bfile,
   ld_correct = TRUE,
-  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median", "heterogeneity")
 )
 #> Warning: "weighted_median" has no LD-corrected form; running uncorrected.
 
-corrected$results[, c("method", "model", "ld_corrected")]
-#>                 method  model ld_corrected
-#> 1 IVW (random effects) random         TRUE
-#> 2  IVW (fixed effects)  fixed         TRUE
-#> 3             MR Egger random         TRUE
-#> 4      Weighted median   <NA>        FALSE
+corrected$results[, c("method", "b", "se", "model", "ld_corrected")]
+#>                 method     b     se  model ld_corrected
+#> 1 IVW (random effects) 0.153 0.0580 random         TRUE
+#> 2  IVW (fixed effects) 0.153 0.0273  fixed         TRUE
+#> 3             MR Egger 0.455 0.2829 random         TRUE
+#> 4      Weighted median 0.168 0.0693   <NA>        FALSE
 ```
+
+The same call without `ld_correct` gives an IVW estimate of 0.104 (random-effects
+SE 0.071, fixed-effects SE 0.050) and an Egger slope of 0.146: treating the
+seven correlated instruments as independent changes the answer, not just its
+precision.
 
 Every `$results` row states the estimator that produced it: `model` says
 whether it was a fixed- or random-effects fit, and `ld_corrected` whether the
@@ -448,10 +468,13 @@ and `$loo` come from the correlated fits, and each carries its own
 
 ```{r ld-diagnostics, eval = FALSE}
 corrected$heterogeneity[, c("method", "Q", "Q_df", "Q_pval", "ld_corrected")]
-#>                      method    Q Q_df Q_pval ld_corrected
-#> 1                  MR Egger 1.71    1  0.191         TRUE
-#> 2 Inverse variance weighted 2.63    2  0.268         TRUE
+#>                      method    Q Q_df   Q_pval ld_corrected
+#> 1                  MR Egger 21.9    5 0.000552         TRUE
+#> 2 Inverse variance weighted 27.1    6 0.000140         TRUE
 ```
+
+Uncorrected, the same instruments give an IVW Q of 12.0 (p = 0.063): here the
+naive test understates the disagreement between correlated instruments.
 
 The `method` labels in `$heterogeneity` stay TwoSampleMR's on both arms
 (Q does not depend on the fixed/random choice), so the column is the only
@@ -482,8 +505,9 @@ uncorrected <- run_mr(
   outcome = sjogren_outcome,
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
   bfile = bfile,
-  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
+  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median", "heterogeneity")
 )
 
 forest_plot(list("Uncorrected" = uncorrected, "LD-corrected" = corrected))

@@ -599,7 +599,8 @@ sjogren_sumstats <- tibble::tribble(
 #' 50 SNPs from the CD40 cis region on chr20 (44646911-44858502),
 #' pre-formatted as a TwoSampleMR exposure data frame. Derived from
 #' `cd40_sumstats`. All SNPs overlap with the bundled LD reference panel
-#' (`inst/extdata/ld_ref.*`) and with `sjogren_outcome`, so the two can be
+#' (`inst/extdata/ld_ref.*`, 1000 Genomes EUR genotypes; see
+#' `data-raw/ld_ref.R` in the source repository) and with `sjogren_outcome`, so the two can be
 #' used together in [run_mr()]/[run_coloc()] examples without any external
 #' data.
 #'
@@ -669,7 +670,7 @@ cd40_exposure <- tibble::tribble(
 #' 50 SNPs in the CD40 cis region on chr20, in standardised outcome format,
 #' matching [format_gwas()]'s `type = "outcome"` schema. One real SNP
 #' (`rs9074`) from `sjogren_sumstats`; 49 synthetic SNPs with realistic
-#' effect sizes to match the bundled LD reference panel
+#' effect sizes, covering the same SNPs as the bundled LD reference panel
 #' (`inst/extdata/ld_ref.*`) and `cd40_exposure`.
 #'
 #' @format A data frame with 50 rows and columns `rsids`, `chr`, `pos`,
