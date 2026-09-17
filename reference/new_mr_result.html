@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,16 +96,22 @@ of this that survived; see <code><a href="harmonisation_summary.html">harmonisat
 
 
 <dt id="arg-pleiotropy">pleiotropy<a class="anchor" aria-label="anchor" href="#arg-pleiotropy"></a></dt>
-<dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code>, or <code>NULL</code>.</p></dd>
+<dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code> plus an
+<code>ld_corrected</code> column, or <code>NULL</code>. When <code>ld_corrected</code> is <code>TRUE</code> the
+intercept is the correlated Egger fit's (<code><a href="pleiotropy_correlated.html">pleiotropy_correlated()</a></code>).</p></dd>
 
 
 <dt id="arg-heterogeneity">heterogeneity<a class="anchor" aria-label="anchor" href="#arg-heterogeneity"></a></dt>
 <dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code> (Cochran's
-Q per method), or <code>NULL</code>.</p></dd>
+Q per method) plus an <code>ld_corrected</code> column, or <code>NULL</code>. When
+<code>ld_corrected</code> is <code>TRUE</code> the Q values are the generalised statistics
+from the correlated fits (<code><a href="heterogeneity_correlated.html">heterogeneity_correlated()</a></code>).</p></dd>
 
 
 <dt id="arg-loo">loo<a class="anchor" aria-label="anchor" href="#arg-loo"></a></dt>
-<dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code>, or <code>NULL</code>.</p></dd>
+<dd><p>Output of <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code> plus an
+<code>ld_corrected</code> column, or <code>NULL</code>. When <code>ld_corrected</code> is <code>TRUE</code> each row
+is a correlated random-effects refit (<code><a href="loo_correlated.html">loo_correlated()</a></code>).</p></dd>
 
 
 <dt id="arg-methods-skipped">methods_skipped<a class="anchor" aria-label="anchor" href="#arg-methods-skipped"></a></dt>

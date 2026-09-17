@@ -265,14 +265,31 @@ each shortcut means the same thing at every instrument count;
 `MendelianRandomization`'s own default would switch to fixed effects
 below 4 instruments.
 
-Every other method has no correlated form and runs on the uncorrected
-data: a warning names each such method, and its `$results` row carries
-`ld_corrected = FALSE`. `ld_correct` is never silently ignored – it is
-either applied, or visibly not applied. To compare corrected and
-uncorrected estimates, call `run_mr()` twice and pass both results to
+Every other `$results` method has no correlated form and runs on the
+uncorrected data: a warning names each such method, and its row carries
+`ld_corrected = FALSE`. The diagnostics come from the correlated fits
+too: `$heterogeneity` holds the generalised Cochran Q for correlated
+instruments (`Q = r' O^-1 r` on the GLS residuals, from
+`mr_ivw()@Heter.Stat` and `mr_egger()@Heter.Stat`), `$pleiotropy` the
+correlated Egger intercept (`mr_egger()@Intercept`), and `$loo` a
+per-SNP correlated random-effects refit (a block-inverse update, so it
+stays O(n^3)). Each of those frames carries an `ld_corrected` column on
+both arms. `steiger` is the one thing left as-is: the Steiger direction
+test compares per-SNP r^2 values and involves no weight matrix.
+`ld_correct` is never silently ignored – it is either applied, or
+visibly not applied. To compare corrected and uncorrected estimates,
+call `run_mr()` twice and pass both results to
 [`forest_plot()`](https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.md)
 as a named list: one `mr_result` is always one instrument set under one
 weight matrix.
+
+If the GLS weight matrix is near-singular (reciprocal condition number
+below `1e-10`) `run_mr()` warns that every LD-corrected estimate is
+unstable. The usual causes are identical or near-identical instruments
+(r^2 ~ 1, from absent clumping or a manual set with a duplicated
+variant) and more instruments than reference-panel individuals, which
+makes the sample correlation matrix singular; clump more stringently or
+drop the duplicate.
 
 Random effects are multiplicative: the standard error is inflated by
 `max(RSE, 1)`, never deflated, so when the instruments are
@@ -296,9 +313,9 @@ number of instruments.
 | `presso` | MR-PRESSO outlier test | MR-PRESSO | `$results` | – | no | 3 |
 | `conmix` | Contamination mixture | ConMix | `$results` | – | no | 2 |
 | `steiger` | Steiger directionality test | – | `$steiger` | – | no | 1 |
-| `pleiotropy` | Egger intercept (pleiotropy) test | – | `$pleiotropy` | – | no | 3 |
-| `heterogeneity` | Cochran's Q heterogeneity test | – | `$heterogeneity` | – | no | 2 |
-| `loo` | Leave-one-out IVW | – | `$loo` | – | no | 3 |
+| `pleiotropy` | Egger intercept (pleiotropy) test | – | `$pleiotropy` | – | yes | 3 |
+| `heterogeneity` | Cochran's Q heterogeneity test | – | `$heterogeneity` | – | yes | 2 |
+| `loo` | Leave-one-out IVW | – | `$loo` | – | yes | 3 |
 
 ## See also
 

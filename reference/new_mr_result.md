@@ -64,20 +64,27 @@ new_mr_result(
 - pleiotropy:
 
   Output of
-  [`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html),
-  or `NULL`.
+  [`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html)
+  plus an `ld_corrected` column, or `NULL`. When `ld_corrected` is
+  `TRUE` the intercept is the correlated Egger fit's
+  ([`pleiotropy_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/pleiotropy_correlated.md)).
 
 - heterogeneity:
 
   Output of
   [`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html)
-  (Cochran's Q per method), or `NULL`.
+  (Cochran's Q per method) plus an `ld_corrected` column, or `NULL`.
+  When `ld_corrected` is `TRUE` the Q values are the generalised
+  statistics from the correlated fits
+  ([`heterogeneity_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/heterogeneity_correlated.md)).
 
 - loo:
 
   Output of
-  [`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html),
-  or `NULL`.
+  [`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html)
+  plus an `ld_corrected` column, or `NULL`. When `ld_corrected` is
+  `TRUE` each row is a correlated random-effects refit
+  ([`loo_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/loo_correlated.md)).
 
 - methods_skipped:
 

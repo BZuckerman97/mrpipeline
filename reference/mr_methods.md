@@ -101,9 +101,9 @@ mr_methods()
 #> 5        $results   <NA>          FALSE               3
 #> 6        $results   <NA>          FALSE               2
 #> 7        $steiger   <NA>          FALSE               1
-#> 8     $pleiotropy   <NA>          FALSE               3
-#> 9  $heterogeneity   <NA>          FALSE               2
-#> 10           $loo   <NA>          FALSE               3
+#> 8     $pleiotropy   <NA>           TRUE               3
+#> 9  $heterogeneity   <NA>           TRUE               2
+#> 10           $loo   <NA>           TRUE               3
 mr_methods(detail = "full")
 #>           shortcut                        description                label
 #> 1       ivw_random IVW, multiplicative random effects IVW (random effects)
@@ -128,9 +128,9 @@ mr_methods(detail = "full")
 #> 7        $results   <NA>          FALSE               1
 #> 8        $results   <NA>          FALSE               2
 #> 9        $steiger   <NA>          FALSE               1
-#> 10    $pleiotropy   <NA>          FALSE               3
-#> 11 $heterogeneity   <NA>          FALSE               2
-#> 12           $loo   <NA>          FALSE               3
+#> 10    $pleiotropy   <NA>           TRUE               3
+#> 11 $heterogeneity   <NA>           TRUE               2
+#> 12           $loo   <NA>           TRUE               3
 #>                               engine
 #> 1                TwoSampleMR::mr_ivw
 #> 2             TwoSampleMR::mr_ivw_fe
@@ -144,17 +144,17 @@ mr_methods(detail = "full")
 #> 10   TwoSampleMR::mr_pleiotropy_test
 #> 11     TwoSampleMR::mr_heterogeneity
 #> 12       TwoSampleMR::mr_leaveoneout
-#>                                           engine_ld
-#> 1  MendelianRandomization::mr_ivw(model = "random")
-#> 2   MendelianRandomization::mr_ivw(model = "fixed")
-#> 3                  MendelianRandomization::mr_egger
-#> 4                                              <NA>
-#> 5                                              <NA>
-#> 6                                              <NA>
-#> 7                                              <NA>
-#> 8                                              <NA>
-#> 9                                              <NA>
-#> 10                                             <NA>
-#> 11                                             <NA>
-#> 12                                             <NA>
+#>                                                              engine_ld
+#> 1                     MendelianRandomization::mr_ivw(model = "random")
+#> 2                      MendelianRandomization::mr_ivw(model = "fixed")
+#> 3                                     MendelianRandomization::mr_egger
+#> 4                                                                 <NA>
+#> 5                                                                 <NA>
+#> 6                                                                 <NA>
+#> 7                                                                 <NA>
+#> 8                                                                 <NA>
+#> 9                                                                 <NA>
+#> 10                        MendelianRandomization::mr_egger()@Intercept
+#> 11 MendelianRandomization::mr_ivw()@Heter.Stat / mr_egger()@Heter.Stat
+#> 12     mrpipeline:::loo_correlated (block-inverse GLS per dropped SNP)
 ```

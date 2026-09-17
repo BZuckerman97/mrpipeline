@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -245,15 +245,15 @@ came to be half-wired (GitHub issue #27).</p>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">tab</span><span class="op">)</span></span></code></pre></div>
 <table class="table">
 <colgroup>
+<col width="6%">
+<col width="15%">
+<col width="9%">
 <col width="7%">
-<col width="16%">
-<col width="10%">
-<col width="8%">
 <col width="3%">
-<col width="7%">
-<col width="7%">
-<col width="16%">
-<col width="23%">
+<col width="6%">
+<col width="6%">
+<col width="14%">
+<col width="29%">
 </colgroup>
 <thead><tr class="header">
 <th align="left">shortcut</th>
@@ -372,10 +372,11 @@ came to be half-wired (GitHub issue #27).</p>
 <td align="left">NA</td>
 <td align="left"><code>$pleiotropy</code></td>
 <td align="left">NA</td>
-<td align="left">FALSE</td>
+<td align="left">TRUE</td>
 <td align="right">3</td>
 <td align="left">TwoSampleMR::mr_pleiotropy_test</td>
-<td align="left">NA</td>
+<td align="left">MendelianRandomization::mr_egger()<span class="citation">@Intercept</span>
+</td>
 </tr>
 <tr class="odd">
 <td align="left">heterogeneity</td>
@@ -383,10 +384,11 @@ came to be half-wired (GitHub issue #27).</p>
 <td align="left">NA</td>
 <td align="left"><code>$heterogeneity</code></td>
 <td align="left">NA</td>
-<td align="left">FALSE</td>
+<td align="left">TRUE</td>
 <td align="right">2</td>
 <td align="left">TwoSampleMR::mr_heterogeneity</td>
-<td align="left">NA</td>
+<td align="left">MendelianRandomization::mr_ivw()<span class="citation">@Heter.Stat</span> / mr_egger()<span class="citation">@Heter.Stat</span>
+</td>
 </tr>
 <tr class="even">
 <td align="left">loo</td>
@@ -394,10 +396,11 @@ came to be half-wired (GitHub issue #27).</p>
 <td align="left">NA</td>
 <td align="left"><code>$loo</code></td>
 <td align="left">NA</td>
-<td align="left">FALSE</td>
+<td align="left">TRUE</td>
 <td align="right">3</td>
 <td align="left">TwoSampleMR::mr_leaveoneout</td>
-<td align="left">NA</td>
+<td align="left">mrpipeline:::loo_correlated (block-inverse GLS per
+dropped SNP)</td>
 </tr>
 </tbody>
 </table>
@@ -429,43 +432,129 @@ is multiplicative random effects on both paths
 drops every instrument, <code><a href="../reference/run_mr.html">run_mr()</a></code> returns
 <code>status = "no_harmonised_variants"</code> rather than reaching the
 GLS fit with zero rows.</p>
+<p>Once <code>ld_input</code> exists, <code><a href="../reference/run_mr.html">run_mr()</a></code> also checks
+<code><a href="https://rdrr.io/r/base/kappa.html" class="external-link">rcond()</a></code> of the GLS weight matrix
+<code>O = diag(se_y) R diag(se_y)</code>
+(<code><a href="../reference/gls_weight_matrix.html">gls_weight_matrix()</a></code>) and warns below <code>1e-10</code>:
+every LD-corrected fit solves that matrix, so a near-singular one –
+identical or near-identical instruments, or more instruments than panel
+individuals – makes all of them unstable, and before this it happened
+silently.</p>
+<p><strong>The diagnostics are corrected too</strong> (issue #31).
+<code>#28</code> exempted them on the grounds that they produce no
+<code>$results</code> row, which left <code>$heterogeneity</code>,
+<code>$pleiotropy</code> and <code>$loo</code> computed by TwoSampleMR
+on the uncorrected data with nothing on the object saying so – a caller
+reading Cochran’s Q off an LD-corrected result got the naive Q. Each
+frame now carries an <code>ld_corrected</code> column on both arms, and
+under <code>ld_correct = TRUE</code> the values come from the correlated
+fits, keeping TwoSampleMR’s column names and row order so downstream
+code and <code>plot(x, type = "loo")</code> are unaffected:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>frame</th>
+<th>uncorrected arm</th>
+<th>LD-corrected arm</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>$heterogeneity</code></td>
+<td><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code></td>
+<td>
+<code><a href="../reference/heterogeneity_correlated.html">heterogeneity_correlated()</a></code>:
+<code>mr_ivw(correl = TRUE)@Heter.Stat</code> (<code>n - 1</code> df)
+and <code>mr_egger(correl = TRUE)@Heter.Stat</code> (<code>n - 2</code>
+df, <code>n &gt;= 3</code>)</td>
+</tr>
+<tr class="even">
+<td><code>$pleiotropy</code></td>
+<td><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code></td>
+<td>
+<code><a href="../reference/pleiotropy_correlated.html">pleiotropy_correlated()</a></code>:
+<code>mr_egger(correl = TRUE)@Intercept</code> /
+<code>@StdError.Int</code> / <code>@Pvalue.Int</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>$loo</code></td>
+<td><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code></td>
+<td>
+<code><a href="../reference/loo_correlated.html">loo_correlated()</a></code>: per-SNP random-effects GLS refit
+(below)</td>
+</tr>
+</tbody>
+</table>
+<p><code>$heterogeneity$method</code> keeps TwoSampleMR’s labels
+(<code>"Inverse variance weighted"</code>, <code>"MR Egger"</code>) on
+both arms: Q is model-agnostic, so neither <code>$results</code> IVW
+label would be right, and a stable label makes the column the only
+difference. Steiger filtering is the one diagnostic left alone – it
+compares per-SNP r^2 values and has no weight matrix – so it neither
+warns nor carries the column.</p>
+<p><code><a href="../reference/loo_correlated.html">loo_correlated()</a></code> is the one piece with no upstream
+implementation: <code><a href="https://rdrr.io/pkg/MendelianRandomization/man/mr_loo.html" class="external-link">MendelianRandomization::mr_loo()</a></code> takes no
+<code>correl</code> argument and never reads the correlation slot. It is
+deliberately <strong>not</strong> n refits of <code>mr_ivw()</code>,
+which is n solves of an (n-1)x(n-1) system – O(n^4), measured at 15 s
+for n = 300 and minutes for n = 600. Instead it inverts <code>O</code>
+once and, for each SNP <code>i</code>, obtains the inverse with that row
+and column removed by the Schur-complement identity
+<code>W[-i, -i] - W[-i, i] W[i, -i] / W[i, i]</code> (O(n^2) per SNP,
+O(n^3) total; 0.12 s at n = 300, 1 s at n = 600; agrees with the refit
+loop to machine precision), then reproduces <code>mr_ivw()</code>’s
+random-effects arithmetic exactly – residual SE on <code>m - 1</code>
+df, floored at 1, normal p-value. Two guards: below
+<code>rcond_min</code> it falls back to direct per-SNP solves, and
+<code>test-ld-diagnostics.R</code> pins every row to a literal
+<code>mr_ivw(correl = TRUE)</code> refit, so a change in upstream’s
+convention fails CI rather than drifting silently.</p>
 </div>
 <div class="section level4">
 <h4 id="egger-intercept-pleiotropy-test">Egger intercept / pleiotropy test<a class="anchor" aria-label="anchor" href="#egger-intercept-pleiotropy-test"></a>
 </h4>
-<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code> is run automatically
-whenever <code>"egger"</code> is in <code>methods</code> and there are
-&gt;= 3 instruments. The result is stored in <code>$pleiotropy</code> as
-a data frame with columns <code>egger_intercept</code>, <code>se</code>,
-<code>pval</code>, <code>exposure</code>, and <code>outcome</code>. The
-<code>"pleiotropy"</code> shortcut in <code>methods</code> triggers the
-same test independently (i.e. without also running the Egger slope
-estimate).</p>
+<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html" class="external-link">TwoSampleMR::mr_pleiotropy_test()</a></code> (or
+<code><a href="../reference/pleiotropy_correlated.html">pleiotropy_correlated()</a></code> under
+<code>ld_correct = TRUE</code>) is run automatically whenever
+<code>"egger"</code> is in <code>methods</code> and there are &gt;= 3
+instruments. The result is stored in <code>$pleiotropy</code> as a data
+frame with columns <code>egger_intercept</code>, <code>se</code>,
+<code>pval</code>, <code>exposure</code>, <code>outcome</code>,
+<code>ld_corrected</code>. The <code>"pleiotropy"</code> shortcut in
+<code>methods</code> triggers the same test independently (i.e. without
+also running the Egger slope estimate).</p>
 </div>
 <div class="section level4">
 <h4 id="heterogeneity-test-cochrans-q">Heterogeneity test (Cochran’s Q)<a class="anchor" aria-label="anchor" href="#heterogeneity-test-cochrans-q"></a>
 </h4>
-<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code> runs when
-<code>"heterogeneity"</code> is in <code>methods</code> and there are
-&gt;= 2 instruments; otherwise
+<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code> (or
+<code><a href="../reference/heterogeneity_correlated.html">heterogeneity_correlated()</a></code> under
+<code>ld_correct = TRUE</code>) runs when <code>"heterogeneity"</code>
+is in <code>methods</code> and there are &gt;= 2 instruments; otherwise
 <code>methods_skipped["heterogeneity"]</code> records the reason. The
 result is stored in <code>$heterogeneity</code> as a data frame with one
-row per method (typically MR Egger and IVW), columns <code>Q</code>,
-<code>Q_df</code>, <code>Q_pval</code>, <code>exposure</code>,
-<code>outcome</code>.</p>
+row per method (MR Egger when there are &gt;= 3 instruments, then IVW),
+columns <code>Q</code>, <code>Q_df</code>, <code>Q_pval</code>,
+<code>exposure</code>, <code>outcome</code>,
+<code>ld_corrected</code>.</p>
 </div>
 <div class="section level4">
 <h4 id="leave-one-out-analysis">Leave-one-out analysis<a class="anchor" aria-label="anchor" href="#leave-one-out-analysis"></a>
 </h4>
-<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code> runs when
-<code>"loo"</code> is in <code>methods</code> and there are &gt;= 3
+<p><code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code> (or
+<code><a href="../reference/loo_correlated.html">loo_correlated()</a></code> under <code>ld_correct = TRUE</code>) runs
+when <code>"loo"</code> is in <code>methods</code> and there are &gt;= 3
 instruments (below that, dropping one SNP just reproduces the remaining
 SNP’s Wald ratio, which isn’t informative); otherwise
 <code>methods_skipped["loo"]</code> records the reason. The result is
 stored in <code>$loo</code> as a data frame with one row per SNP plus a
 pooled <code>"All"</code> row, columns <code>SNP</code>, <code>b</code>,
 <code>se</code>, <code>p</code>, <code>exposure</code>,
-<code>outcome</code>.</p>
+<code>outcome</code>, <code>ld_corrected</code>.</p>
 </div>
 <div class="section level4">
 <h4 id="flipping-exposure-direction-deliberately-not-provided">Flipping exposure direction – deliberately not provided<a class="anchor" aria-label="anchor" href="#flipping-exposure-direction-deliberately-not-provided"></a>

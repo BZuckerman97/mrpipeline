@@ -122,9 +122,9 @@ knitr::kable(tab)
 | NA | Wald ratio, single instrument | Wald ratio | `$results` | NA | FALSE | 1 | TwoSampleMR::mr_wald_ratio | NA |
 | NA | Any other TwoSampleMR method | NA | `$results` | NA | FALSE | 2 | TwoSampleMR::mr | NA |
 | steiger | Steiger directionality test | NA | `$steiger` | NA | FALSE | 1 | TwoSampleMR::steiger_filtering | NA |
-| pleiotropy | Egger intercept (pleiotropy) test | NA | `$pleiotropy` | NA | FALSE | 3 | TwoSampleMR::mr_pleiotropy_test | NA |
-| heterogeneity | Cochran’s Q heterogeneity test | NA | `$heterogeneity` | NA | FALSE | 2 | TwoSampleMR::mr_heterogeneity | NA |
-| loo | Leave-one-out IVW | NA | `$loo` | NA | FALSE | 3 | TwoSampleMR::mr_leaveoneout | NA |
+| pleiotropy | Egger intercept (pleiotropy) test | NA | `$pleiotropy` | NA | TRUE | 3 | TwoSampleMR::mr_pleiotropy_test | MendelianRandomization::mr_egger()@Intercept |
+| heterogeneity | Cochran’s Q heterogeneity test | NA | `$heterogeneity` | NA | TRUE | 2 | TwoSampleMR::mr_heterogeneity | MendelianRandomization::mr_ivw()@Heter.Stat / mr_egger()@Heter.Stat |
+| loo | Leave-one-out IVW | NA | `$loo` | NA | TRUE | 3 | TwoSampleMR::mr_leaveoneout | mrpipeline:::loo_correlated (block-inverse GLS per dropped SNP) |
 
 `ld_correctable` is declared, not inferred – nothing inspects upstream
 function signatures at run time. It is kept honest by `engine_ld`: a row
@@ -155,33 +155,91 @@ MendelianRandomization). If alignment drops every instrument,
 returns `status = "no_harmonised_variants"` rather than reaching the GLS
 fit with zero rows.
 
+Once `ld_input` exists,
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+also checks [`rcond()`](https://rdrr.io/r/base/kappa.html) of the GLS
+weight matrix `O = diag(se_y) R diag(se_y)`
+([`gls_weight_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/gls_weight_matrix.md))
+and warns below `1e-10`: every LD-corrected fit solves that matrix, so a
+near-singular one – identical or near-identical instruments, or more
+instruments than panel individuals – makes all of them unstable, and
+before this it happened silently.
+
+**The diagnostics are corrected too** (issue \#31). `#28` exempted them
+on the grounds that they produce no `$results` row, which left
+`$heterogeneity`, `$pleiotropy` and `$loo` computed by TwoSampleMR on
+the uncorrected data with nothing on the object saying so – a caller
+reading Cochran’s Q off an LD-corrected result got the naive Q. Each
+frame now carries an `ld_corrected` column on both arms, and under
+`ld_correct = TRUE` the values come from the correlated fits, keeping
+TwoSampleMR’s column names and row order so downstream code and
+`plot(x, type = "loo")` are unaffected:
+
+| frame | uncorrected arm | LD-corrected arm |
+|----|----|----|
+| `$heterogeneity` | [`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html) | [`heterogeneity_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/heterogeneity_correlated.md): `mr_ivw(correl = TRUE)@Heter.Stat` (`n - 1` df) and `mr_egger(correl = TRUE)@Heter.Stat` (`n - 2` df, `n >= 3`) |
+| `$pleiotropy` | [`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html) | [`pleiotropy_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/pleiotropy_correlated.md): `mr_egger(correl = TRUE)@Intercept` / `@StdError.Int` / `@Pvalue.Int` |
+| `$loo` | [`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html) | [`loo_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/loo_correlated.md): per-SNP random-effects GLS refit (below) |
+
+`$heterogeneity$method` keeps TwoSampleMR’s labels
+(`"Inverse variance weighted"`, `"MR Egger"`) on both arms: Q is
+model-agnostic, so neither `$results` IVW label would be right, and a
+stable label makes the column the only difference. Steiger filtering is
+the one diagnostic left alone – it compares per-SNP r^2 values and has
+no weight matrix – so it neither warns nor carries the column.
+
+[`loo_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/loo_correlated.md)
+is the one piece with no upstream implementation:
+[`MendelianRandomization::mr_loo()`](https://rdrr.io/pkg/MendelianRandomization/man/mr_loo.html)
+takes no `correl` argument and never reads the correlation slot. It is
+deliberately **not** n refits of `mr_ivw()`, which is n solves of an
+(n-1)x(n-1) system – O(n^4), measured at 15 s for n = 300 and minutes
+for n = 600. Instead it inverts `O` once and, for each SNP `i`, obtains
+the inverse with that row and column removed by the Schur-complement
+identity `W[-i, -i] - W[-i, i] W[i, -i] / W[i, i]` (O(n^2) per SNP,
+O(n^3) total; 0.12 s at n = 300, 1 s at n = 600; agrees with the refit
+loop to machine precision), then reproduces `mr_ivw()`’s random-effects
+arithmetic exactly – residual SE on `m - 1` df, floored at 1, normal
+p-value. Two guards: below `rcond_min` it falls back to direct per-SNP
+solves, and `test-ld-diagnostics.R` pins every row to a literal
+`mr_ivw(correl = TRUE)` refit, so a change in upstream’s convention
+fails CI rather than drifting silently.
+
 #### Egger intercept / pleiotropy test
 
 [`TwoSampleMR::mr_pleiotropy_test()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_pleiotropy_test.html)
-is run automatically whenever `"egger"` is in `methods` and there are
-\>= 3 instruments. The result is stored in `$pleiotropy` as a data frame
-with columns `egger_intercept`, `se`, `pval`, `exposure`, and `outcome`.
-The `"pleiotropy"` shortcut in `methods` triggers the same test
-independently (i.e. without also running the Egger slope estimate).
+(or
+[`pleiotropy_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/pleiotropy_correlated.md)
+under `ld_correct = TRUE`) is run automatically whenever `"egger"` is in
+`methods` and there are \>= 3 instruments. The result is stored in
+`$pleiotropy` as a data frame with columns `egger_intercept`, `se`,
+`pval`, `exposure`, `outcome`, `ld_corrected`. The `"pleiotropy"`
+shortcut in `methods` triggers the same test independently (i.e. without
+also running the Egger slope estimate).
 
 #### Heterogeneity test (Cochran’s Q)
 
 [`TwoSampleMR::mr_heterogeneity()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html)
-runs when `"heterogeneity"` is in `methods` and there are \>= 2
-instruments; otherwise `methods_skipped["heterogeneity"]` records the
-reason. The result is stored in `$heterogeneity` as a data frame with
-one row per method (typically MR Egger and IVW), columns `Q`, `Q_df`,
-`Q_pval`, `exposure`, `outcome`.
+(or
+[`heterogeneity_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/heterogeneity_correlated.md)
+under `ld_correct = TRUE`) runs when `"heterogeneity"` is in `methods`
+and there are \>= 2 instruments; otherwise
+`methods_skipped["heterogeneity"]` records the reason. The result is
+stored in `$heterogeneity` as a data frame with one row per method (MR
+Egger when there are \>= 3 instruments, then IVW), columns `Q`, `Q_df`,
+`Q_pval`, `exposure`, `outcome`, `ld_corrected`.
 
 #### Leave-one-out analysis
 
 [`TwoSampleMR::mr_leaveoneout()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html)
-runs when `"loo"` is in `methods` and there are \>= 3 instruments (below
-that, dropping one SNP just reproduces the remaining SNP’s Wald ratio,
-which isn’t informative); otherwise `methods_skipped["loo"]` records the
-reason. The result is stored in `$loo` as a data frame with one row per
-SNP plus a pooled `"All"` row, columns `SNP`, `b`, `se`, `p`,
-`exposure`, `outcome`.
+(or
+[`loo_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/loo_correlated.md)
+under `ld_correct = TRUE`) runs when `"loo"` is in `methods` and there
+are \>= 3 instruments (below that, dropping one SNP just reproduces the
+remaining SNP’s Wald ratio, which isn’t informative); otherwise
+`methods_skipped["loo"]` records the reason. The result is stored in
+`$loo` as a data frame with one row per SNP plus a pooled `"All"` row,
+columns `SNP`, `b`, `se`, `p`, `exposure`, `outcome`, `ld_corrected`.
 
 #### Flipping exposure direction – deliberately not provided
 

@@ -38,7 +38,17 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md),
 [`eaf_to_maf()`](https://github.com/BZuckerman97/mrpipeline/reference/eaf_to_maf.md),
 [`resolve_sample_size()`](https://github.com/BZuckerman97/mrpipeline/reference/resolve_sample_size.md),
-[`warn_no_ld_correction()`](https://github.com/BZuckerman97/mrpipeline/reference/warn_no_ld_correction.md)
+[`warn_no_ld_correction()`](https://github.com/BZuckerman97/mrpipeline/reference/warn_no_ld_correction.md),
+[`gls_weight_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/gls_weight_matrix.md),
+[`diag_ids()`](https://github.com/BZuckerman97/mrpipeline/reference/diag_ids.md),
+[`heterogeneity_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/heterogeneity_correlated.md),
+[`pleiotropy_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/pleiotropy_correlated.md),
+[`loo_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/loo_correlated.md)
+(the last three compute the diagnostics from the correlated fits under
+`ld_correct = TRUE`;
+[`loo_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/loo_correlated.md)
+is a block-inverse GLS refit, O(n^3) – do not replace it with a per-SNP
+`mr_ivw()` loop, issue \#31)
 
 **Method registry** (in `R/mr_methods.R`):
 [`mr_method_registry()`](https://github.com/BZuckerman97/mrpipeline/reference/mr_method_registry.md)

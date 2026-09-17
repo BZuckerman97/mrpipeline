@@ -437,9 +437,9 @@ knitr::kable(tab)
 | presso | MR-PRESSO outlier test | MR-PRESSO | `$results` | NA | FALSE | 3 |
 | conmix | Contamination mixture | ConMix | `$results` | NA | FALSE | 2 |
 | steiger | Steiger directionality test | NA | `$steiger` | NA | FALSE | 1 |
-| pleiotropy | Egger intercept (pleiotropy) test | NA | `$pleiotropy` | NA | FALSE | 3 |
-| heterogeneity | Cochran’s Q heterogeneity test | NA | `$heterogeneity` | NA | FALSE | 2 |
-| loo | Leave-one-out IVW | NA | `$loo` | NA | FALSE | 3 |
+| pleiotropy | Egger intercept (pleiotropy) test | NA | `$pleiotropy` | NA | TRUE | 3 |
+| heterogeneity | Cochran’s Q heterogeneity test | NA | `$heterogeneity` | NA | TRUE | 2 |
+| loo | Leave-one-out IVW | NA | `$loo` | NA | TRUE | 3 |
 
 `mr_methods(detail = "full")` adds the automatic Wald-ratio path (used
 when exactly one instrument survives), the raw TwoSampleMR passthrough
@@ -482,7 +482,7 @@ corrected <- run_mr(
   ld_correct = TRUE,
   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median")
 )
-#> Warning: 'weighted_median' has no LD-corrected form; running uncorrected.
+#> Warning: "weighted_median" has no LD-corrected form; running uncorrected.
 
 corrected$results[, c("method", "model", "ld_corrected")]
 #>                 method  model ld_corrected
@@ -495,11 +495,32 @@ corrected$results[, c("method", "model", "ld_corrected")]
 Every `$results` row states the estimator that produced it: `model` says
 whether it was a fixed- or random-effects fit, and `ld_corrected`
 whether the LD matrix was used. Only `ivw_random`, `ivw_fixed` and
-`egger` have a correlated form; any other method you request runs on the
-uncorrected data and warns by name, so `ld_correct` is never silently
-ignored. `summary(corrected)` lists which methods it was and was not
-applied to, and `print(corrected)` tags the primary row
+`egger` have a correlated form; any other estimator you request runs on
+the uncorrected data and warns by name, so `ld_correct` is never
+silently ignored. `summary(corrected)` lists which methods it was and
+was not applied to, and `print(corrected)` tags the primary row
 `[LD-corrected]`.
+
+The diagnostics are corrected too. Cochran’s Q, the Egger intercept and
+the leave-one-out estimates are all answers to “how much do my
+instruments disagree?”, and that question changes once the instruments
+are correlated – the generalised Q for a correlated set can differ
+materially from the naive one. So under `ld_correct = TRUE`,
+`$heterogeneity`, `$pleiotropy` and `$loo` come from the correlated
+fits, and each carries its own `ld_corrected` column on both arms:
+
+``` r
+
+corrected$heterogeneity[, c("method", "Q", "Q_df", "Q_pval", "ld_corrected")]
+#>                      method    Q Q_df Q_pval ld_corrected
+#> 1                  MR Egger 1.71    1  0.191         TRUE
+#> 2 Inverse variance weighted 2.63    2  0.268         TRUE
+```
+
+The `method` labels in `$heterogeneity` stay TwoSampleMR’s on both arms
+(Q does not depend on the fixed/random choice), so the column is the
+only thing that differs. Steiger filtering is the one diagnostic left
+as-is: it compares per-SNP r^2 values and involves no weight matrix.
 
 Two things to know:
 

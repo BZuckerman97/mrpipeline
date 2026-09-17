@@ -9,7 +9,7 @@ and optional sensitivity analyses. Returns an mr_result S3 object."></head><body
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -290,13 +290,29 @@ causal effect. The IVW estimator is pinned explicitly (<code>model = "random"</c
 for <code>ivw_random</code>, <code>"fixed"</code> for <code>ivw_fixed</code>) so that each shortcut means
 the same thing at every instrument count; <code>MendelianRandomization</code>'s own
 default would switch to fixed effects below 4 instruments.</p>
-<p>Every other method has no correlated form and runs on the uncorrected
-data: a warning names each such method, and its <code>$results</code> row carries
-<code>ld_corrected = FALSE</code>. <code>ld_correct</code> is never silently ignored – it is
-either applied, or visibly not applied. To compare corrected and
-uncorrected estimates, call <code>run_mr()</code> twice and pass both results to
-<code><a href="forest_plot.html">forest_plot()</a></code> as a named list: one <code>mr_result</code> is always one instrument
-set under one weight matrix.</p>
+<p>Every other <code>$results</code> method has no correlated form and runs on the
+uncorrected data: a warning names each such method, and its row carries
+<code>ld_corrected = FALSE</code>. The diagnostics come from the correlated fits
+too: <code>$heterogeneity</code> holds the generalised Cochran Q for correlated
+instruments (<code>Q = r' O^-1 r</code> on the GLS residuals, from
+<code>mr_ivw()@Heter.Stat</code> and <code>mr_egger()@Heter.Stat</code>), <code>$pleiotropy</code> the
+correlated Egger intercept (<code>mr_egger()@Intercept</code>), and <code>$loo</code> a
+per-SNP correlated random-effects refit (a block-inverse update, so it
+stays O(n^3)). Each of those frames carries an <code>ld_corrected</code> column on
+both arms. <code>steiger</code> is the one thing left as-is: the Steiger direction
+test compares per-SNP r^2 values and involves no weight matrix.
+<code>ld_correct</code> is never silently ignored – it is either applied, or
+visibly not applied. To compare corrected and uncorrected estimates, call
+<code>run_mr()</code> twice and pass both results to <code><a href="forest_plot.html">forest_plot()</a></code> as a named
+list: one <code>mr_result</code> is always one instrument set under one weight
+matrix.</p>
+<p>If the GLS weight matrix is near-singular (reciprocal condition number
+below <code>1e-10</code>) <code>run_mr()</code> warns that every LD-corrected estimate is
+unstable. The usual causes are identical or near-identical instruments
+(r^2 ~ 1, from absent clumping or a manual set with a duplicated
+variant) and more instruments than reference-panel individuals, which
+makes the sample correlation matrix singular; clump more stringently or
+drop the duplicate.</p>
 <p>Random effects are multiplicative: the standard error is inflated by
 <code>max(RSE, 1)</code>, never deflated, so when the instruments are under-dispersed
 the random- and fixed-effect results coincide exactly.</p>
@@ -307,7 +323,7 @@ the random- and fixed-effect results coincide exactly.</p>
 
 <p>Rendered from <code><a href="mr_methods.html">mr_methods()</a></code>. <code>label</code> is the <code>method</code> value written to
 <code>$results</code>; <code>model</code> the effects model; <code>LD</code> whether <code>ld_correct = TRUE</code>
-applies; <code>min n</code> the minimum number of instruments.</p><table class="table table"><tr><td>shortcut</td><td>description</td><td>label</td><td>output</td><td>model</td><td>LD</td><td>min n</td></tr><tr><td><code>ivw_random</code></td><td>IVW, multiplicative random effects</td><td>IVW (random effects)</td><td><code>$results</code></td><td>random</td><td>yes</td><td>2</td></tr><tr><td><code>ivw_fixed</code></td><td>IVW, fixed effects</td><td>IVW (fixed effects)</td><td><code>$results</code></td><td>fixed</td><td>yes</td><td>2</td></tr><tr><td><code>egger</code></td><td>MR Egger regression</td><td>MR Egger</td><td><code>$results</code></td><td>random</td><td>yes</td><td>3</td></tr><tr><td><code>weighted_median</code></td><td>Weighted median</td><td>Weighted median</td><td><code>$results</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>presso</code></td><td>MR-PRESSO outlier test</td><td>MR-PRESSO</td><td><code>$results</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>conmix</code></td><td>Contamination mixture</td><td>ConMix</td><td><code>$results</code></td><td>–</td><td>no</td><td>2</td></tr><tr><td><code>steiger</code></td><td>Steiger directionality test</td><td>–</td><td><code>$steiger</code></td><td>–</td><td>no</td><td>1</td></tr><tr><td><code>pleiotropy</code></td><td>Egger intercept (pleiotropy) test</td><td>–</td><td><code>$pleiotropy</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>heterogeneity</code></td><td>Cochran's Q heterogeneity test</td><td>–</td><td><code>$heterogeneity</code></td><td>–</td><td>no</td><td>2</td></tr><tr><td><code>loo</code></td><td>Leave-one-out IVW</td><td>–</td><td><code>$loo</code></td><td>–</td><td>no</td><td>3</td></tr></table></div>
+applies; <code>min n</code> the minimum number of instruments.</p><table class="table table"><tr><td>shortcut</td><td>description</td><td>label</td><td>output</td><td>model</td><td>LD</td><td>min n</td></tr><tr><td><code>ivw_random</code></td><td>IVW, multiplicative random effects</td><td>IVW (random effects)</td><td><code>$results</code></td><td>random</td><td>yes</td><td>2</td></tr><tr><td><code>ivw_fixed</code></td><td>IVW, fixed effects</td><td>IVW (fixed effects)</td><td><code>$results</code></td><td>fixed</td><td>yes</td><td>2</td></tr><tr><td><code>egger</code></td><td>MR Egger regression</td><td>MR Egger</td><td><code>$results</code></td><td>random</td><td>yes</td><td>3</td></tr><tr><td><code>weighted_median</code></td><td>Weighted median</td><td>Weighted median</td><td><code>$results</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>presso</code></td><td>MR-PRESSO outlier test</td><td>MR-PRESSO</td><td><code>$results</code></td><td>–</td><td>no</td><td>3</td></tr><tr><td><code>conmix</code></td><td>Contamination mixture</td><td>ConMix</td><td><code>$results</code></td><td>–</td><td>no</td><td>2</td></tr><tr><td><code>steiger</code></td><td>Steiger directionality test</td><td>–</td><td><code>$steiger</code></td><td>–</td><td>no</td><td>1</td></tr><tr><td><code>pleiotropy</code></td><td>Egger intercept (pleiotropy) test</td><td>–</td><td><code>$pleiotropy</code></td><td>–</td><td>yes</td><td>3</td></tr><tr><td><code>heterogeneity</code></td><td>Cochran's Q heterogeneity test</td><td>–</td><td><code>$heterogeneity</code></td><td>–</td><td>yes</td><td>2</td></tr><tr><td><code>loo</code></td><td>Leave-one-out IVW</td><td>–</td><td><code>$loo</code></td><td>–</td><td>yes</td><td>3</td></tr></table></div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="mr_methods.html">mr_methods()</a></code> for the table of methods and what each supports.</p></div>

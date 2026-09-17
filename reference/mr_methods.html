@@ -17,7 +17,7 @@ always current."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -138,9 +138,9 @@ shortcut and <code>ld_correct</code>.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5        $results   &lt;NA&gt;          FALSE               3</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 6        $results   &lt;NA&gt;          FALSE               2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 7        $steiger   &lt;NA&gt;          FALSE               1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8     $pleiotropy   &lt;NA&gt;          FALSE               3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9  $heterogeneity   &lt;NA&gt;          FALSE               2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10           $loo   &lt;NA&gt;          FALSE               3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8     $pleiotropy   &lt;NA&gt;           TRUE               3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9  $heterogeneity   &lt;NA&gt;           TRUE               2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10           $loo   &lt;NA&gt;           TRUE               3</span>
 <span class="r-in"><span><span class="fu">mr_methods</span><span class="op">(</span>detail <span class="op">=</span> <span class="st">"full"</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>           shortcut                        description                label</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1       ivw_random IVW, multiplicative random effects IVW (random effects)</span>
@@ -165,9 +165,9 @@ shortcut and <code>ld_correct</code>.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 7        $results   &lt;NA&gt;          FALSE               1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 8        $results   &lt;NA&gt;          FALSE               2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9        $steiger   &lt;NA&gt;          FALSE               1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10    $pleiotropy   &lt;NA&gt;          FALSE               3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 11 $heterogeneity   &lt;NA&gt;          FALSE               2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 12           $loo   &lt;NA&gt;          FALSE               3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10    $pleiotropy   &lt;NA&gt;           TRUE               3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11 $heterogeneity   &lt;NA&gt;           TRUE               2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12           $loo   &lt;NA&gt;           TRUE               3</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                               engine</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                TwoSampleMR::mr_ivw</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2             TwoSampleMR::mr_ivw_fe</span>
@@ -181,19 +181,19 @@ shortcut and <code>ld_correct</code>.</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10   TwoSampleMR::mr_pleiotropy_test</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 11     TwoSampleMR::mr_heterogeneity</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 12       TwoSampleMR::mr_leaveoneout</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>                                           engine_ld</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1  MendelianRandomization::mr_ivw(model = "random")</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2   MendelianRandomization::mr_ivw(model = "fixed")</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                  MendelianRandomization::mr_egger</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7                                              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8                                              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9                                              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10                                             &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 11                                             &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 12                                             &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                                                              engine_ld</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                     MendelianRandomization::mr_ivw(model = "random")</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                      MendelianRandomization::mr_ivw(model = "fixed")</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                     MendelianRandomization::mr_egger</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                                                 &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                                                 &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                                                 &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                                                                 &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                                                                 &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                                                                 &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                        MendelianRandomization::mr_egger()@Intercept</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11 MendelianRandomization::mr_ivw()@Heter.Stat / mr_egger()@Heter.Stat</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 12     mrpipeline:::loo_correlated (block-inverse GLS per dropped SNP)</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
