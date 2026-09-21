@@ -770,3 +770,46 @@ test_that("run_coloc runs susie + signals end-to-end despite LD-panel allele mis
   expect_true(is.data.frame(result$coloc_signals$summary))
   expect_gt(nrow(result$coloc_signals$summary), 0L)
 })
+
+test_that("run_coloc records a coloc.susie skipped for want of credible sets", {
+  # On the bundled CD40 / SjD data SuSiE finds no credible set for the
+  # outcome (its smallest p-value in the window is ~0.01), so coloc.susie is
+  # skipped. That must reach $methods_skipped -- and so summary() -- rather
+  # than living only in a warning.
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  skip_if_not_installed("susieR")
+
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+
+  suppressWarnings(suppressMessages(utils::capture.output(
+    result <- run_coloc(
+      exposure = cd40_exposure,
+      exposure_id = "CD40",
+      outcome = sjogren_outcome,
+      outcome_id = "SjD",
+      gene_chr = 20,
+      gene_start = 44746911,
+      gene_end = 44758502,
+      bfile = bfile,
+      methods = c("abf", "susie")
+    )
+  )))
+
+  expect_equal(result$status, "success")
+  expect_equal(result$params$susie_ncs_out, 0L)
+  expect_null(result$coloc_susie)
+  expect_equal(
+    result$methods_skipped[["susie"]],
+    "no credible sets in outcome"
+  )
+  expect_message(summary(result), "no credible sets in outcome")
+})
