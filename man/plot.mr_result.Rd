@@ -17,8 +17,9 @@ have been in \code{methods} when \code{run_mr()} was called).}
 \item{...}{Ignored.}
 }
 \value{
-A ggplot object (or list of ggplot objects for \code{"scatter"} and
-\code{"loo"}). Returns \code{NULL} invisibly if the result status is not
+A list of ggplot objects, one per exposure-outcome pair, as
+returned by TwoSampleMR's plotting functions -- for a single analysis,
+take \verb{[[1]]}. Returns \code{NULL} invisibly if the result status is not
 \code{"success"}, if no results are available, or (for \code{type = "loo"}) if
 \code{x$loo} was not computed.
 }
