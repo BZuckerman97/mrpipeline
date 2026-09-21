@@ -288,9 +288,13 @@ summary.mr_result <- function(object, ...) {
 
   # Each diagnostics frame says whether it came from the correlated fits;
   # the heading repeats that so it cannot be read as the uncorrected one.
-  diag_tag <- function(frame) { # nolint: object_usage_linter.
+  # lintr cannot see uses inside cli's {} strings; a block rather than a
+  # trailing # nolint, which air format moves off the flagged line.
+  # nolint start: object_usage_linter.
+  diag_tag <- function(frame) {
     if (isTRUE(frame$ld_corrected[1])) " [LD-corrected]" else ""
   }
+  # nolint end
 
   # Pleiotropy test
   if (!is.null(object$pleiotropy)) {
