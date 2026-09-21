@@ -1169,3 +1169,31 @@ test_that("two LD-corrected instruments give an IVW-only heterogeneity row", {
   expect_equal(ht$Q_df, 1)
   expect_true(ht$ld_corrected)
 })
+
+# --- summary(): Steiger ------------------------------------------------------
+
+test_that("summary() reports the per-SNP Steiger result it is given", {
+  # $steiger holds TwoSampleMR::steiger_filtering() output -- one row per SNP
+  # with a logical steiger_dir -- not directionality_test()'s single
+  # correct_causal_direction, which summary() once read and printed as blank.
+  res <- new_mr_result(
+    results = data.frame(
+      method = "IVW (random effects)",
+      nsnp = 3L,
+      b = 0.1,
+      se = 0.05,
+      pval = 0.05,
+      model = "random",
+      ld_corrected = FALSE
+    ),
+    steiger = data.frame(
+      SNP = c("rs1", "rs2", "rs3"),
+      steiger_dir = c(TRUE, TRUE, FALSE),
+      steiger_pval = c(1e-10, 1e-5, 0.2)
+    )
+  )
+  msgs <- paste(capture_messages(summary(res)), collapse = "")
+  expect_match(msgs, "2/3 SNPs explain more variance in the exposure")
+  expect_match(msgs, "Largest Steiger p-value: 0.2")
+  expect_match(msgs, "Not in the expected direction: \"rs3\"")
+})

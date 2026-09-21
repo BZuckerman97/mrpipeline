@@ -738,9 +738,14 @@ run_coloc <- function(
             if (ncs_exp == 0L) "exposure",
             if (ncs_out == 0L) "outcome"
           )
-          cli::cli_warn(
-            "coloc.susie skipped: no credible sets in {paste(empty, collapse = ' and ')}."
+          reason <- paste(
+            "no credible sets in",
+            paste(empty, collapse = " and ")
           )
+          cli::cli_warn("coloc.susie skipped: {reason}.")
+          # The SuSiE fits themselves succeeded (coloc.signals still runs on
+          # them), but record the skip so summary() reports it.
+          methods_skipped["susie"] <- reason
           NULL
         } else {
           coloc::coloc.susie(s_exp, s_out)

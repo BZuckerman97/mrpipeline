@@ -10,25 +10,89 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  # run_mr()/run_coloc() narrate their progress through messages; warnings
+  # stay on, since several examples below are about what they say.
+  message = FALSE
+)
+library(mrpipeline)
+
+# The evaluated examples need the bundled LD panel and a PLINK binary.
+# genetics.binaRies::get_plink_binary() downloads PLINK on first use and
+# errors if it cannot, so probe it rather than assume it. Without it the
+# examples are shown with their output omitted, instead of failing the build.
+bfile <- sub(
+  "\\.bed$",
+  "",
+  system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+)
+plink_bin <- tryCatch(
+  genetics.binaRies::get_plink_binary(),
+  error = function(e) ""
+)
+has_ld <- file.exists(paste0(bfile, ".bed")) && file.exists(plink_bin)
+has_gg <- has_ld && requireNamespace("ggplot2", quietly = TRUE)
+has_susie <- has_ld && requireNamespace("susieR", quietly = TRUE)
+has_forestplot <- requireNamespace("forestplot", quietly = TRUE)
+
+# Numbers quoted in the prose come from the evaluated results, never typed.
+# Counts print as integers; anything else to `digits` significant figures,
+# keeping trailing zeros (0.0500, not 0.05).
+num <- function(x, digits = 3) {
+  if (!has_ld) {
+    return("[not computed]")
+  }
+  if (all(x == round(x))) {
+    return(format(x))
+  }
+  formatC(x, digits = digits, format = "fg", flag = "#")
+}
+```
+
+```{r no-plink-note, eval = !has_ld, echo = FALSE, results = "asis"}
+cat(
+  "> **Note:** PLINK or the bundled LD panel was not available when this",
+  "page was built, so the examples below show their code without output.\n"
 )
 ```
 
 ## Overview
 
-<!-- TODO: brief package description and when to use it -->
+`mrpipeline` runs two-sample Mendelian randomisation (MR) and
+colocalisation for molecular exposures -- currently protein QTLs (deCODE,
+UKB-PPP) and single-cell eQTLs -- against GWAS outcomes. It is built for the
+drug-target question "does genetically proxied perturbation of this protein
+affect this disease?", so its default mode is **cis-MR**: instruments are
+drawn from a window around the gene encoding the protein.
+
+It wraps `TwoSampleMR`, `MendelianRandomization` and `coloc` behind two
+calls, `run_mr()` and `run_coloc()`, which each return a single result object
+(`mr_result`, `coloc_result`) carrying the estimates, the instruments, the
+harmonisation record and every diagnostic -- so a result can be inspected,
+plotted and audited after the fact.
+
+**About the examples.** Evaluated examples on this page use the data bundled
+with the package: `cd40_exposure` (CD40 protein, UKB-PPP), `sjogren_outcome`
+(Sjogren's disease) and a 50-SNP LD reference panel of real 1000 Genomes EUR
+genotypes. Their output is produced when the page is built, not typed. The
+outcome data are **partly synthetic** (49 of its 50 SNPs), so the numbers
+illustrate the mechanics and are not a finding about CD40 and Sjogren's
+disease. Examples that need network access or your own files are marked as
+not run.
 
 ## Gene Coordinate Lookup
 
 Use `get_gene_coords()` to programmatically retrieve gene coordinates from
 Ensembl via biomaRt. This is useful for defining cis regions in `run_mr()` and
-`run_coloc()` without hard-coding coordinates.
+`run_coloc()` without hard-coding coordinates. These two examples query
+Ensembl over the network, so they are not run here; the output shown is
+representative.
 
 ```{r gene-coords, eval = FALSE}
 # GRCh38 (default)
 coords <- get_gene_coords(c("CD40", "APOE"))
 coords
-#> # A tibble: 2 × 4
+#> # A tibble: 2 x 4
 #>   hgnc_symbol chromosome     start       end
 #>   <chr>       <chr>          <int>     <int>
 #> 1 APOE        19          44905791  44909393
@@ -59,11 +123,12 @@ mr_res <- run_mr(
 ## Controlling PLINK Resource Usage
 
 When running many parallel jobs (e.g. on an HPC cluster), PLINK's default
-behaviour of auto-detecting available threads and memory can cause problems —
+behaviour of auto-detecting available threads and memory can cause problems --
 each worker may try to reserve half the node's RAM. Use `plink_threads` and
 `plink_memory` to cap resource usage per call.
 
-You can set these per-call, via R options, or via environment variables:
+You can set these per-call, via R options, or via environment variables
+(placeholder data; not run):
 
 ```{r plink-resources, eval = FALSE}
 # Per-call (highest priority)
@@ -90,9 +155,55 @@ auto-detect (`NULL`). The same parameters are available in `run_coloc()`.
 
 ## Setting Up an LD Reference Panel
 
-<!-- TODO: explain when a local bfile is needed (batch, ld_correct, coloc) vs API -->
-<!-- TODO: download instructions for 1000 Genomes EUR panel -->
-<!-- TODO: expected file structure (bfile prefix: .bed/.bim/.fam) -->
+Several steps need linkage disequilibrium (LD) between variants, which
+`mrpipeline` computes with PLINK from a reference panel of genotypes:
+
+| Step | Without `bfile` | With `bfile` |
+|---|---|---|
+| Instrument clumping in `run_mr()` | OpenGWAS API (needs an `OPENGWAS_JWT` token; rate-limited) | Local PLINK |
+| `run_mr(ld_correct = TRUE)` | Error | LD matrix of the instruments |
+| `run_coloc()` (SuSiE, `coloc.signals`, LD alignment) | Required -- `bfile` has no default | LD matrix of the region |
+| `plot(coloc_res, type = "locuszoom")` | Required | LD colouring |
+
+A local panel is recommended for anything beyond a quick look: it is
+reproducible (the API's panel can change), it is not rate-limited, which
+matters when you batch many proteins, and it is the only option for
+`ld_correct` and colocalisation.
+
+**File structure.** `bfile` is a PLINK 1 binary fileset given by its
+*prefix* -- the path without an extension. `bfile = "/data/ld/EUR"` expects
+`/data/ld/EUR.bed`, `/data/ld/EUR.bim` and `/data/ld/EUR.fam` to sit side by
+side. Variant IDs in the `.bim` must be rsIDs matching your summary
+statistics, and the panel must be on the same genome build as your data.
+
+**Getting a panel.** Use one matching your GWAS samples' ancestry. The
+MRC-IEU distributes the 1000 Genomes phase 3 panels (GRCh37, rsIDs) used by
+OpenGWAS, split by super-population:
+
+```{r ld-panel-download, eval = FALSE}
+# Not run: a ~1.6 GB download.
+download.file("http://fileserve.mrcieu.ac.uk/ld/1kg.v3.tgz", "1kg.v3.tgz")
+untar("1kg.v3.tgz", exdir = "ld_ref")
+bfile <- "ld_ref/EUR" # ld_ref/EUR.bed, ld_ref/EUR.bim, ld_ref/EUR.fam
+```
+
+The package also bundles a tiny panel -- real 1000 Genomes EUR genotypes for
+503 individuals at the 50 CD40-region SNPs in `cd40_exposure` -- which the
+evaluated examples on this page use:
+
+```{r bundled-panel, eval = has_ld}
+bfile <- sub(
+  "\\.bed$",
+  "",
+  system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+)
+basename(bfile)
+```
+
+It only covers those 50 SNPs, so it is for learning the package, not for
+analysis. The script that built it, `data-raw/ld_ref.R` in the package
+source, shows how to cut a panel for any region straight from the 1000
+Genomes VCFs.
 
 ## Formatting GWAS Data
 
@@ -106,6 +217,12 @@ statistics file. Source-specific wrappers exist for deCODE
 (`format_pqtl_decode()`), UKB-PPP (`format_pqtl_ukbppp()`) and OneK1K
 single-cell eQTLs (`format_single_cell_onek1k()`); they already know their
 source's allele convention, so the steps below are for everything else.
+
+The walkthrough in this section follows a real analysis -- an
+AMD outcome GWAS and a regenie exposure -- from files on disk, including a
+deliberately mis-oriented file. Those files do not ship with the package, so
+this code is **not run** when the page is built; the `#>` lines are
+representative output, abridged where marked `...`.
 
 ### Step 1: inspect the header
 
@@ -342,22 +459,35 @@ of a small cis-MR's SNPs, so check `result$results$nsnp` afterwards.
 
 ### Cis-MR (quick start with API clumping)
 
-<!-- TODO: minimal example without bfile -->
+A cis-MR needs an exposure, an outcome and the gene's region. Setting
+`instrument_region` selects genome-wide significant variants within
+100 kb of it, and with no `bfile` they are LD-clumped through the OpenGWAS
+API:
+
+```{r cis-mr-api, eval = FALSE}
+# Not run: needs network access and an OpenGWAS token -- see
+# ieugwasr::get_opengwas_jwt().
+mr_api <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502)
+)
+```
+
+Without a `methods` argument `run_mr()` runs its default set: random-effects
+IVW, MR-Egger, weighted median, MR-PRESSO, contamination mixture and Steiger
+filtering.
 
 ### Cis-MR with local LD reference (recommended)
 
-<!-- TODO: full example with bfile -->
+With a local panel the same analysis is reproducible and offline. This is the
+analysis the rest of the MR sections inspect:
 
-### Sensitivity analyses
-
-<!-- TODO: Egger, weighted median, PRESSO, ConMix, Steiger, heterogeneity, leave-one-out examples -->
-
-Add `"heterogeneity"` and/or `"loo"` to `methods` to get Cochran's Q
-(`TwoSampleMR::mr_heterogeneity()`) and leave-one-out
-(`TwoSampleMR::mr_leaveoneout()`) alongside the effect estimates:
-
-```r
-result <- run_mr(
+```{r cis-mr, eval = has_ld}
+set.seed(1) # the weighted median's standard error is bootstrapped
+mr_res <- run_mr(
   exposure = cd40_exposure,
   exposure_id = "CD40",
   outcome = sjogren_outcome,
@@ -365,12 +495,71 @@ result <- run_mr(
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
   rsq_thresh = 0.3,
   bfile = bfile,
-  methods = c("ivw_random", "egger", "weighted_median", "heterogeneity", "loo")
+  methods = c(
+    "ivw_random", "ivw_fixed", "egger", "weighted_median",
+    "steiger", "pleiotropy", "heterogeneity", "loo"
+  )
 )
-
-result$heterogeneity  # Q, Q_df, Q_pval per method (needs >= 2 instruments)
-result$loo            # per-SNP + pooled "All" estimates (needs >= 3 instruments)
 ```
+
+Two arguments are worth a note. `rsq_thresh = 0.3` clumps far more leniently
+than the default of 0.001: against real LD the default keeps a single CD40
+instrument (a Wald ratio, with no sensitivity analyses possible), while 0.3
+keeps `r num(nrow(mr_res$instruments))`. Instruments that correlated are
+counted as independent by standard IVW, which is what
+[LD-corrected MR](#ld-corrected-mr) below is for. And `methods` names every
+estimator and diagnostic explicitly, so the analysis says what it ran.
+
+`$results` holds one row per estimator:
+
+```{r cis-mr-results, eval = has_ld}
+mr_res$results[, c("method", "nsnp", "b", "se", "pval", "or")]
+```
+
+### Sensitivity analyses
+
+Every estimator makes a different assumption about invalid instruments, so
+agreement between them is the reassurance, and disagreement the lead:
+
+- **IVW** (`ivw_random`, `ivw_fixed`) assumes every instrument is valid, or
+  that pleiotropy averages to zero.
+- **MR-Egger** (`egger`) allows directional pleiotropy through an intercept,
+  at the cost of much lower precision; `pleiotropy` tests that intercept
+  against zero.
+- **Weighted median** (`weighted_median`) is consistent if at least half of
+  the weight comes from valid instruments.
+- **MR-PRESSO** (`presso`) and the **contamination mixture** (`conmix`) detect
+  or down-weight outlying instruments. Both are in the default `methods`;
+  see `mr_methods()` below for everything available.
+
+Here the IVW and weighted-median estimates are
+`r num(mr_res$results$b[mr_res$results$method == "IVW (random effects)"])`
+and
+`r num(mr_res$results$b[mr_res$results$method == "Weighted median"])`;
+Egger's slope, `r num(mr_res$results$b[mr_res$results$method == "MR Egger"])`,
+is far less precise (SE
+`r num(mr_res$results$se[mr_res$results$method == "MR Egger"])`). The Egger
+intercept, Cochran's Q (`heterogeneity`, needs >= 2 instruments) and the
+leave-one-out estimates (`loo`, needs >= 3) each have their own field:
+
+```{r sensitivity, eval = has_ld}
+mr_res$pleiotropy[, c("egger_intercept", "se", "pval")]
+mr_res$heterogeneity[, c("method", "Q", "Q_df", "Q_pval")]
+mr_res$loo[, c("SNP", "b", "se", "p")]
+```
+
+```{r loo-shift, include = FALSE, eval = has_ld}
+loo <- mr_res$loo
+loo_all <- loo$b[loo$SNP == "All"]
+loo_snp <- loo[loo$SNP != "All", ]
+loo_max <- loo_snp[which.max(abs(loo_snp$b - loo_all)), ]
+```
+
+The leave-one-out table re-fits IVW without each SNP in turn, and its last
+row, `All`, is the full-set estimate. Here dropping
+`r if (has_ld) loo_max$SNP else "[not computed]"` moves the estimate the
+most, from `r num(loo_all)` to `r num(loo_max$b)` -- in a
+small instrument set one variant can carry much of the answer.
 
 ### Which methods can I run?
 
@@ -408,22 +597,12 @@ effect -- two correlated SNPs are counted twice and the standard error comes
 out too small. `ld_correct = TRUE` computes the instruments' LD matrix from
 `bfile`, re-orients it to the exposure's effect alleles, and fits the IVW and
 Egger estimators by generalised least squares with that matrix as the weight
-structure (through `MendelianRandomization` with `correl = TRUE`):
+structure (through `MendelianRandomization` with `correl = TRUE`).
 
-The example uses the LD reference panel bundled with the package (real 1000
-Genomes EUR genotypes for the 50 CD40-region SNPs). Its instruments are
-clumped at `rsq_thresh = 0.3` rather than the default 0.001: against real LD
-the default leaves a single CD40 instrument, while 0.3 keeps seven with
-pairwise |r| up to 0.53 -- a typical lenient cis-MR set, and one with
-something to correct for.
+The example repeats the analysis above -- same region, same
+`rsq_thresh = 0.3` -- with the correction switched on:
 
-```{r ld-correct, eval = FALSE}
-bfile <- sub(
-  "\\.bed$",
-  "",
-  system.file("extdata", "ld_ref.bed", package = "mrpipeline")
-)
-
+```{r ld-correct, eval = has_ld}
 corrected <- run_mr(
   exposure = cd40_exposure,
   exposure_id = "CD40",
@@ -435,20 +614,46 @@ corrected <- run_mr(
   ld_correct = TRUE,
   methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median", "heterogeneity")
 )
-#> Warning: "weighted_median" has no LD-corrected form; running uncorrected.
 
 corrected$results[, c("method", "b", "se", "model", "ld_corrected")]
-#>                 method     b     se  model ld_corrected
-#> 1 IVW (random effects) 0.153 0.0580 random         TRUE
-#> 2  IVW (fixed effects) 0.153 0.0273  fixed         TRUE
-#> 3             MR Egger 0.455 0.2829 random         TRUE
-#> 4      Weighted median 0.168 0.0693   <NA>        FALSE
 ```
 
-The same call without `ld_correct` gives an IVW estimate of 0.104 (random-effects
-SE 0.071, fixed-effects SE 0.050) and an Egger slope of 0.146: treating the
-seven correlated instruments as independent changes the answer, not just its
-precision.
+```{r ld-numbers, include = FALSE, eval = has_ld}
+est <- function(res, method, col = "b") res$results[[col]][res$results$method == method]
+ivw_q <- function(res) {
+  res$heterogeneity$Q[res$heterogeneity$method == "Inverse variance weighted"]
+}
+
+# Pairs whose ratio estimates are negatively correlated: sign(r_ij * bx_i * bx_j)
+ld <- corrected$ld_matrix
+bx <- corrected$instruments$beta.exposure[
+  match(rownames(ld), corrected$instruments$SNP)
+]
+pair_sign <- sign(ld * outer(bx, bx))[upper.tri(ld)]
+lead <- which(rownames(ld) == "rs4810485")
+lead_sign <- sign(ld[lead, -lead] * bx[lead] * bx[-lead])
+max_r <- max(abs(ld[upper.tri(ld)]))
+
+# The prose below makes qualitative claims about these numbers; fail the build
+# rather than publish them if the bundled data ever stop supporting them.
+stopifnot(
+  nrow(corrected$instruments) == nrow(mr_res$instruments),
+  est(corrected, "IVW (random effects)", "se") < est(mr_res, "IVW (random effects)", "se"),
+  est(corrected, "IVW (fixed effects)", "se") < est(mr_res, "IVW (fixed effects)", "se"),
+  mean(pair_sign < 0) > 0.5,
+  mean(lead_sign < 0) > 0.5,
+  ivw_q(corrected) > ivw_q(mr_res)
+)
+```
+
+Its instruments are the `r num(nrow(ld))` from before, with pairwise |r| up
+to `r num(max_r, 2)` in the panel -- a typical lenient cis-MR set, and one
+with something to correct for. Without `ld_correct` (`mr_res`, above) the
+IVW estimate was `r num(est(mr_res, "IVW (random effects)"))` (random-effects
+SE `r num(est(mr_res, "IVW (random effects)", "se"), 2)`, fixed-effects SE
+`r num(est(mr_res, "IVW (fixed effects)", "se"), 2)`) and the Egger slope
+`r num(est(mr_res, "MR Egger"))`: treating correlated instruments as
+independent changes the answer, not just its precision.
 
 Note that the corrected standard errors here are *smaller*. Correction does
 not always widen them: what matters is not `r` itself but the correlation
@@ -456,18 +661,21 @@ between the SNPs' ratio estimates, which is `r` times the sign of
 `beta.exposure_i * beta.exposure_j`. Where that is positive the two
 instruments are counted twice over and correction widens the SE; where it is
 negative their errors partly cancel and GLS extracts *more* information than
-the independent-instruments model. In this set most pairs are negative -- the
-largest-effect instrument, rs4810485, against almost all the others -- so the
-standard errors fall. Such a gain leans entirely on the reference panel's LD
-matching the GWAS sample's, so treat a large drop with caution.
+the independent-instruments model. In this set
+`r num(sum(pair_sign < 0))` of the `r num(length(pair_sign))` pairs are
+negative, including `r num(sum(lead_sign < 0))` of the
+`r num(length(lead_sign))` involving rs4810485 -- the largest-effect, and so
+most heavily weighted, instrument -- and the standard errors fall. Such a gain leans entirely on the
+reference panel's LD matching the GWAS sample's, so treat a large drop with
+caution.
 
 Every `$results` row states the estimator that produced it: `model` says
 whether it was a fixed- or random-effects fit, and `ld_corrected` whether the
 LD matrix was used. Only `ivw_random`, `ivw_fixed` and `egger` have a
 correlated form; any other estimator you request runs on the uncorrected
-data and warns by name, so `ld_correct` is never silently ignored.
-`summary(corrected)` lists which methods it was and was not applied to, and
-`print(corrected)` tags the primary row `[LD-corrected]`.
+data and warns by name -- the warning above -- so `ld_correct` is never
+silently ignored. `summary(corrected)` lists which methods it was and was
+not applied to, and `print(corrected)` tags the primary row `[LD-corrected]`.
 
 The diagnostics are corrected too. Cochran's Q, the Egger intercept and the
 leave-one-out estimates are all answers to "how much do my instruments
@@ -477,15 +685,15 @@ naive one. So under `ld_correct = TRUE`, `$heterogeneity`, `$pleiotropy`
 and `$loo` come from the correlated fits, and each carries its own
 `ld_corrected` column on both arms:
 
-```{r ld-diagnostics, eval = FALSE}
+```{r ld-diagnostics, eval = has_ld}
 corrected$heterogeneity[, c("method", "Q", "Q_df", "Q_pval", "ld_corrected")]
-#>                      method    Q Q_df   Q_pval ld_corrected
-#> 1                  MR Egger 21.9    5 0.000552         TRUE
-#> 2 Inverse variance weighted 27.1    6 0.000140         TRUE
 ```
 
-Uncorrected, the same instruments give an IVW Q of 12.0 (p = 0.063): here the
-naive test understates the disagreement between correlated instruments.
+Uncorrected, the same instruments give an IVW Q of
+`r num(ivw_q(mr_res), 4)` (p =
+`r num(mr_res$heterogeneity$Q_pval[mr_res$heterogeneity$method == "Inverse variance weighted"], 2)`):
+here the naive test understates the disagreement between correlated
+instruments.
 
 The `method` labels in `$heterogeneity` stay TwoSampleMR's on both arms
 (Q does not depend on the fixed/random choice), so the column is the only
@@ -506,22 +714,12 @@ Two things to know:
 
 Because of the second point, one `mr_result` is always one instrument set
 under one weight matrix -- `ld_correct` is a single switch, not a request for
-both arms. To compare corrected and uncorrected estimates, run both and
-section them in one forest plot:
+both arms. To compare corrected and uncorrected estimates, run both -- here
+`mr_res` from above is the uncorrected arm -- and section them in one forest
+plot:
 
-```{r ld-compare, eval = FALSE}
-uncorrected <- run_mr(
-  exposure = cd40_exposure,
-  exposure_id = "CD40",
-  outcome = sjogren_outcome,
-  outcome_id = "SjD",
-  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
-  rsq_thresh = 0.3,
-  bfile = bfile,
-  methods = c("ivw_random", "ivw_fixed", "egger", "weighted_median", "heterogeneity")
-)
-
-forest_plot(list("Uncorrected" = uncorrected, "LD-corrected" = corrected))
+```{r ld-compare, eval = has_gg, warning = FALSE, fig.width = 7, fig.height = 4}
+forest_plot(list("Uncorrected" = mr_res, "LD-corrected" = corrected))
 ```
 
 ### Genome-wide MR
@@ -534,10 +732,12 @@ Use the `exclude_regions` argument to remove instruments falling in specific
 genomic regions. This is commonly used to exclude the MHC region on chromosome
 6, which can introduce spurious associations due to complex LD structure.
 
-Supply a data frame with columns `chr`, `start`, and `end`:
+Supply a data frame with columns `chr`, `start`, and `end`. The bundled data
+cover only the CD40 region on chromosome 20, so these two examples use
+placeholder datasets and are not run:
 
 ```{r exclude-mhc, eval = FALSE}
-# Exclude MHC region (GRCh37 coordinates: chr6:28,477,797–33,448,354)
+# Exclude MHC region (GRCh37 coordinates: chr6:28,477,797-33,448,354)
 mhc_grch37 <- data.frame(chr = "6", start = 28477797, end = 33448354)
 
 result <- run_mr(
@@ -548,7 +748,7 @@ result <- run_mr(
   exclude_regions = mhc_grch37
 )
 
-# GRCh38 coordinates: chr6:28,510,120–33,480,577
+# GRCh38 coordinates: chr6:28,510,120-33,480,577
 mhc_grch38 <- data.frame(chr = "6", start = 28510120, end = 33480577)
 ```
 
@@ -575,55 +775,111 @@ result <- run_mr(
 ### Manual instrument sets
 
 You can bypass automatic instrument selection by supplying a character vector
-of rsIDs to the `instruments` argument:
+of rsIDs to the `instruments` argument -- for example, a pre-specified pair of
+variants:
 
-```{r manual-instruments, eval = FALSE}
-result <- run_mr(
-  exposure = exposure_data,
-  exposure_id = "PCSK9",
-  outcome = outcome_data,
-  outcome_id = "CHD",
-  instruments = c("rs11591147", "rs2479409", "rs11583680")
+```{r manual-instruments, eval = has_ld}
+manual_res <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instruments = c("rs4810485", "rs4813002"),
+  methods = c("ivw_random", "egger", "weighted_median", "heterogeneity", "loo")
+)
+manual_res$results[, c("method", "nsnp", "b", "se")]
+```
+
+Manual instruments are used as given: no p-value threshold, no clumping, so
+no `bfile` is needed. With only two of them, every method that needs three
+or more instruments cannot run. Rather than failing, `run_mr()` records why in
+`$methods_skipped` (see [Interpreting MR results](#interpreting-mr-results)).
+
+By default, instruments missing from the exposure data produce a warning and
+the analysis continues with the available SNPs:
+
+```{r manual-missing, eval = has_ld}
+manual_lax <- run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instruments = c("rs4810485", "rs4813002", "rs0000001"),
+  methods = "ivw_random"
 )
 ```
 
-By default, instruments missing from the exposure data produce a warning but
-the analysis continues with the available SNPs. Set `instruments_strict = TRUE`
-to error instead:
+Set `instruments_strict = TRUE` to make that an error instead:
 
-```{r manual-strict, eval = FALSE}
-result <- run_mr(
-  exposure = exposure_data,
-  exposure_id = "PCSK9",
-  outcome = outcome_data,
-  outcome_id = "CHD",
-  instruments = c("rs11591147", "rs2479409"),
+```{r manual-strict, eval = has_ld, error = TRUE}
+run_mr(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
+  instruments = c("rs4810485", "rs4813002", "rs0000001"),
   instruments_strict = TRUE
 )
 ```
 
 ## Interpreting MR Results
 
-<!-- TODO: F-statistics and what they mean -->
-<!-- TODO: Steiger filtering -->
-<!-- TODO: methods_skipped -->
-
 Use `print()` for a one-line summary and `summary()` for full details:
 
-```{r mr-inspect, eval = FALSE}
+```{r mr-inspect, eval = has_ld, message = TRUE}
 mr_res
 summary(mr_res)
 ```
 
+Beyond the estimates, three things in that output decide how far to trust
+them.
+
+**Instrument strength (`$f_stats`).** Each instrument's F-statistic,
+computed as `(beta.exposure / se.exposure)^2`, measures how strongly it
+predicts the exposure. Weak instruments (conventionally F < 10) bias
+two-sample MR towards the null -- or, where the exposure and outcome samples
+overlap, towards the confounded observational association. cis-pQTLs are
+usually very strong: here the weakest instrument has
+F = `r num(mr_res$f_stats$min, 3)`.
+
+**Steiger filtering (`$steiger`).** For each instrument, Steiger's test asks
+whether it explains more variance in the exposure (`rsq.exposure`) than in
+the outcome (`rsq.outcome`), as it should if it acts on the outcome *through*
+the exposure. An instrument failing that (`steiger_dir = FALSE`) suggests
+reverse causation or pleiotropy, and is a candidate for exclusion.
+`summary()` reports how many pass; `$steiger` has the per-SNP detail:
+
+```{r steiger, eval = has_ld}
+mr_res$steiger[, c("SNP", "rsq.exposure", "rsq.outcome", "steiger_dir", "steiger_pval")]
+```
+
+Steiger needs the exposure's sample size; without it the test is skipped.
+
+**Skipped methods (`$methods_skipped`).** A method that could not run is not
+an error: `run_mr()` returns the rest and records a reason for each method it
+skipped -- too few instruments, a missing sample size, a failed fit. Always
+check it before reading the absence of a row as meaningful. For the
+two-instrument manual run above:
+
+```{r methods-skipped, eval = has_ld}
+manual_res$methods_skipped
+```
+
+`mr_methods()` lists the minimum instrument count of every method.
+
 ### Plotting MR results
 
 `plot()` produces diagnostic plots using TwoSampleMR plotting functions
-(requires `ggplot2`):
+(requires `ggplot2`): `"scatter"` (the default), `"forest"` (one row per
+SNP), `"funnel"` and `"loo"` (leave-one-out). Each returns TwoSampleMR's
+list of plots, one per exposure-outcome pair, so take `[[1]]` for a single
+analysis:
 
-```{r mr-plot, eval = FALSE}
-plot(mr_res, type = "scatter") # scatter plot (default)
-plot(mr_res, type = "forest")  # per-SNP forest plot
-plot(mr_res, type = "funnel")  # funnel plot
+```{r mr-plot, eval = has_gg, warning = FALSE, fig.width = 6, fig.height = 4.5}
+# warning = FALSE: TwoSampleMR's leave-one-out plot draws an empty spacer
+# row, which ggplot2 reports as a removed missing value
+plot(mr_res, type = "scatter")[[1]]
+plot(mr_res, type = "loo")[[1]]
 ```
 
 `plot(mr_res, type = "forest")` shows one row per SNP. For a manuscript-style
@@ -638,12 +894,15 @@ several sectioned together. Fixed effects is listed above random effects by
 default. Method labels do not encode LD correction (that lives in the
 `ld_corrected` column), so LD-corrected results match the same defaults:
 
-```{r forest-plot-single, eval = FALSE}
+```{r forest-plot-single, eval = has_gg, warning = FALSE, fig.width = 7, fig.height = 3}
 forest_plot(mr_res)
 ```
 
-Pass a named list to section several results into one figure -- e.g. a
-primary analysis alongside positive and negative controls:
+Pass a named list to section several results into one figure. The
+[LD-corrected MR](#ld-corrected-mr) comparison above is one example; a
+primary analysis alongside positive and negative controls is another. The
+package bundles no control outcomes, so this and the next example use
+placeholder results and are not run:
 
 ```{r forest-plot-sectioned, eval = FALSE}
 forest_plot(list(
@@ -682,9 +941,11 @@ outcome_forest_plot(
 p-value table alongside the plotted estimate, via the `forestplot` package
 (requires `forestplot`) rather than `ggplot2`. It returns a `forestplot`
 object -- render it yourself with `plot()`, so you control the output device
-(e.g. wrap the call in `pdf()`/`dev.off()` to save a file):
+(e.g. wrap the call in `pdf()`/`dev.off()` to save a file). Its input is a
+plain data frame, built here from made-up values to show the layout:
 
-```{r table-forest-plot, eval = FALSE}
+```{r table-forest-plot, eval = has_forestplot, fig.width = 8, fig.height = 2.5}
+# Illustrative values, not results.
 table_dat <- data.frame(
   exposure = "Genetically-proxied NLRP3 inhibition",
   outcome = c("Coronary heart disease", "Stroke", "Type 2 diabetes"),
@@ -701,71 +962,149 @@ plot(fp)
 
 ## Colocalization
 
+MR asks whether the exposure affects the outcome; colocalisation asks
+whether the two traits share a causal variant in the region at all. A cis-MR
+estimate driven by a variant that merely sits in LD with a *different*
+outcome variant is a classic false positive, and colocalisation is the check
+for it.
+
 ### Quick colocalization (ABF only)
 
-The simplest colocalization test uses Approximate Bayes Factors (ABF). Supply
-pre-formatted exposure data, raw outcome data, the gene region, and an LD
-reference panel:
+The simplest test uses Approximate Bayes Factors (ABF), which assume at most
+one causal variant per trait. Supply the formatted exposure, the outcome in
+`format_gwas()` outcome format, the gene region (padded by `coloc_window`,
+10 kb by default) and an LD reference panel. Sample sizes are read from the
+data when `exposure_n`/`outcome_n` are not given. Sjogren's disease is a
+case-control outcome, so `outcome_type` and the case fraction `outcome_s`
+are set too (see [Case-control outcomes](#case-control-outcomes)):
 
-```{r coloc-abf, eval = FALSE}
-result <- run_coloc(
-  exposure = formatted_exposure,
-  outcome = outcome_data,
+```{r coloc-abf, eval = has_ld, results = "hide"}
+coloc_res <- run_coloc(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
   gene_chr = 20,
   gene_start = 44746911,
   gene_end = 44758502,
-  exposure_n = 35559,
-  outcome_n = 400000,
-  bfile = "/path/to/ld_reference",
+  outcome_type = "cc",
+  outcome_s = 6098 / 41420,
+  bfile = bfile,
   methods = "abf"
 )
-print(result)
-summary(result)
-
-# Access posterior probabilities directly
-result$coloc_abf$summary
 ```
+
+`coloc` itself prints its posteriors as it runs, so that chunk's printed
+output is hidden here; its warning is kept, and is the first clue to the
+result. Inspect the result object instead:
+
+```{r coloc-abf-inspect, eval = has_ld, message = TRUE}
+coloc_res
+summary(coloc_res)
+
+# Posterior probabilities directly
+coloc_res$coloc_abf$summary
+```
+
+```{r coloc-abf-numbers, include = FALSE, eval = has_ld}
+pp <- coloc_res$coloc_abf$summary
+# coloc works from beta and its variance, so take the p-value the same way
+h <- coloc_res$harmonised_data
+min_p_out <- min(2 * pnorm(-abs(h$beta.outcome / h$se.outcome)))
+# The interpretation below depends on H1 winning; fail the build otherwise.
+stopifnot(names(which.max(pp[-1])) == "PP.H1.abf", min_p_out > 1e-4)
+```
+
+The five hypotheses are H0 (no association with either trait), H1 (exposure
+only), H2 (outcome only), H3 (both, distinct causal variants) and H4 (both,
+one shared variant). Here H1 dominates, PP.H1 =
+`r num(pp[["PP.H1.abf"]], 2)` against PP.H4 =
+`r num(pp[["PP.H4.abf"]], 2)`: CD40 has a strong cis-pQTL, but
+Sjogren's disease has no signal in the window -- its smallest p-value there
+is `r num(min_p_out, 2)`, which is the `minimum p value` coloc warned about.
+So this is *absence of evidence* for colocalisation, not evidence against a
+shared variant.
+
+Note the ratio `PP.H4 / (PP.H3 + PP.H4)` that `print()` shows. It is close
+to 1, but it only answers "*if* both traits had a signal, would it be
+shared?" -- a question that does not arise when the outcome has none. Read it
+only alongside PP.H3 + PP.H4 themselves.
 
 ### Full colocalization (SuSiE + signals)
 
-For multi-signal colocalization, include `"susie"` and `"signals"` in the
-`methods` argument. SuSiE fine-maps each trait independently, then
-`coloc.susie()` and `coloc.signals()` test colocalization across all pairs
-of credible sets:
+ABF's single-causal-variant assumption breaks down in regions with several
+independent signals. Adding `"susie"` and `"signals"` to `methods` fine-maps
+each trait with SuSiE, then tests colocalisation across all pairs of credible
+sets with `coloc.susie()`, and across conditionally independent signals with
+`coloc.signals()`:
 
-```{r coloc-full, eval = FALSE}
-result <- run_coloc(
-  exposure = formatted_exposure,
-  outcome = outcome_data,
+```{r coloc-full, eval = has_susie, results = "hide", warning = FALSE}
+set.seed(1)
+coloc_full <- run_coloc(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
   gene_chr = 20,
   gene_start = 44746911,
   gene_end = 44758502,
-  exposure_n = 35559,
-  outcome_n = 400000,
-  bfile = "/path/to/ld_reference",
+  outcome_type = "cc",
+  outcome_s = 6098 / 41420,
+  bfile = bfile,
   methods = c("abf", "susie", "signals")
 )
-summary(result)
 ```
+
+```{r coloc-full-inspect, eval = has_susie, message = TRUE}
+summary(coloc_full)
+```
+
+```{r coloc-full-numbers, include = FALSE, eval = has_susie}
+sig_pp4 <- max(coloc_full$coloc_signals$summary$PP.H4.abf)
+stopifnot(coloc_full$params$susie_ncs_out == 0L, sig_pp4 < 0.8)
+```
+
+With no outcome signal SuSiE finds `r if (has_susie) coloc_full$params$susie_ncs_exp else "[not computed]"`
+credible set(s) for CD40 and none for Sjogren's disease, so there is nothing
+for `coloc.susie()` to pair up. `run_coloc()` does not fail: it records the
+reason in `$methods_skipped`, which `summary()` reports under *Skipped
+methods*, and still runs `coloc.signals()`. As with ABF, check
+`$methods_skipped` before reading an empty field as a negative result.
+
+`coloc.signals()` puts its best pair at PP.H4 =
+`r if (has_susie) num(sig_pp4, 2) else "[not computed]"`, higher than ABF's
+but still short of the 0.8 usually asked of evidence for colocalisation --
+and it rests on an outcome whose strongest variant in the window has
+p = `r num(min_p_out, 2)`. The two methods agree that these data cannot
+settle whether CD40 and Sjogren's disease share a variant here.
 
 ### Case-control outcomes
 
-For case-control outcomes, set `outcome_type = "cc"` and provide the
-proportion of cases via `outcome_s`:
+For a case-control trait, `outcome_type = "cc"` with `outcome_s`, the
+proportion of cases (here 6,098 of 41,420 participants), tells `coloc` how
+to scale the effect sizes; the default `"quant"` treats the outcome as a
+continuous trait with standard deviation `outcome_sdY`. The same applies to
+the exposure through `exposure_type` and `exposure_s`. Getting it wrong
+changes the prior on effect sizes and so the posteriors:
 
-```{r coloc-cc, eval = FALSE}
-result <- run_coloc(
-  exposure = formatted_exposure,
-  outcome = outcome_data,
+```{r coloc-cc, eval = has_ld, results = "hide", warning = FALSE}
+coloc_quant <- run_coloc(
+  exposure = cd40_exposure,
+  exposure_id = "CD40",
+  outcome = sjogren_outcome,
+  outcome_id = "SjD",
   gene_chr = 20,
   gene_start = 44746911,
   gene_end = 44758502,
-  exposure_n = 35559,
-  outcome_n = 400000,
-  outcome_type = "cc",
-  outcome_s = 0.3,
-  bfile = "/path/to/ld_reference",
-  methods = c("abf", "susie", "signals")
+  bfile = bfile,
+  methods = "abf"
+)
+```
+
+```{r coloc-cc-compare, eval = has_ld}
+rbind(
+  case_control = coloc_res$coloc_abf$summary,
+  quantitative = coloc_quant$coloc_abf$summary
 )
 ```
 
@@ -773,9 +1112,9 @@ result <- run_coloc(
 
 `plot()` for `coloc_result` objects supports three plot types:
 
-```{r coloc-plot, eval = FALSE}
-plot(coloc_res, type = "pp_bar")    # bar chart of ABF posterior probabilities (default; requires ggplot2)
-plot(coloc_res, type = "regional")  # regional association plots (requires ggplot2)
+```{r coloc-plot, eval = has_gg, fig.width = 7, fig.height = 4}
+plot(coloc_res, type = "pp_bar")   # ABF posterior probabilities (default; requires ggplot2)
+plot(coloc_res, type = "regional") # regional association plots (requires ggplot2)
 ```
 
 `type = "locuszoom"` renders LD-coloured regional plots via the
@@ -788,7 +1127,8 @@ search path). It needs a local LD reference panel (`bfile`) and an
 `ens_db` must be supplied explicitly and must match whatever build `bfile`
 and the coloc data actually use. Unlike the other two plot types, this one
 draws directly to the current graphics device (like a base R plot) and
-returns `NULL` -- open a device first if you want to save it:
+returns `NULL` -- open a device first if you want to save it. (Not run here:
+it needs the Ensembl annotation package and writes a file.)
 
 ```{r coloc-plot-locuszoom, eval = FALSE}
 library(EnsDb.Hsapiens.v75)
@@ -805,5 +1145,5 @@ dev.off()
 
 ## Two-Stage Batch Workflow
 
-<!-- TODO: Stage 1 (IVW screen, all proteins) → Stage 2 (sensitivity + coloc, p < 0.05) -->
+<!-- TODO: Stage 1 (IVW screen, all proteins) -> Stage 2 (sensitivity + coloc, p < 0.05) -->
 <!-- TODO: reference run_decode_iop_pipeline.R pattern -->

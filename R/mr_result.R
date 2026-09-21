@@ -278,13 +278,26 @@ summary.mr_result <- function(object, ...) {
     "*" = "N instruments: {length(object$f_stats$per_snp)}"
   ))
 
-  # Steiger
+  # Steiger: $steiger is TwoSampleMR::steiger_filtering() output, one row
+  # per SNP with a logical steiger_dir, so summarise it per SNP.
   if (!is.null(object$steiger)) {
+    st <- object$steiger
+    # nolint start: object_usage_linter.
+    n_dir <- sum(st$steiger_dir, na.rm = TRUE)
+    wrong <- st$SNP[!st$steiger_dir %in% TRUE]
+    max_p <- signif(max(st$steiger_pval, na.rm = TRUE), 3)
+    # nolint end
     cli::cli_h2("Steiger filtering")
     cli::cli_bullets(c(
-      "*" = "Correct direction: {object$steiger$correct_causal_direction}",
-      "*" = "Steiger p-value: {signif(object$steiger$steiger_pval, 3)}"
+      "*" = paste0(
+        "{n_dir}/{nrow(st)} SNP{?s} explain more variance in the exposure ",
+        "than in the outcome"
+      ),
+      "*" = "Largest Steiger p-value: {max_p}"
     ))
+    if (length(wrong) > 0) {
+      cli::cli_bullets(c("!" = "Not in the expected direction: {.val {wrong}}"))
+    }
   }
 
   # Each diagnostics frame says whether it came from the correlated fits;

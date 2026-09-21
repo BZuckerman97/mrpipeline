@@ -8,10 +8,22 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
+# The examples need the bundled LD panel and a PLINK binary, which
+# genetics.binaRies downloads on first use; without them the code is shown
+# with its output omitted rather than failing the build.
+has_ld <- local({
+  bed <- system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  plink <- tryCatch(genetics.binaRies::get_plink_binary(), error = function(e) "")
+  nzchar(bed) && file.exists(plink)
+})
+has_gg <- has_ld && requireNamespace("ggplot2", quietly = TRUE)
+
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  # run_mr()/run_coloc() narrate their progress through messages
+  message = FALSE,
+  eval = has_ld
 )
 ```
 
@@ -31,7 +43,7 @@ pak::pak("BZuckerman97/mrpipeline")
 
 ## Quick start
 
-```{r}
+```{r, eval = TRUE}
 library(mrpipeline)
 ```
 
@@ -44,7 +56,8 @@ disease. Use these to explore the package without any external data.
 # Bundled datasets: cd40_exposure (formatted exposure), sjogren_outcome (outcome)
 bfile <- sub("\\.bed$", "", system.file("extdata", "ld_ref.bed", package = "mrpipeline"))
 
-# Run cis-MR
+# Run cis-MR (the weighted median's SE is bootstrapped, hence the seed)
+set.seed(1)
 mr_res <- run_mr(
   exposure = cd40_exposure,
   exposure_id = "CD40",
@@ -56,14 +69,23 @@ mr_res <- run_mr(
   bfile = bfile,
   methods = c("ivw_random", "egger", "weighted_median")
 )
+```
 
-# Inspect results
+Inspect the results:
+
+```{r, message = TRUE}
 mr_res
 summary(mr_res)
+```
 
-# Plot (requires ggplot2)
-plot(mr_res, type = "scatter")
-plot(mr_res, type = "forest")
+and plot them (requires ggplot2; TwoSampleMR's plots come as a list, one per
+exposure-outcome pair):
+
+```{r, eval = has_gg, warning = FALSE, fig.width = 6, fig.height = 4.5}
+# warning = FALSE: TwoSampleMR's forest plot draws an empty spacer row, which
+# ggplot2 reports as a removed missing value
+plot(mr_res, type = "scatter")[[1]]
+plot(mr_res, type = "forest")[[1]]
 ```
 
 The `mr_result` object stores the full results table, harmonised instruments,
@@ -72,7 +94,7 @@ via `mr_res$results`, `mr_res$instruments`, etc.
 
 ### Colocalization
 
-```{r}
+```{r, results = "hide", warning = FALSE}
 coloc_res <- run_coloc(
   exposure = cd40_exposure,
   exposure_id = "CD40",
@@ -84,18 +106,27 @@ coloc_res <- run_coloc(
   bfile = bfile,
   methods = "abf"
 )
+```
 
+```{r, message = TRUE}
 coloc_res
 summary(coloc_res)
+```
+
+```{r, eval = has_gg, fig.width = 7, fig.height = 4}
 plot(coloc_res, type = "pp_bar")
 ```
+
+The bundled outcome data are partly synthetic, so these numbers illustrate
+the workflow rather than a finding. `vignette("mrpipeline-user-guide")` walks
+through what each part of the output means.
 
 ### Gene coordinate lookup
 
 Look up genomic coordinates for HGNC gene symbols via Ensembl (requires the
-`biomaRt` package):
+`biomaRt` package). Not run here, as it needs network access:
 
-```{r}
+```{r, eval = FALSE}
 coords <- get_gene_coords(c("CD40", "APOE"), build = "grch38")
 coords
 ```
