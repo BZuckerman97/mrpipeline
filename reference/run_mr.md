@@ -289,7 +289,12 @@ unstable. The usual causes are identical or near-identical instruments
 (r^2 ~ 1, from absent clumping or a manual set with a duplicated
 variant) and more instruments than reference-panel individuals, which
 makes the sample correlation matrix singular; clump more stringently or
-drop the duplicate.
+drop the duplicate. When such a matrix is also *solved* – that is, when
+at least one LD-correctable method was requested – no estimate exists to
+return, so `run_mr()` stops there with `status = "singular_ld_matrix"`
+and a `status_reason` naming the collinear pairs, rather than letting
+the upstream [`solve()`](https://rdrr.io/r/base/solve.html) abort the
+call (issue \#36).
 
 Random effects are multiplicative: the standard error is inflated by
 `max(RSE, 1)`, never deflated, so when the instruments are

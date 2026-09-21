@@ -40,6 +40,8 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 [`resolve_sample_size()`](https://github.com/BZuckerman97/mrpipeline/reference/resolve_sample_size.md),
 [`warn_no_ld_correction()`](https://github.com/BZuckerman97/mrpipeline/reference/warn_no_ld_correction.md),
 [`gls_weight_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/gls_weight_matrix.md),
+[`collinear_pairs()`](https://github.com/BZuckerman97/mrpipeline/reference/collinear_pairs.md)
+(names the r ~ 1 pairs behind a singular GLS matrix, issue \#36),
 [`diag_ids()`](https://github.com/BZuckerman97/mrpipeline/reference/diag_ids.md),
 [`heterogeneity_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/heterogeneity_correlated.md),
 [`pleiotropy_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/pleiotropy_correlated.md),

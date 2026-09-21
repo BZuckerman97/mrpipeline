@@ -103,7 +103,8 @@ new_mr_result(
 - status:
 
   Character. One of `"success"`, `"no_instruments"`,
-  `"no_harmonised_variants"`. Default `"success"`.
+  `"no_harmonised_variants"`, `"singular_ld_matrix"`. Default
+  `"success"`.
 
 - status_reason:
 

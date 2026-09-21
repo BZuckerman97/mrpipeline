@@ -91,6 +91,10 @@ filtering/clumping/exclusion</li>
 <li>
 <code>"no_harmonised_variants"</code> — harmonisation removed all
 variants</li>
+<li>
+<code>"singular_ld_matrix"</code> — <code>ld_correct = TRUE</code>,
+the GLS weight matrix is singular, and an LD-correctable method was
+requested</li>
 </ul>
 <p>The <code>status_reason</code> field provides a human-readable
 explanation (e.g.
@@ -440,6 +444,19 @@ every LD-corrected fit solves that matrix, so a near-singular one –
 identical or near-identical instruments, or more instruments than panel
 individuals – makes all of them unstable, and before this it happened
 silently.</p>
+<p>Below that threshold the fits do not merely become unstable: on an
+exactly singular matrix <code>MendelianRandomization</code>’s own
+<code><a href="https://rdrr.io/r/base/solve.html" class="external-link">solve()</a></code> aborts, and the error escaped <code><a href="../reference/run_mr.html">run_mr()</a></code>
+as a bare <code>simpleError</code> naming
+<code>solve.default(omega)</code> (issue #36). So when the matrix is
+singular <em>and</em> at least one LD-correctable method was requested –
+<code>registry$ld_correctable</code>, which covers the correlated
+diagnostics as well, since they solve the same matrix –
+<code><a href="../reference/run_mr.html">run_mr()</a></code> returns <code>status = "singular_ld_matrix"</code>
+before any fit, with <code><a href="../reference/collinear_pairs.html">collinear_pairs()</a></code> naming the
+<code>|r| &gt;= 0.999</code> pairs in <code>status_reason</code>. With
+no LD-correctable method requested nothing solves the matrix, so the run
+continues on the warning alone.</p>
 <p><strong>The diagnostics are corrected too</strong> (issue #31).
 <code>#28</code> exempted them on the grounds that they produce no
 <code>$results</code> row, which left <code>$heterogeneity</code>,

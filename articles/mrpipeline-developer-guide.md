@@ -15,6 +15,8 @@ filtering. The `status` field indicates success or failure:
 - `"no_instruments"` — no instruments survived
   filtering/clumping/exclusion
 - `"no_harmonised_variants"` — harmonisation removed all variants
+- `"singular_ld_matrix"` — `ld_correct = TRUE`, the GLS weight matrix is
+  singular, and an LD-correctable method was requested
 
 The `status_reason` field provides a human-readable explanation (e.g.
 `"No significant instruments in cis region for 'PCSK9'"`).
@@ -164,6 +166,22 @@ and warns below `1e-10`: every LD-corrected fit solves that matrix, so a
 near-singular one – identical or near-identical instruments, or more
 instruments than panel individuals – makes all of them unstable, and
 before this it happened silently.
+
+Below that threshold the fits do not merely become unstable: on an
+exactly singular matrix `MendelianRandomization`’s own
+[`solve()`](https://rdrr.io/r/base/solve.html) aborts, and the error
+escaped
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+as a bare `simpleError` naming `solve.default(omega)` (issue \#36). So
+when the matrix is singular *and* at least one LD-correctable method was
+requested – `registry$ld_correctable`, which covers the correlated
+diagnostics as well, since they solve the same matrix –
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+returns `status = "singular_ld_matrix"` before any fit, with
+[`collinear_pairs()`](https://github.com/BZuckerman97/mrpipeline/reference/collinear_pairs.md)
+naming the `|r| >= 0.999` pairs in `status_reason`. With no
+LD-correctable method requested nothing solves the matrix, so the run
+continues on the warning alone.
 
 **The diagnostics are corrected too** (issue \#31). `#28` exempted them
 on the grounds that they produce no `$results` row, which left
