@@ -139,6 +139,7 @@ primary <- run_mr(
   exposure = cd40_exposure, exposure_id = "CD40",
   outcome = sjogren_outcome, outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
   bfile = bfile,
   methods = c("ivw_random", "ivw_fixed")
 )

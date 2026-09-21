@@ -476,6 +476,7 @@ estimates:</p>
 <span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
 <span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
 <span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
+<span>  rsq_thresh <span class="op">=</span> <span class="fl">0.3</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span>, <span class="st">"loo"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
@@ -637,25 +638,54 @@ it to the exposure’s effect alleles, and fits the IVW and Egger
 estimators by generalised least squares with that matrix as the weight
 structure (through <code>MendelianRandomization</code> with
 <code>correl = TRUE</code>):</p>
+<p>The example uses the LD reference panel bundled with the package
+(real 1000 Genomes EUR genotypes for the 50 CD40-region SNPs). Its
+instruments are clumped at <code>rsq_thresh = 0.3</code> rather than the
+default 0.001: against real LD the default leaves a single CD40
+instrument, while 0.3 keeps seven with pairwise |r| up to 0.53 – a
+typical lenient cis-MR set, and one with something to correct for.</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">corrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
+<span>  <span class="st">"\\.bed$"</span>,</span>
+<span>  <span class="st">""</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref.bed"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">corrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
 <span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
 <span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
+<span>  rsq_thresh <span class="op">=</span> <span class="fl">0.3</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  ld_correct <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: "weighted_median" has no LD-corrected form; running uncorrected.</span></span>
 <span></span>
-<span><span class="va">corrected</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"model"</span>, <span class="st">"ld_corrected"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                 method  model ld_corrected</span></span>
-<span><span class="co">#&gt; 1 IVW (random effects) random         TRUE</span></span>
-<span><span class="co">#&gt; 2  IVW (fixed effects)  fixed         TRUE</span></span>
-<span><span class="co">#&gt; 3             MR Egger random         TRUE</span></span>
-<span><span class="co">#&gt; 4      Weighted median   &lt;NA&gt;        FALSE</span></span></code></pre></div>
+<span><span class="va">corrected</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"b"</span>, <span class="st">"se"</span>, <span class="st">"model"</span>, <span class="st">"ld_corrected"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                 method     b     se  model ld_corrected</span></span>
+<span><span class="co">#&gt; 1 IVW (random effects) 0.153 0.0580 random         TRUE</span></span>
+<span><span class="co">#&gt; 2  IVW (fixed effects) 0.153 0.0273  fixed         TRUE</span></span>
+<span><span class="co">#&gt; 3             MR Egger 0.455 0.2829 random         TRUE</span></span>
+<span><span class="co">#&gt; 4      Weighted median 0.168 0.0693   &lt;NA&gt;        FALSE</span></span></code></pre></div>
+<p>The same call without <code>ld_correct</code> gives an IVW estimate
+of 0.104 (random-effects SE 0.071, fixed-effects SE 0.050) and an Egger
+slope of 0.146: treating the seven correlated instruments as independent
+changes the answer, not just its precision.</p>
+<p>Note that the corrected standard errors here are <em>smaller</em>.
+Correction does not always widen them: what matters is not
+<code>r</code> itself but the correlation between the SNPs’ ratio
+estimates, which is <code>r</code> times the sign of
+<code>beta.exposure_i * beta.exposure_j</code>. Where that is positive
+the two instruments are counted twice over and correction widens the SE;
+where it is negative their errors partly cancel and GLS extracts
+<em>more</em> information than the independent-instruments model. In
+this set most pairs are negative – the largest-effect instrument,
+rs4810485, against almost all the others – so the standard errors fall.
+Such a gain leans entirely on the reference panel’s LD matching the GWAS
+sample’s, so treat a large drop with caution.</p>
 <p>Every <code>$results</code> row states the estimator that produced
 it: <code>model</code> says whether it was a fixed- or random-effects
 fit, and <code>ld_corrected</code> whether the LD matrix was used. Only
@@ -675,9 +705,12 @@ materially from the naive one. So under <code>ld_correct = TRUE</code>,
 own <code>ld_corrected</code> column on both arms:</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">corrected</span><span class="op">$</span><span class="va">heterogeneity</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"Q"</span>, <span class="st">"Q_df"</span>, <span class="st">"Q_pval"</span>, <span class="st">"ld_corrected"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                      method    Q Q_df Q_pval ld_corrected</span></span>
-<span><span class="co">#&gt; 1                  MR Egger 1.71    1  0.191         TRUE</span></span>
-<span><span class="co">#&gt; 2 Inverse variance weighted 2.63    2  0.268         TRUE</span></span></code></pre></div>
+<span><span class="co">#&gt;                      method    Q Q_df   Q_pval ld_corrected</span></span>
+<span><span class="co">#&gt; 1                  MR Egger 21.9    5 0.000552         TRUE</span></span>
+<span><span class="co">#&gt; 2 Inverse variance weighted 27.1    6 0.000140         TRUE</span></span></code></pre></div>
+<p>Uncorrected, the same instruments give an IVW Q of 12.0 (p = 0.063):
+here the naive test understates the disagreement between correlated
+instruments.</p>
 <p>The <code>method</code> labels in <code>$heterogeneity</code> stay
 TwoSampleMR’s on both arms (Q does not depend on the fixed/random
 choice), so the column is the only thing that differs. Steiger filtering
@@ -709,8 +742,9 @@ uncorrected estimates, run both and section them in one forest plot:</p>
 <span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
 <span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
 <span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
+<span>  rsq_thresh <span class="op">=</span> <span class="fl">0.3</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"Uncorrected"</span> <span class="op">=</span> <span class="va">uncorrected</span>, <span class="st">"LD-corrected"</span> <span class="op">=</span> <span class="va">corrected</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>

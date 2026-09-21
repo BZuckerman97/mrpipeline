@@ -3,8 +3,9 @@
 50 SNPs from the CD40 cis region on chr20 (44646911-44858502),
 pre-formatted as a TwoSampleMR exposure data frame. Derived from
 `cd40_sumstats`. All SNPs overlap with the bundled LD reference panel
-(`inst/extdata/ld_ref.*`) and with `sjogren_outcome`, so the two can be
-used together in
+(`inst/extdata/ld_ref.*`, 1000 Genomes EUR genotypes; see
+`data-raw/ld_ref.R` in the source repository) and with
+`sjogren_outcome`, so the two can be used together in
 [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)/[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
 examples without any external data.
 

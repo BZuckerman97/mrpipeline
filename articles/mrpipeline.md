@@ -42,6 +42,7 @@ mr_res <- run_mr(
 
   outcome_id = "SjD",
   instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
   bfile = bfile,
   methods = c("ivw_random", "egger", "weighted_median")
 )

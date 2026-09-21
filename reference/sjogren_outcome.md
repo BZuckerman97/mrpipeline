@@ -4,9 +4,9 @@
 matching
 [`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)'s
 `type = "outcome"` schema. One real SNP (`rs9074`) from
-`sjogren_sumstats`; 49 synthetic SNPs with realistic effect sizes to
-match the bundled LD reference panel (`inst/extdata/ld_ref.*`) and
-`cd40_exposure`.
+`sjogren_sumstats`; 49 synthetic SNPs with realistic effect sizes,
+covering the same SNPs as the bundled LD reference panel
+(`inst/extdata/ld_ref.*`) and `cd40_exposure`.
 
 ## Usage
 
