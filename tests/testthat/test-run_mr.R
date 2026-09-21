@@ -1041,6 +1041,51 @@ test_that("on the bundled panel the diagnostics match the correlated fits exactl
   expect_s3_class(p[[1]], "ggplot")
 })
 
+test_that("perfectly correlated bundled instruments give a singular_ld_matrix status", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  # rs1883832 and rs4810485 are in perfect LD in 1000 Genomes EUR, so the
+  # GLS weight matrix is exactly singular and MendelianRandomization's
+  # solve() used to abort the whole call (issue #36).
+  out <- run_cd40(
+    instruments = c("rs1883832", "rs4810485", "rs4810486"),
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "egger")
+  )
+  res <- out$result
+  expect_equal(res$status, "singular_ld_matrix")
+  expect_match(res$status_reason, "rs1883832/rs4810485|rs4810485/rs1883832")
+  expect_equal(nrow(res$results), 0)
+
+  # Dropping one of the pair leaves a matrix that solves
+  ok <- run_cd40(
+    instruments = c("rs1883832", "rs4810486"),
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = "ivw_random"
+  )
+  expect_equal(ok$result$status, "success")
+  expect_true(ok$result$results$ld_corrected)
+})
+
+test_that("a singular matrix no method solves leaves the run alone", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- ld_bfile()
+
+  # weighted_median has no correlated form, so nothing solves the matrix
+  out <- run_cd40(
+    instruments = c("rs1883832", "rs4810485", "rs4810486"),
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = "weighted_median"
+  )
+  expect_equal(out$result$status, "success")
+  expect_false(out$result$results$ld_corrected)
+  expect_true(any(grepl("near-singular", out$warnings)))
+})
+
 test_that("on the bundled panel LD correction changes the estimates and diagnostics", {
   skip_if_not_installed("TwoSampleMR")
   bfile <- ld_bfile()
