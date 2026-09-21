@@ -71,8 +71,9 @@ have been in <code>methods</code> when <code><a href="run_mr.html">run_mr()</a><
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A ggplot object (or list of ggplot objects for <code>"scatter"</code> and
-<code>"loo"</code>). Returns <code>NULL</code> invisibly if the result status is not
+    <p>A list of ggplot objects, one per exposure-outcome pair, as
+returned by TwoSampleMR's plotting functions – for a single analysis,
+take <code>[[1]]</code>. Returns <code>NULL</code> invisibly if the result status is not
 <code>"success"</code>, if no results are available, or (for <code>type = "loo"</code>) if
 <code>x$loo</code> was not computed.</p>
     </div>

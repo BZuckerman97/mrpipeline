@@ -31,7 +31,8 @@ plot(x, type = c("scatter", "forest", "funnel", "loo"), ...)
 
 ## Value
 
-A ggplot object (or list of ggplot objects for `"scatter"` and `"loo"`).
+A list of ggplot objects, one per exposure-outcome pair, as returned by
+TwoSampleMR's plotting functions – for a single analysis, take `[[1]]`.
 Returns `NULL` invisibly if the result status is not `"success"`, if no
 results are available, or (for `type = "loo"`) if `x$loo` was not
 computed.

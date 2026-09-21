@@ -655,7 +655,12 @@ the coloc datasets</li>
 flags</li>
 <li>
 <code>methods_skipped</code> — named character vector (method name →
-reason skipped)</li>
+reason skipped). <code>susie</code> is recorded both when SuSiE fails
+and when it runs but finds no credible set for one of the traits
+(<code>"no credible sets in outcome"</code>), since
+<code>coloc.susie()</code> then has nothing to pair; in the latter case
+the SuSiE fits are kept and <code>coloc.signals()</code> still runs on
+them</li>
 <li>
 <code>params</code> — list of all input parameters</li>
 <li>
@@ -683,7 +688,9 @@ skipped methods.</p>
 <ul>
 <li>
 <code>plot.mr_result(x, type)</code> — wraps TwoSampleMR plotting
-functions:
+functions, each of which returns a <strong>list</strong> of ggplots
+keyed by exposure/outcome ID (one per pair; the outcome ID is random, so
+index with <code>[[1]]</code> rather than by name):
 <ul>
 <li>
 <code>"scatter"</code> (default):
@@ -696,6 +703,10 @@ functions:
 <li>
 <code>"funnel"</code>:
 <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_funnel_plot.html" class="external-link">TwoSampleMR::mr_funnel_plot()</a></code>
+</li>
+<li>
+<code>"loo"</code>: <code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout_plot.html" class="external-link">TwoSampleMR::mr_leaveoneout_plot()</a></code>
+on <code>x$loo</code>
 </li>
 </ul>
 </li>
@@ -1300,6 +1311,67 @@ frequently in a hot path.</p>
 </li>
 <li>When modifying an exported function, update its roxygen docs AND
 this vignette in the same commit</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="vignettes">Vignettes<a class="anchor" aria-label="anchor" href="#vignettes"></a>
+</h3>
+<p>Vignette output is evaluated, not typed (issue #33): a hand-written
+<code>#&gt;</code> line is a claim about what the code does, an
+evaluated chunk is a test of it, and <code>R CMD check</code> builds the
+vignettes on every CI platform. The conventions, set up in the
+<code>setup</code> chunk of <code>mrpipeline-user-guide.Rmd</code> and
+<code>mrpipeline.Rmd</code>:</p>
+<ul>
+<li>
+<strong>Gate, don’t hard-code.</strong> Chunks that need PLINK use
+<code>eval = has_ld</code>, where <code>has_ld</code> checks the bundled
+panel <em>and</em> wraps
+<code><a href="https://rdrr.io/pkg/genetics.binaRies/man/get_plink_binary.html" class="external-link">genetics.binaRies::get_plink_binary()</a></code> in
+<code><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch()</a></code> – it downloads PLINK on first use and errors,
+rather than returning <code>NULL</code>, when it cannot.
+<code>has_gg</code>, <code>has_susie</code> and
+<code>has_forestplot</code> gate on <code>Suggests</code>. A platform
+without them builds the page with code and no output.</li>
+<li>
+<strong><code>message = FALSE</code> globally.</strong>
+<code><a href="../reference/run_mr.html">run_mr()</a></code>/<code><a href="../reference/run_coloc.html">run_coloc()</a></code> narrate progress through
+messages. <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>/<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> on the result
+classes also write through <code>cli</code> messages, so chunks that
+show them need <code>message = TRUE</code>. PLINK’s own console output
+goes to the process stdout, which knitr does not capture – it reaches
+the build log, never the page.</li>
+<li>
+<strong><code><a href="../reference/run_coloc.html">run_coloc()</a></code> chunks use
+<code>results = "hide"</code></strong>, because <code>coloc</code>
+prints its posteriors with <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code>; show the result from a
+separate chunk.</li>
+<li>
+<strong>Never print a whole
+<code>$results</code>/<code>$heterogeneity</code>/<code>$loo</code>
+frame.</strong> TwoSampleMR stamps a random <code>id.outcome</code> on
+every run; select columns. For the same reason
+<code><a href="../reference/plot.mr_result.html">plot.mr_result()</a></code>’s list is indexed with
+<code>[[1]]</code>.</li>
+<li>
+<strong>Seed anything stochastic</strong> (<code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>
+visibly in the chunk): the weighted median’s SE is bootstrapped, and
+SuSiE is seeded too.</li>
+<li>
+<strong>Numbers in prose come from the results</strong>, via inline
+R expressions that call <code>num()</code> on them
+(e.g. <code>num(mr_res$f_stats$min)</code>); <code>num()</code> is
+defined in the setup chunk and prints <code>[not computed]</code> when
+<code>has_ld</code> is false. Qualitative claims the prose makes about
+them (“the corrected SEs are smaller”, “H1 dominates”) are asserted in a
+hidden <code>include = FALSE</code> chunk with <code><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot()</a></code>,
+so the build fails rather than publishing a claim the data no longer
+support.</li>
+<li>
+<strong><code>eval = FALSE</code> only where it is honest</strong> –
+network calls (<code><a href="../reference/get_gene_coords.html">get_gene_coords()</a></code>, API clumping),
+user-supplied files and large downloads – and say so in the prose; any
+<code>#&gt;</code> output there is labelled representative.</li>
 </ul>
 </div>
 </div>

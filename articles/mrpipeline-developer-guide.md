@@ -322,7 +322,11 @@ call returns a `coloc_result` object — even when analysis cannot proceed
 - `harmonisation` — the complete, unfiltered `harmonise_data()` output,
   with the `mr_keep`/`palindromic`/`ambiguous`/`remove` flags
 - `methods_skipped` — named character vector (method name → reason
-  skipped)
+  skipped). `susie` is recorded both when SuSiE fails and when it runs
+  but finds no credible set for one of the traits
+  (`"no credible sets in outcome"`), since `coloc.susie()` then has
+  nothing to pair; in the latter case the SuSiE fits are kept and
+  `coloc.signals()` still runs on them
 - `params` — list of all input parameters
 - `status` — one of `"success"`, `"no_snps_in_region"`,
   `"too_few_snps"`, `"no_harmonised_variants"`
@@ -343,13 +347,19 @@ Both S3 classes have
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) methods defined
 in `R/plot.R`:
 
-- `plot.mr_result(x, type)` — wraps TwoSampleMR plotting functions:
+- `plot.mr_result(x, type)` — wraps TwoSampleMR plotting functions, each
+  of which returns a **list** of ggplots keyed by exposure/outcome ID
+  (one per pair; the outcome ID is random, so index with `[[1]]` rather
+  than by name):
   - `"scatter"` (default):
     [`TwoSampleMR::mr_scatter_plot()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_scatter_plot.html)
   - `"forest"`:
     [`TwoSampleMR::mr_forest_plot()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_forest_plot.html)
   - `"funnel"`:
     [`TwoSampleMR::mr_funnel_plot()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_funnel_plot.html)
+  - `"loo"`:
+    [`TwoSampleMR::mr_leaveoneout_plot()`](https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout_plot.html)
+    on `x$loo`
 - `plot.coloc_result(x, type)` — custom ggplot2 plots, except
   `"locuszoom"`:
   - `"pp_bar"` (default): bar chart of ABF posterior probabilities
@@ -874,6 +884,56 @@ when a function is called very frequently in a hot path.
 - Internal helpers: `@keywords internal` only; no `@export`
 - When modifying an exported function, update its roxygen docs AND this
   vignette in the same commit
+
+### Vignettes
+
+Vignette output is evaluated, not typed (issue \#33): a hand-written
+`#>` line is a claim about what the code does, an evaluated chunk is a
+test of it, and `R CMD check` builds the vignettes on every CI platform.
+The conventions, set up in the `setup` chunk of
+`mrpipeline-user-guide.Rmd` and `mrpipeline.Rmd`:
+
+- **Gate, don’t hard-code.** Chunks that need PLINK use `eval = has_ld`,
+  where `has_ld` checks the bundled panel *and* wraps
+  [`genetics.binaRies::get_plink_binary()`](https://rdrr.io/pkg/genetics.binaRies/man/get_plink_binary.html)
+  in [`tryCatch()`](https://rdrr.io/r/base/conditions.html) – it
+  downloads PLINK on first use and errors, rather than returning `NULL`,
+  when it cannot. `has_gg`, `has_susie` and `has_forestplot` gate on
+  `Suggests`. A platform without them builds the page with code and no
+  output.
+- **`message = FALSE` globally.**
+  [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)/[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+  narrate progress through messages.
+  [`print()`](https://rdrr.io/r/base/print.html)/[`summary()`](https://rdrr.io/r/base/summary.html)
+  on the result classes also write through `cli` messages, so chunks
+  that show them need `message = TRUE`. PLINK’s own console output goes
+  to the process stdout, which knitr does not capture – it reaches the
+  build log, never the page.
+- **[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+  chunks use `results = "hide"`**, because `coloc` prints its posteriors
+  with [`print()`](https://rdrr.io/r/base/print.html); show the result
+  from a separate chunk.
+- **Never print a whole `$results`/`$heterogeneity`/`$loo` frame.**
+  TwoSampleMR stamps a random `id.outcome` on every run; select columns.
+  For the same reason
+  [`plot.mr_result()`](https://github.com/BZuckerman97/mrpipeline/reference/plot.mr_result.md)’s
+  list is indexed with `[[1]]`.
+- **Seed anything stochastic**
+  ([`set.seed()`](https://rdrr.io/r/base/Random.html) visibly in the
+  chunk): the weighted median’s SE is bootstrapped, and SuSiE is seeded
+  too.
+- **Numbers in prose come from the results**, via inline R expressions
+  that call `num()` on them (e.g. `num(mr_res$f_stats$min)`); `num()` is
+  defined in the setup chunk and prints `[not computed]` when `has_ld`
+  is false. Qualitative claims the prose makes about them (“the
+  corrected SEs are smaller”, “H1 dominates”) are asserted in a hidden
+  `include = FALSE` chunk with
+  [`stopifnot()`](https://rdrr.io/r/base/stopifnot.html), so the build
+  fails rather than publishing a claim the data no longer support.
+- **`eval = FALSE` only where it is honest** – network calls
+  ([`get_gene_coords()`](https://github.com/BZuckerman97/mrpipeline/reference/get_gene_coords.md),
+  API clumping), user-supplied files and large downloads – and say so in
+  the prose; any `#>` output there is labelled representative.
 
 ## Adding New MR Methods
 

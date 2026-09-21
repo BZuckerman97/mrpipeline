@@ -68,7 +68,29 @@
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<!-- TODO: brief package description and when to use it -->
+<p><code>mrpipeline</code> runs two-sample Mendelian randomisation (MR)
+and colocalisation for molecular exposures – currently protein QTLs
+(deCODE, UKB-PPP) and single-cell eQTLs – against GWAS outcomes. It is
+built for the drug-target question “does genetically proxied
+perturbation of this protein affect this disease?”, so its default mode
+is <strong>cis-MR</strong>: instruments are drawn from a window around
+the gene encoding the protein.</p>
+<p>It wraps <code>TwoSampleMR</code>,
+<code>MendelianRandomization</code> and <code>coloc</code> behind two
+calls, <code><a href="../reference/run_mr.html">run_mr()</a></code> and <code><a href="../reference/run_coloc.html">run_coloc()</a></code>, which each
+return a single result object (<code>mr_result</code>,
+<code>coloc_result</code>) carrying the estimates, the instruments, the
+harmonisation record and every diagnostic – so a result can be
+inspected, plotted and audited after the fact.</p>
+<p><strong>About the examples.</strong> Evaluated examples on this page
+use the data bundled with the package: <code>cd40_exposure</code> (CD40
+protein, UKB-PPP), <code>sjogren_outcome</code> (Sjogren’s disease) and
+a 50-SNP LD reference panel of real 1000 Genomes EUR genotypes. Their
+output is produced when the page is built, not typed. The outcome data
+are <strong>partly synthetic</strong> (49 of its 50 SNPs), so the
+numbers illustrate the mechanics and are not a finding about CD40 and
+Sjogren’s disease. Examples that need network access or your own files
+are marked as not run.</p>
 </div>
 <div class="section level2">
 <h2 id="gene-coordinate-lookup">Gene Coordinate Lookup<a class="anchor" aria-label="anchor" href="#gene-coordinate-lookup"></a>
@@ -76,12 +98,14 @@
 <p>Use <code><a href="../reference/get_gene_coords.html">get_gene_coords()</a></code> to programmatically retrieve gene
 coordinates from Ensembl via biomaRt. This is useful for defining cis
 regions in <code><a href="../reference/run_mr.html">run_mr()</a></code> and <code><a href="../reference/run_coloc.html">run_coloc()</a></code> without
-hard-coding coordinates.</p>
+hard-coding coordinates. These two examples query Ensembl over the
+network, so they are not run here; the output shown is
+representative.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># GRCh38 (default)</span></span>
 <span><span class="va">coords</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_gene_coords.html">get_gene_coords</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CD40"</span>, <span class="st">"APOE"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">coords</span></span>
-<span><span class="co">#&gt; # A tibble: 2 × 4</span></span>
+<span><span class="co">#&gt; # A tibble: 2 x 4</span></span>
 <span><span class="co">#&gt;   hgnc_symbol chromosome     start       end</span></span>
 <span><span class="co">#&gt;   &lt;chr&gt;       &lt;chr&gt;          &lt;int&gt;     &lt;int&gt;</span></span>
 <span><span class="co">#&gt; 1 APOE        19          44905791  44909393</span></span>
@@ -111,11 +135,11 @@ hard-coding coordinates.</p>
 </h2>
 <p>When running many parallel jobs (e.g. on an HPC cluster), PLINK’s
 default behaviour of auto-detecting available threads and memory can
-cause problems — each worker may try to reserve half the node’s RAM. Use
+cause problems – each worker may try to reserve half the node’s RAM. Use
 <code>plink_threads</code> and <code>plink_memory</code> to cap resource
 usage per call.</p>
 <p>You can set these per-call, via R options, or via environment
-variables:</p>
+variables (placeholder data; not run):</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Per-call (highest priority)</span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
@@ -141,9 +165,84 @@ are available in <code><a href="../reference/run_coloc.html">run_coloc()</a></co
 <div class="section level2">
 <h2 id="setting-up-an-ld-reference-panel">Setting Up an LD Reference Panel<a class="anchor" aria-label="anchor" href="#setting-up-an-ld-reference-panel"></a>
 </h2>
-<!-- TODO: explain when a local bfile is needed (batch, ld_correct, coloc) vs API -->
-<!-- TODO: download instructions for 1000 Genomes EUR panel -->
-<!-- TODO: expected file structure (bfile prefix: .bed/.bim/.fam) -->
+<p>Several steps need linkage disequilibrium (LD) between variants,
+which <code>mrpipeline</code> computes with PLINK from a reference panel
+of genotypes:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Step</th>
+<th>Without <code>bfile</code>
+</th>
+<th>With <code>bfile</code>
+</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>Instrument clumping in <code><a href="../reference/run_mr.html">run_mr()</a></code>
+</td>
+<td>OpenGWAS API (needs an <code>OPENGWAS_JWT</code> token;
+rate-limited)</td>
+<td>Local PLINK</td>
+</tr>
+<tr class="even">
+<td><code>run_mr(ld_correct = TRUE)</code></td>
+<td>Error</td>
+<td>LD matrix of the instruments</td>
+</tr>
+<tr class="odd">
+<td>
+<code><a href="../reference/run_coloc.html">run_coloc()</a></code> (SuSiE, <code>coloc.signals</code>, LD
+alignment)</td>
+<td>Required – <code>bfile</code> has no default</td>
+<td>LD matrix of the region</td>
+</tr>
+<tr class="even">
+<td><code>plot(coloc_res, type = "locuszoom")</code></td>
+<td>Required</td>
+<td>LD colouring</td>
+</tr>
+</tbody>
+</table>
+<p>A local panel is recommended for anything beyond a quick look: it is
+reproducible (the API’s panel can change), it is not rate-limited, which
+matters when you batch many proteins, and it is the only option for
+<code>ld_correct</code> and colocalisation.</p>
+<p><strong>File structure.</strong> <code>bfile</code> is a PLINK 1
+binary fileset given by its <em>prefix</em> – the path without an
+extension. <code>bfile = "/data/ld/EUR"</code> expects
+<code>/data/ld/EUR.bed</code>, <code>/data/ld/EUR.bim</code> and
+<code>/data/ld/EUR.fam</code> to sit side by side. Variant IDs in the
+<code>.bim</code> must be rsIDs matching your summary statistics, and
+the panel must be on the same genome build as your data.</p>
+<p><strong>Getting a panel.</strong> Use one matching your GWAS samples’
+ancestry. The MRC-IEU distributes the 1000 Genomes phase 3 panels
+(GRCh37, rsIDs) used by OpenGWAS, split by super-population:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Not run: a ~1.6 GB download.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/download.file.html" class="external-link">download.file</a></span><span class="op">(</span><span class="st">"http://fileserve.mrcieu.ac.uk/ld/1kg.v3.tgz"</span>, <span class="st">"1kg.v3.tgz"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/untar.html" class="external-link">untar</a></span><span class="op">(</span><span class="st">"1kg.v3.tgz"</span>, exdir <span class="op">=</span> <span class="st">"ld_ref"</span><span class="op">)</span></span>
+<span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="st">"ld_ref/EUR"</span> <span class="co"># ld_ref/EUR.bed, ld_ref/EUR.bim, ld_ref/EUR.fam</span></span></code></pre></div>
+<p>The package also bundles a tiny panel – real 1000 Genomes EUR
+genotypes for 503 individuals at the 50 CD40-region SNPs in
+<code>cd40_exposure</code> – which the evaluated examples on this page
+use:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
+<span>  <span class="st">"\\.bed$"</span>,</span>
+<span>  <span class="st">""</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref.bed"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/basename.html" class="external-link">basename</a></span><span class="op">(</span><span class="va">bfile</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "ld_ref"</span></span></code></pre></div>
+<p>It only covers those 50 SNPs, so it is for learning the package, not
+for analysis. The script that built it, <code>data-raw/ld_ref.R</code>
+in the package source, shows how to cut a panel for any region straight
+from the 1000 Genomes VCFs.</p>
 </div>
 <div class="section level2">
 <h2 id="formatting-gwas-data">Formatting GWAS Data<a class="anchor" aria-label="anchor" href="#formatting-gwas-data"></a>
@@ -164,11 +263,17 @@ deCODE (<code><a href="../reference/format_pqtl_decode.html">format_pqtl_decode(
 (<code><a href="../reference/format_single_cell_onek1k.html">format_single_cell_onek1k()</a></code>); they already know their
 source’s allele convention, so the steps below are for everything
 else.</p>
+<p>The walkthrough in this section follows a real analysis – an AMD
+outcome GWAS and a regenie exposure – from files on disk, including a
+deliberately mis-oriented file. Those files do not ship with the
+package, so this code is <strong>not run</strong> when the page is
+built; the <code>#&gt;</code> lines are representative output, abridged
+where marked <code>...</code>.</p>
 <div class="section level3">
 <h3 id="step-1-inspect-the-header">Step 1: inspect the header<a class="anchor" aria-label="anchor" href="#step-1-inspect-the-header"></a>
 </h3>
 <p>Look at the column names before formatting anything:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="st">"genomics_data/outcome_GWAS/AMD/IAMDGC_AMD.tsv.gz"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="va">path</span>, nrows <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "SNP" "CHR" "POS" "A1" "A2" "BETA" "SE" "PVALUE" "N" "FRQ" ...</span></span></code></pre></div>
@@ -185,7 +290,7 @@ columns, <code>n = ...</code> when the file has no sample-size column,
 <code>bim_path</code> when rsIDs (or chr/pos) are missing, and
 <code>marker_col</code> for compound <code>CHR:POS:...</code>
 identifiers.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">col_map</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>pval <span class="op">=</span> <span class="st">"PVALUE"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -236,7 +341,7 @@ establish which convention a file uses:</p>
 <p><strong>Rule out a minor allele frequency.</strong> A MAF never
 exceeds 0.5, so if the frequency column does, it tracks one fixed
 allele:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">frq</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="va">path</span>, select <span class="op">=</span> <span class="st">"FRQ"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">frq</span> <span class="op">&gt;</span> <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0.155   # not a MAF -- describes a fixed allele (A1 or A2?)</span></span></code></pre></div>
@@ -253,13 +358,13 @@ so <code>BETA</code> is per <code>A2</code>.</p></li>
 </ol>
 <p>If <code>A1</code> is REF, swap the mapping (user aliases take
 precedence):</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">col_map</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>pval <span class="op">=</span> <span class="st">"PVALUE"</span>, effect_allele <span class="op">=</span> <span class="st">"A2"</span>, other_allele <span class="op">=</span> <span class="st">"A1"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="step-4-call-format_gwas">Step 4: call format_gwas()<a class="anchor" aria-label="anchor" href="#step-4-call-format_gwas"></a>
 </h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">outcome</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/format_gwas.html">format_gwas</a></span><span class="op">(</span></span>
 <span>  path         <span class="op">=</span> <span class="va">path</span>,</span>
 <span>  phenotype_id <span class="op">=</span> <span class="st">"AMD"</span>,</span>
@@ -277,7 +382,7 @@ precedence):</p>
 <div class="section level3">
 <h3 id="step-5-sanity-check-the-output">Step 5: sanity-check the output<a class="anchor" aria-label="anchor" href="#step-5-sanity-check-the-output"></a>
 </h3>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">outcome</span><span class="op">[</span><span class="va">outcome</span><span class="op">$</span><span class="va">rsids</span> <span class="op">==</span> <span class="st">"rs1061170"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"effect_allele"</span>, <span class="st">"other_allele"</span>, <span class="st">"beta"</span>, <span class="st">"eaf"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;   effect_allele other_allele  beta   eaf</span></span>
 <span><span class="co">#&gt; 1             C            T  0.87 0.38   # risk allele now has a positive beta</span></span>
@@ -296,7 +401,7 @@ alleles produce systematic complementarity, so a clear majority (over
 harmonises its instruments together with up to 1000 further SNPs shared
 by the two datasets, so the check works even for a cis-MR with three
 instruments.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span><span class="va">exposure</span>, <span class="st">"RPS"</span>, <span class="va">outcome</span>, <span class="st">"AMD"</span>, instruments <span class="op">=</span> <span class="va">ivs</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Error in `run_mr()`:</span></span>
 <span><span class="co">#&gt; ! Possible effect/other allele mis-assignment between "RPS" and "AMD":</span></span>
@@ -338,7 +443,7 @@ the decision reviewable.</p>
 GWAS files are common and often ship without a frequency column, so no
 verdict is possible. That is <strong>not</strong> a pass, and it says so
 at warning level (issue #21):</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">#&gt; Warning:</span></span>
 <span><span class="co">#&gt; ! Allele orientation could not be checked for "RPS" vs "Malignant melanoma":</span></span>
 <span><span class="co">#&gt;   no harmonised variants carry allele frequencies in both datasets.</span></span>
@@ -369,7 +474,7 @@ reviewable.</p>
 <p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> prints a harmonisation breakdown, and the full
 unfiltered frame is on the result object as
 <code>$harmonisation</code>:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
 <span><span class="co">#&gt; -- Harmonisation --</span></span>
 <span><span class="co">#&gt; * 120 candidate SNPs -&gt; 95 kept, 25 dropped</span></span>
@@ -434,7 +539,7 @@ even where the beta looks unchanged. It also covers the case above,
 where no frequencies are available at all – level <code>2</code> has
 nothing to resolve palindromes with, so dropping them is the honest
 choice:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  <span class="va">exposure</span>, <span class="st">"RPS"</span>, <span class="va">outcome</span>, <span class="st">"Malignant melanoma"</span>,</span>
 <span>  instruments <span class="op">=</span> <span class="va">ivs</span>,</span>
@@ -453,24 +558,32 @@ share of a small cis-MR’s SNPs, so check
 <div class="section level3">
 <h3 id="cis-mr-quick-start-with-api-clumping">Cis-MR (quick start with API clumping)<a class="anchor" aria-label="anchor" href="#cis-mr-quick-start-with-api-clumping"></a>
 </h3>
-<!-- TODO: minimal example without bfile -->
+<p>A cis-MR needs an exposure, an outcome and the gene’s region. Setting
+<code>instrument_region</code> selects genome-wide significant variants
+within 100 kb of it, and with no <code>bfile</code> they are LD-clumped
+through the OpenGWAS API:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Not run: needs network access and an OpenGWAS token -- see</span></span>
+<span><span class="co"># ieugwasr::get_opengwas_jwt().</span></span>
+<span><span class="va">mr_api</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Without a <code>methods</code> argument <code><a href="../reference/run_mr.html">run_mr()</a></code> runs
+its default set: random-effects IVW, MR-Egger, weighted median,
+MR-PRESSO, contamination mixture and Steiger filtering.</p>
 </div>
 <div class="section level3">
 <h3 id="cis-mr-with-local-ld-reference-recommended">Cis-MR with local LD reference (recommended)<a class="anchor" aria-label="anchor" href="#cis-mr-with-local-ld-reference-recommended"></a>
 </h3>
-<!-- TODO: full example with bfile -->
-</div>
-<div class="section level3">
-<h3 id="sensitivity-analyses">Sensitivity analyses<a class="anchor" aria-label="anchor" href="#sensitivity-analyses"></a>
-</h3>
-<!-- TODO: Egger, weighted median, PRESSO, ConMix, Steiger, heterogeneity, leave-one-out examples -->
-<p>Add <code>"heterogeneity"</code> and/or <code>"loo"</code> to
-<code>methods</code> to get Cochran’s Q
-(<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_heterogeneity.html" class="external-link">TwoSampleMR::mr_heterogeneity()</a></code>) and leave-one-out
-(<code><a href="https://mrcieu.github.io/TwoSampleMR/reference/mr_leaveoneout.html" class="external-link">TwoSampleMR::mr_leaveoneout()</a></code>) alongside the effect
-estimates:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<p>With a local panel the same analysis is reproducible and offline.
+This is the analysis the rest of the MR sections inspect:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span> <span class="co"># the weighted median's standard error is bootstrapped</span></span>
+<span><span class="va">mr_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
@@ -478,11 +591,80 @@ estimates:</p>
 <span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
 <span>  rsq_thresh <span class="op">=</span> <span class="fl">0.3</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span>, <span class="st">"loo"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">result</span><span class="op">$</span><span class="va">heterogeneity</span>  <span class="co"># Q, Q_df, Q_pval per method (needs &gt;= 2 instruments)</span></span>
-<span><span class="va">result</span><span class="op">$</span><span class="va">loo</span>            <span class="co"># per-SNP + pooled "All" estimates (needs &gt;= 3 instruments)</span></span></code></pre></div>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>,</span>
+<span>    <span class="st">"steiger"</span>, <span class="st">"pleiotropy"</span>, <span class="st">"heterogeneity"</span>, <span class="st">"loo"</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Two arguments are worth a note. <code>rsq_thresh = 0.3</code> clumps
+far more leniently than the default of 0.001: against real LD the
+default keeps a single CD40 instrument (a Wald ratio, with no
+sensitivity analyses possible), while 0.3 keeps 7. Instruments that
+correlated are counted as independent by standard IVW, which is what <a href="#ld-corrected-mr">LD-corrected MR</a> below is for. And
+<code>methods</code> names every estimator and diagnostic explicitly, so
+the analysis says what it ran.</p>
+<p><code>$results</code> holds one row per estimator:</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mr_res</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"nsnp"</span>, <span class="st">"b"</span>, <span class="st">"se"</span>, <span class="st">"pval"</span>, <span class="st">"or"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                 method nsnp         b         se       pval       or</span></span>
+<span><span class="co">#&gt; 1 IVW (random effects)    7 0.1039171 0.07064066 0.14127327 1.109508</span></span>
+<span><span class="co">#&gt; 2  IVW (fixed effects)    7 0.1039171 0.05004810 0.03786213 1.109508</span></span>
+<span><span class="co">#&gt; 3             MR Egger    7 0.1463184 0.25272353 0.58771400 1.157565</span></span>
+<span><span class="co">#&gt; 4      Weighted median    7 0.1677675 0.06749428 0.01293133 1.182662</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="sensitivity-analyses">Sensitivity analyses<a class="anchor" aria-label="anchor" href="#sensitivity-analyses"></a>
+</h3>
+<p>Every estimator makes a different assumption about invalid
+instruments, so agreement between them is the reassurance, and
+disagreement the lead:</p>
+<ul>
+<li>
+<strong>IVW</strong> (<code>ivw_random</code>,
+<code>ivw_fixed</code>) assumes every instrument is valid, or that
+pleiotropy averages to zero.</li>
+<li>
+<strong>MR-Egger</strong> (<code>egger</code>) allows directional
+pleiotropy through an intercept, at the cost of much lower precision;
+<code>pleiotropy</code> tests that intercept against zero.</li>
+<li>
+<strong>Weighted median</strong> (<code>weighted_median</code>) is
+consistent if at least half of the weight comes from valid
+instruments.</li>
+<li>
+<strong>MR-PRESSO</strong> (<code>presso</code>) and the
+<strong>contamination mixture</strong> (<code>conmix</code>) detect or
+down-weight outlying instruments. Both are in the default
+<code>methods</code>; see <code><a href="../reference/mr_methods.html">mr_methods()</a></code> below for everything
+available.</li>
+</ul>
+<p>Here the IVW and weighted-median estimates are 0.104 and 0.168;
+Egger’s slope, 0.146, is far less precise (SE 0.253). The Egger
+intercept, Cochran’s Q (<code>heterogeneity</code>, needs &gt;= 2
+instruments) and the leave-one-out estimates (<code>loo</code>, needs
+&gt;= 3) each have their own field:</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mr_res</span><span class="op">$</span><span class="va">pleiotropy</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"egger_intercept"</span>, <span class="st">"se"</span>, <span class="st">"pval"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;   egger_intercept         se      pval</span></span>
+<span><span class="co">#&gt; 1     -0.01235622 0.07013144 0.8670611</span></span>
+<span><span class="va">mr_res</span><span class="op">$</span><span class="va">heterogeneity</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"Q"</span>, <span class="st">"Q_df"</span>, <span class="st">"Q_pval"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                      method        Q Q_df     Q_pval</span></span>
+<span><span class="co">#&gt; 1                  MR Egger 11.87949    5 0.03647691</span></span>
+<span><span class="co">#&gt; 2 Inverse variance weighted 11.95324    6 0.06302013</span></span>
+<span><span class="va">mr_res</span><span class="op">$</span><span class="va">loo</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"SNP"</span>, <span class="st">"b"</span>, <span class="st">"se"</span>, <span class="st">"p"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;          SNP          b         se          p</span></span>
+<span><span class="co">#&gt; 1 rs13045469 0.09998913 0.07988087 0.21066895</span></span>
+<span><span class="co">#&gt; 2  rs1535044 0.08481539 0.06723545 0.20714018</span></span>
+<span><span class="co">#&gt; 3  rs3848726 0.11985840 0.06750042 0.07578748</span></span>
+<span><span class="co">#&gt; 4  rs4810485 0.04753534 0.08620818 0.58135829</span></span>
+<span><span class="co">#&gt; 5  rs4813002 0.17668764 0.06965768 0.01119625</span></span>
+<span><span class="co">#&gt; 6  rs6032655 0.10780563 0.07766969 0.16513664</span></span>
+<span><span class="co">#&gt; 7  rs6032678 0.08891643 0.08444395 0.29235754</span></span>
+<span><span class="co">#&gt; 8        All 0.10391708 0.07064066 0.14127327</span></span></code></pre></div>
+<p>The leave-one-out table re-fits IVW without each SNP in turn, and its
+last row, <code>All</code>, is the full-set estimate. Here dropping
+rs4813002 moves the estimate the most, from 0.104 to 0.177 – in a small
+instrument set one variant can carry much of the answer.</p>
 </div>
 <div class="section level3">
 <h3 id="which-methods-can-i-run">Which methods can I run?<a class="anchor" aria-label="anchor" href="#which-methods-can-i-run"></a>
@@ -492,7 +674,7 @@ itself dispatches from – the shortcut names, what each one runs, whether
 it is a fixed- or random-effects estimator, whether
 <code>ld_correct = TRUE</code> applies to it, how many instruments it
 needs, and where its result lands on the <code>mr_result</code>:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tab</span> <span class="op">&lt;-</span> <span class="fu">mrpipeline</span><span class="fu">::</span><span class="fu"><a href="../reference/mr_methods.html">mr_methods</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co"># Backticks render the field names as code, which keeps MathJax from reading</span></span>
 <span><span class="co"># `$results` ... `$steiger` as an inline formula.</span></span>
@@ -637,21 +819,11 @@ computes the instruments’ LD matrix from <code>bfile</code>, re-orients
 it to the exposure’s effect alleles, and fits the IVW and Egger
 estimators by generalised least squares with that matrix as the weight
 structure (through <code>MendelianRandomization</code> with
-<code>correl = TRUE</code>):</p>
-<p>The example uses the LD reference panel bundled with the package
-(real 1000 Genomes EUR genotypes for the 50 CD40-region SNPs). Its
-instruments are clumped at <code>rsq_thresh = 0.3</code> rather than the
-default 0.001: against real LD the default leaves a single CD40
-instrument, while 0.3 keeps seven with pairwise |r| up to 0.53 – a
-typical lenient cis-MR set, and one with something to correct for.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span></span>
-<span>  <span class="st">"\\.bed$"</span>,</span>
-<span>  <span class="st">""</span>,</span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref.bed"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">corrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<code>correl = TRUE</code>).</p>
+<p>The example repeats the analysis above – same region, same
+<code>rsq_thresh = 0.3</code> – with the correction switched on:</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">corrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
@@ -662,18 +834,22 @@ typical lenient cis-MR set, and one with something to correct for.</p>
 <span>  ld_correct <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning: "weighted_median" has no LD-corrected form; running uncorrected.</span></span>
+<span><span class="co">#&gt; Warning: <span style="color: #0000BB;">"weighted_median"</span> has no LD-corrected form; running</span></span>
+<span><span class="co">#&gt; uncorrected.</span></span>
 <span></span>
 <span><span class="va">corrected</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"b"</span>, <span class="st">"se"</span>, <span class="st">"model"</span>, <span class="st">"ld_corrected"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                 method     b     se  model ld_corrected</span></span>
-<span><span class="co">#&gt; 1 IVW (random effects) 0.153 0.0580 random         TRUE</span></span>
-<span><span class="co">#&gt; 2  IVW (fixed effects) 0.153 0.0273  fixed         TRUE</span></span>
-<span><span class="co">#&gt; 3             MR Egger 0.455 0.2829 random         TRUE</span></span>
-<span><span class="co">#&gt; 4      Weighted median 0.168 0.0693   &lt;NA&gt;        FALSE</span></span></code></pre></div>
-<p>The same call without <code>ld_correct</code> gives an IVW estimate
-of 0.104 (random-effects SE 0.071, fixed-effects SE 0.050) and an Egger
-slope of 0.146: treating the seven correlated instruments as independent
-changes the answer, not just its precision.</p>
+<span><span class="co">#&gt;                 method         b         se  model ld_corrected</span></span>
+<span><span class="co">#&gt; 1 IVW (random effects) 0.1526528 0.05802051 random         TRUE</span></span>
+<span><span class="co">#&gt; 2  IVW (fixed effects) 0.1526528 0.02730979  fixed         TRUE</span></span>
+<span><span class="co">#&gt; 3             MR Egger 0.4547481 0.28286288 random         TRUE</span></span>
+<span><span class="co">#&gt; 4      Weighted median 0.1677675 0.06810721   &lt;NA&gt;        FALSE</span></span></code></pre></div>
+<p>Its instruments are the 7 from before, with pairwise |r| up to 0.53
+in the panel – a typical lenient cis-MR set, and one with something to
+correct for. Without <code>ld_correct</code> (<code>mr_res</code>,
+above) the IVW estimate was 0.104 (random-effects SE 0.071,
+fixed-effects SE 0.050) and the Egger slope 0.146: treating correlated
+instruments as independent changes the answer, not just its
+precision.</p>
 <p>Note that the corrected standard errors here are <em>smaller</em>.
 Correction does not always widen them: what matters is not
 <code>r</code> itself but the correlation between the SNPs’ ratio
@@ -682,19 +858,21 @@ estimates, which is <code>r</code> times the sign of
 the two instruments are counted twice over and correction widens the SE;
 where it is negative their errors partly cancel and GLS extracts
 <em>more</em> information than the independent-instruments model. In
-this set most pairs are negative – the largest-effect instrument,
-rs4810485, against almost all the others – so the standard errors fall.
-Such a gain leans entirely on the reference panel’s LD matching the GWAS
-sample’s, so treat a large drop with caution.</p>
+this set 11 of the 21 pairs are negative, including 5 of the 6 involving
+rs4810485 – the largest-effect, and so most heavily weighted, instrument
+– and the standard errors fall. Such a gain leans entirely on the
+reference panel’s LD matching the GWAS sample’s, so treat a large drop
+with caution.</p>
 <p>Every <code>$results</code> row states the estimator that produced
 it: <code>model</code> says whether it was a fixed- or random-effects
 fit, and <code>ld_corrected</code> whether the LD matrix was used. Only
 <code>ivw_random</code>, <code>ivw_fixed</code> and <code>egger</code>
 have a correlated form; any other estimator you request runs on the
-uncorrected data and warns by name, so <code>ld_correct</code> is never
-silently ignored. <code>summary(corrected)</code> lists which methods it
-was and was not applied to, and <code>print(corrected)</code> tags the
-primary row <code>[LD-corrected]</code>.</p>
+uncorrected data and warns by name – the warning above – so
+<code>ld_correct</code> is never silently ignored.
+<code>summary(corrected)</code> lists which methods it was and was not
+applied to, and <code>print(corrected)</code> tags the primary row
+<code>[LD-corrected]</code>.</p>
 <p>The diagnostics are corrected too. Cochran’s Q, the Egger intercept
 and the leave-one-out estimates are all answers to “how much do my
 instruments disagree?”, and that question changes once the instruments
@@ -703,12 +881,12 @@ materially from the naive one. So under <code>ld_correct = TRUE</code>,
 <code>$heterogeneity</code>, <code>$pleiotropy</code> and
 <code>$loo</code> come from the correlated fits, and each carries its
 own <code>ld_corrected</code> column on both arms:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">corrected</span><span class="op">$</span><span class="va">heterogeneity</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"Q"</span>, <span class="st">"Q_df"</span>, <span class="st">"Q_pval"</span>, <span class="st">"ld_corrected"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                      method    Q Q_df   Q_pval ld_corrected</span></span>
-<span><span class="co">#&gt; 1                  MR Egger 21.9    5 0.000552         TRUE</span></span>
-<span><span class="co">#&gt; 2 Inverse variance weighted 27.1    6 0.000140         TRUE</span></span></code></pre></div>
-<p>Uncorrected, the same instruments give an IVW Q of 12.0 (p = 0.063):
+<span><span class="co">#&gt;                      method        Q Q_df       Q_pval ld_corrected</span></span>
+<span><span class="co">#&gt; 1                  MR Egger 21.87861    5 0.0005521611         TRUE</span></span>
+<span><span class="co">#&gt; 2 Inverse variance weighted 27.08182    6 0.0001397849         TRUE</span></span></code></pre></div>
+<p>Uncorrected, the same instruments give an IVW Q of 11.95 (p = 0.063):
 here the naive test understates the disagreement between correlated
 instruments.</p>
 <p>The <code>method</code> labels in <code>$heterogeneity</code> stay
@@ -734,20 +912,11 @@ aligned to the exposure’s effect alleles.</li>
 <p>Because of the second point, one <code>mr_result</code> is always one
 instrument set under one weight matrix – <code>ld_correct</code> is a
 single switch, not a request for both arms. To compare corrected and
-uncorrected estimates, run both and section them in one forest plot:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">uncorrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
-<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
-<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
-<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
-<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
-<span>  rsq_thresh <span class="op">=</span> <span class="fl">0.3</span>,</span>
-<span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"Uncorrected"</span> <span class="op">=</span> <span class="va">uncorrected</span>, <span class="st">"LD-corrected"</span> <span class="op">=</span> <span class="va">corrected</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+uncorrected estimates, run both – here <code>mr_res</code> from above is
+the uncorrected arm – and section them in one forest plot:</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="st">"Uncorrected"</span> <span class="op">=</span> <span class="va">mr_res</span>, <span class="st">"LD-corrected"</span> <span class="op">=</span> <span class="va">corrected</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="mrpipeline-user-guide_files/figure-html/ld-compare-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level3">
 <h3 id="genome-wide-mr">Genome-wide MR<a class="anchor" aria-label="anchor" href="#genome-wide-mr"></a>
@@ -762,9 +931,11 @@ falling in specific genomic regions. This is commonly used to exclude
 the MHC region on chromosome 6, which can introduce spurious
 associations due to complex LD structure.</p>
 <p>Supply a data frame with columns <code>chr</code>,
-<code>start</code>, and <code>end</code>:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Exclude MHC region (GRCh37 coordinates: chr6:28,477,797–33,448,354)</span></span>
+<code>start</code>, and <code>end</code>. The bundled data cover only
+the CD40 region on chromosome 20, so these two examples use placeholder
+datasets and are not run:</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Exclude MHC region (GRCh37 coordinates: chr6:28,477,797-33,448,354)</span></span>
 <span><span class="va">mhc_grch37</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>chr <span class="op">=</span> <span class="st">"6"</span>, start <span class="op">=</span> <span class="fl">28477797</span>, end <span class="op">=</span> <span class="fl">33448354</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
@@ -775,12 +946,12 @@ associations due to complex LD structure.</p>
 <span>  exclude_regions <span class="op">=</span> <span class="va">mhc_grch37</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># GRCh38 coordinates: chr6:28,510,120–33,480,577</span></span>
+<span><span class="co"># GRCh38 coordinates: chr6:28,510,120-33,480,577</span></span>
 <span><span class="va">mhc_grch38</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>chr <span class="op">=</span> <span class="st">"6"</span>, start <span class="op">=</span> <span class="fl">28510120</span>, end <span class="op">=</span> <span class="fl">33480577</span><span class="op">)</span></span></code></pre></div>
 <p>You can exclude multiple regions by stacking rows. For example, when
 studying age-related macular degeneration (AMD), you might exclude both
 the CFH and ARMS2/HTRA1 loci:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">amd_exclusions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  chr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1"</span>, <span class="st">"10"</span><span class="op">)</span>,</span>
 <span>  start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">196621008</span>, <span class="fl">124214077</span><span class="op">)</span>,</span>
@@ -799,49 +970,170 @@ the CFH and ARMS2/HTRA1 loci:</p>
 <h3 id="manual-instrument-sets">Manual instrument sets<a class="anchor" aria-label="anchor" href="#manual-instrument-sets"></a>
 </h3>
 <p>You can bypass automatic instrument selection by supplying a
-character vector of rsIDs to the <code>instruments</code> argument:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
-<span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
-<span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
-<span>  outcome_id <span class="op">=</span> <span class="st">"CHD"</span>,</span>
-<span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rs11591147"</span>, <span class="st">"rs2479409"</span>, <span class="st">"rs11583680"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+character vector of rsIDs to the <code>instruments</code> argument – for
+example, a pre-specified pair of variants:</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">manual_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rs4810485"</span>, <span class="st">"rs4813002"</span><span class="op">)</span>,</span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>, <span class="st">"heterogeneity"</span>, <span class="st">"loo"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">manual_res</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"nsnp"</span>, <span class="st">"b"</span>, <span class="st">"se"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                 method nsnp          b        se</span></span>
+<span><span class="co">#&gt; 1 IVW (random effects)    2 0.08078569 0.1391913</span></span></code></pre></div>
+<p>Manual instruments are used as given: no p-value threshold, no
+clumping, so no <code>bfile</code> is needed. With only two of them,
+every method that needs three or more instruments cannot run. Rather
+than failing, <code><a href="../reference/run_mr.html">run_mr()</a></code> records why in
+<code>$methods_skipped</code> (see <a href="#interpreting-mr-results">Interpreting MR results</a>).</p>
 <p>By default, instruments missing from the exposure data produce a
-warning but the analysis continues with the available SNPs. Set
-<code>instruments_strict = TRUE</code> to error instead:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">exposure_data</span>,</span>
-<span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
-<span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
-<span>  outcome_id <span class="op">=</span> <span class="st">"CHD"</span>,</span>
-<span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rs11591147"</span>, <span class="st">"rs2479409"</span><span class="op">)</span>,</span>
+warning and the analysis continues with the available SNPs:</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">manual_lax</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rs4810485"</span>, <span class="st">"rs4813002"</span>, <span class="st">"rs0000001"</span><span class="op">)</span>,</span>
+<span>  methods <span class="op">=</span> <span class="st">"ivw_random"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: 1 instrument not found in exposure data: <span style="color: #0000BB;">"rs0000001"</span></span></span></code></pre></div>
+<p>Set <code>instruments_strict = TRUE</code> to make that an error
+instead:</p>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  instruments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rs4810485"</span>, <span class="st">"rs4813002"</span>, <span class="st">"rs0000001"</span><span class="op">)</span>,</span>
 <span>  instruments_strict <span class="op">=</span> <span class="cn">TRUE</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;"> in `run_mr()`:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> 1 instrument not found in exposure data: <span style="color: #0000BB;">"rs0000001"</span></span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
 <h2 id="interpreting-mr-results">Interpreting MR Results<a class="anchor" aria-label="anchor" href="#interpreting-mr-results"></a>
 </h2>
-<!-- TODO: F-statistics and what they mean -->
-<!-- TODO: Steiger filtering -->
-<!-- TODO: methods_skipped -->
 <p>Use <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> for a one-line summary and
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> for full details:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mr_res</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co">#&gt; CD40 -&gt; SjD</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> IVW (random effects): b = 0.1039, se = 0.0706, p = 0.141, OR = 1.11</span></span>
+<span><span class="co">#&gt;   [0.966-1.274]</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> 7 SNPs, mean F = 856.2</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">──</span> <span style="font-weight: bold;">MR Results: CD40 -&gt; SjD</span> <span style="color: #00BBBB;">─────────────────────────────────────────────────────</span></span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Method estimates</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> IVW (random effects): b = 0.1039, se = 0.0706, p = 0.141, OR = 1.11</span></span>
+<span><span class="co">#&gt;   [0.966-1.274] (7 SNPs)</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> IVW (fixed effects): b = 0.1039, se = 0.05, p = 0.0379, OR = 1.11</span></span>
+<span><span class="co">#&gt;   [1.006-1.224] (7 SNPs)</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> MR Egger [random effects]: b = 0.1463, se = 0.2527, p = 0.588, OR = 1.158</span></span>
+<span><span class="co">#&gt;   [0.705-1.9] (7 SNPs)</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Weighted median: b = 0.1678, se = 0.0675, p = 0.0129, OR = 1.183 [1.036-1.35]</span></span>
+<span><span class="co">#&gt;   (7 SNPs)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Harmonisation</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> 7 candidate SNPs -&gt; 7 kept, 0 dropped</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Flagged: 1 palindromic</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Instrument strength</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Mean F-statistic: 856.2</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Min F-statistic: 450.5</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> N instruments: 7</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Steiger filtering</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> 7/7 SNPs explain more variance in the exposure than in the outcome</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Largest Steiger p-value: 1.2e-47</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Pleiotropy test (Egger intercept)</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Intercept: -0.0124</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> SE: 0.0701</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> p-value: 0.867</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Heterogeneity test (Cochran's Q)</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> MR Egger: Q = 11.879, df = 5, p = 0.0365</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Inverse variance weighted: Q = 11.953, df = 6, p = 0.063</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Leave-one-out analysis</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> 8 rows (per-SNP estimates plus the pooled 'All' row); see `$loo` for the full</span></span>
+<span><span class="co">#&gt;   table.</span></span></code></pre></div>
+<p>Beyond the estimates, three things in that output decide how far to
+trust them.</p>
+<p><strong>Instrument strength (<code>$f_stats</code>).</strong> Each
+instrument’s F-statistic, computed as
+<code>(beta.exposure / se.exposure)^2</code>, measures how strongly it
+predicts the exposure. Weak instruments (conventionally F &lt; 10) bias
+two-sample MR towards the null – or, where the exposure and outcome
+samples overlap, towards the confounded observational association.
+cis-pQTLs are usually very strong: here the weakest instrument has F =
+450..</p>
+<p><strong>Steiger filtering (<code>$steiger</code>).</strong> For each
+instrument, Steiger’s test asks whether it explains more variance in the
+exposure (<code>rsq.exposure</code>) than in the outcome
+(<code>rsq.outcome</code>), as it should if it acts on the outcome
+<em>through</em> the exposure. An instrument failing that
+(<code>steiger_dir = FALSE</code>) suggests reverse causation or
+pleiotropy, and is a candidate for exclusion. <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>
+reports how many pass; <code>$steiger</code> has the per-SNP detail:</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mr_res</span><span class="op">$</span><span class="va">steiger</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"SNP"</span>, <span class="st">"rsq.exposure"</span>, <span class="st">"rsq.outcome"</span>, <span class="st">"steiger_dir"</span>, <span class="st">"steiger_pval"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;          SNP rsq.exposure  rsq.outcome steiger_dir  steiger_pval</span></span>
+<span><span class="co">#&gt; 1 rs13045469   0.01320879 1.632257e-05        TRUE  4.860524e-52</span></span>
+<span><span class="co">#&gt; 2  rs1535044   0.01362585 1.175715e-04        TRUE  1.197745e-47</span></span>
+<span><span class="co">#&gt; 3  rs3848726   0.01496293 4.581803e-05        TRUE  1.958787e-56</span></span>
+<span><span class="co">#&gt; 4  rs4810485   0.06572654 1.463971e-04        TRUE 1.401242e-254</span></span>
+<span><span class="co">#&gt; 5  rs4813002   0.02509251 1.454381e-05        TRUE 3.448442e-100</span></span>
+<span><span class="co">#&gt; 6  rs6032655   0.01343318 4.281074e-07        TRUE  4.642902e-56</span></span>
+<span><span class="co">#&gt; 7  rs6032678   0.02533329 5.156863e-05        TRUE  5.945606e-97</span></span></code></pre></div>
+<p>Steiger needs the exposure’s sample size; without it the test is
+skipped.</p>
+<p><strong>Skipped methods (<code>$methods_skipped</code>).</strong> A
+method that could not run is not an error: <code><a href="../reference/run_mr.html">run_mr()</a></code> returns
+the rest and records a reason for each method it skipped – too few
+instruments, a missing sample size, a failed fit. Always check it before
+reading the absence of a row as meaningful. For the two-instrument
+manual run above:</p>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">manual_res</span><span class="op">$</span><span class="va">methods_skipped</span></span>
+<span><span class="co">#&gt;                       egger             weighted_median </span></span>
+<span><span class="co">#&gt; "Requires &gt;= 3 instruments" "Requires &gt;= 3 instruments" </span></span>
+<span><span class="co">#&gt;                  pleiotropy                         loo </span></span>
+<span><span class="co">#&gt; "Requires &gt;= 3 instruments" "Requires &gt;= 3 instruments"</span></span></code></pre></div>
+<p><code><a href="../reference/mr_methods.html">mr_methods()</a></code> lists the minimum instrument count of every
+method.</p>
 <div class="section level3">
 <h3 id="plotting-mr-results">Plotting MR results<a class="anchor" aria-label="anchor" href="#plotting-mr-results"></a>
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> produces diagnostic plots using TwoSampleMR
-plotting functions (requires <code>ggplot2</code>):</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span> <span class="co"># scatter plot (default)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"forest"</span><span class="op">)</span>  <span class="co"># per-SNP forest plot</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"funnel"</span><span class="op">)</span>  <span class="co"># funnel plot</span></span></code></pre></div>
+plotting functions (requires <code>ggplot2</code>):
+<code>"scatter"</code> (the default), <code>"forest"</code> (one row per
+SNP), <code>"funnel"</code> and <code>"loo"</code> (leave-one-out). Each
+returns TwoSampleMR’s list of plots, one per exposure-outcome pair, so
+take <code>[[1]]</code> for a single analysis:</p>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># warning = FALSE: TwoSampleMR's leave-one-out plot draws an empty spacer</span></span>
+<span><span class="co"># row, which ggplot2 reports as a removed missing value</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
+<p><img src="mrpipeline-user-guide_files/figure-html/mr-plot-1.png" class="r-plt" alt="" width="576"></p>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"loo"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
+<p><img src="mrpipeline-user-guide_files/figure-html/mr-plot-2.png" class="r-plt" alt="" width="576"></p>
 <p><code>plot(mr_res, type = "forest")</code> shows one row per SNP. For
 a manuscript-style forest plot summarising <em>methods</em> (IVW,
 MR-Egger, weighted median, …) or <em>outcomes</em> (a primary analysis
@@ -856,11 +1148,14 @@ and <code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()<
 is listed above random effects by default. Method labels do not encode
 LD correction (that lives in the <code>ld_corrected</code> column), so
 LD-corrected results match the same defaults:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
-<p>Pass a named list to section several results into one figure – e.g. a
-primary analysis alongside positive and negative controls:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<p><img src="mrpipeline-user-guide_files/figure-html/forest-plot-single-1.png" class="r-plt" alt="" width="672"></p>
+<p>Pass a named list to section several results into one figure. The <a href="#ld-corrected-mr">LD-corrected MR</a> comparison above is one
+example; a primary analysis alongside positive and negative controls is
+another. The package bundles no control outcomes, so this and the next
+example use placeholder results and are not run:</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  Primary <span class="op">=</span> <span class="va">mr_res</span>,</span>
 <span>  <span class="st">"Positive control"</span> <span class="op">=</span> <span class="va">positive_control_res</span>,</span>
@@ -871,7 +1166,7 @@ primary analysis alongside positive and negative controls:</p>
 coloured and/or shaped by a grouping column you attach yourself
 (e.g. which instrument was used). Build the combined data frame from one
 or more results’ <code>$results</code>, then plot:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">combined</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
 <span>  <span class="va">mr_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Primary"</span><span class="op">)</span>,</span>
 <span>  <span class="va">positive_control_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Positive control"</span><span class="op">)</span>,</span>
@@ -895,9 +1190,12 @@ inline result/CI/ p-value table alongside the plotted estimate, via the
 rather than <code>ggplot2</code>. It returns a <code>forestplot</code>
 object – render it yourself with <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>, so you control the
 output device (e.g. wrap the call in
-<code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code>/<code><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off()</a></code> to save a file):</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">table_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code>/<code><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off()</a></code> to save a file). Its input is
+a plain data frame, built here from made-up values to show the
+layout:</p>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Illustrative values, not results.</span></span>
+<span><span class="va">table_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="st">"Genetically-proxied NLRP3 inhibition"</span>,</span>
 <span>  outcome <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Coronary heart disease"</span>, <span class="st">"Stroke"</span>, <span class="st">"Type 2 diabetes"</span><span class="op">)</span>,</span>
 <span>  n_snps <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">8</span>, <span class="fl">8</span><span class="op">)</span>,</span>
@@ -909,85 +1207,205 @@ output device (e.g. wrap the call in
 <span></span>
 <span><span class="va">fp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/table_forest_plot.html">table_forest_plot</a></span><span class="op">(</span><span class="va">table_dat</span>, null_value <span class="op">=</span> <span class="fl">1</span>, xlab <span class="op">=</span> <span class="st">"OR (95% CI)"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fp</span><span class="op">)</span></span></code></pre></div>
+<p><img src="mrpipeline-user-guide_files/figure-html/table-forest-plot-1.png" class="r-plt" alt="" width="768"></p>
 </div>
 </div>
 <div class="section level2">
 <h2 id="colocalization">Colocalization<a class="anchor" aria-label="anchor" href="#colocalization"></a>
 </h2>
+<p>MR asks whether the exposure affects the outcome; colocalisation asks
+whether the two traits share a causal variant in the region at all. A
+cis-MR estimate driven by a variant that merely sits in LD with a
+<em>different</em> outcome variant is a classic false positive, and
+colocalisation is the check for it.</p>
 <div class="section level3">
 <h3 id="quick-colocalization-abf-only">Quick colocalization (ABF only)<a class="anchor" aria-label="anchor" href="#quick-colocalization-abf-only"></a>
 </h3>
-<p>The simplest colocalization test uses Approximate Bayes Factors
-(ABF). Supply pre-formatted exposure data, raw outcome data, the gene
-region, and an LD reference panel:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
-<span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
+<p>The simplest test uses Approximate Bayes Factors (ABF), which assume
+at most one causal variant per trait. Supply the formatted exposure, the
+outcome in <code><a href="../reference/format_gwas.html">format_gwas()</a></code> outcome format, the gene region
+(padded by <code>coloc_window</code>, 10 kb by default) and an LD
+reference panel. Sample sizes are read from the data when
+<code>exposure_n</code>/<code>outcome_n</code> are not given. Sjogren’s
+disease is a case-control outcome, so <code>outcome_type</code> and the
+case fraction <code>outcome_s</code> are set too (see <a href="#case-control-outcomes">Case-control outcomes</a>):</p>
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">coloc_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
 <span>  gene_chr <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  gene_start <span class="op">=</span> <span class="fl">44746911</span>,</span>
 <span>  gene_end <span class="op">=</span> <span class="fl">44758502</span>,</span>
-<span>  exposure_n <span class="op">=</span> <span class="fl">35559</span>,</span>
-<span>  outcome_n <span class="op">=</span> <span class="fl">400000</span>,</span>
-<span>  bfile <span class="op">=</span> <span class="st">"/path/to/ld_reference"</span>,</span>
+<span>  outcome_type <span class="op">=</span> <span class="st">"cc"</span>,</span>
+<span>  outcome_s <span class="op">=</span> <span class="fl">6098</span> <span class="op">/</span> <span class="fl">41420</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  methods <span class="op">=</span> <span class="st">"abf"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning in check_dataset(d = dataset2, 2): minimum p value is: 0.013794</span></span>
+<span><span class="co">#&gt; If this is what you expected, this is not a problem.</span></span>
+<span><span class="co">#&gt; If this is not as small as you expected, please check you supplied var(beta) and not sd(beta) for the varbeta argument. If that's not the explanation, please check the 02_data vignette.</span></span></code></pre></div>
+<p><code>coloc</code> itself prints its posteriors as it runs, so that
+chunk’s printed output is hidden here; its warning is kept, and is the
+first clue to the result. Inspect the result object instead:</p>
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">coloc_res</span></span>
+<span><span class="co">#&gt; coloc_result[CD40 -&gt; SjD]: 12 SNPs</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> ABF PP.H4 = 0.244 | PP4/(PP3+PP4) = 0.998</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">coloc_res</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">──</span> <span style="font-weight: bold;">Colocalization Results</span> <span style="color: #00BBBB;">──────────────────────────────────────────────────────</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> CD40 -&gt; SjD</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> 12 SNPs in analysis</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Harmonisation</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> 12 candidate SNPs -&gt; 12 kept, 0 dropped</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Flagged: 1 palindromic</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">coloc.abf</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H0 = 0</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H1 = 0.7555</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H2 = 0</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H3 = 4e-04</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H4 = 0.2441</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H4/(PP.H3+PP.H4) = 0.9983</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> N SNPs = 12</span></span>
 <span></span>
-<span><span class="co"># Access posterior probabilities directly</span></span>
-<span><span class="va">result</span><span class="op">$</span><span class="va">coloc_abf</span><span class="op">$</span><span class="va">summary</span></span></code></pre></div>
+<span><span class="co"># Posterior probabilities directly</span></span>
+<span><span class="va">coloc_res</span><span class="op">$</span><span class="va">coloc_abf</span><span class="op">$</span><span class="va">summary</span></span>
+<span><span class="co">#&gt;        nsnps    PP.H0.abf    PP.H1.abf    PP.H2.abf    PP.H3.abf    PP.H4.abf </span></span>
+<span><span class="co">#&gt; 1.200000e+01 0.000000e+00 7.554989e-01 0.000000e+00 4.065273e-04 2.440946e-01</span></span></code></pre></div>
+<p>The five hypotheses are H0 (no association with either trait), H1
+(exposure only), H2 (outcome only), H3 (both, distinct causal variants)
+and H4 (both, one shared variant). Here H1 dominates, PP.H1 = 0.76
+against PP.H4 = 0.24: CD40 has a strong cis-pQTL, but Sjogren’s disease
+has no signal in the window – its smallest p-value there is 0.014, which
+is the <code>minimum p value</code> coloc warned about. So this is
+<em>absence of evidence</em> for colocalisation, not evidence against a
+shared variant.</p>
+<p>Note the ratio <code>PP.H4 / (PP.H3 + PP.H4)</code> that
+<code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> shows. It is close to 1, but it only answers
+“<em>if</em> both traits had a signal, would it be shared?” – a question
+that does not arise when the outcome has none. Read it only alongside
+PP.H3 + PP.H4 themselves.</p>
 </div>
 <div class="section level3">
 <h3 id="full-colocalization-susie-signals">Full colocalization (SuSiE + signals)<a class="anchor" aria-label="anchor" href="#full-colocalization-susie-signals"></a>
 </h3>
-<p>For multi-signal colocalization, include <code>"susie"</code> and
-<code>"signals"</code> in the <code>methods</code> argument. SuSiE
-fine-maps each trait independently, then <code>coloc.susie()</code> and
-<code>coloc.signals()</code> test colocalization across all pairs of
-credible sets:</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
-<span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
+<p>ABF’s single-causal-variant assumption breaks down in regions with
+several independent signals. Adding <code>"susie"</code> and
+<code>"signals"</code> to <code>methods</code> fine-maps each trait with
+SuSiE, then tests colocalisation across all pairs of credible sets with
+<code>coloc.susie()</code>, and across conditionally independent signals
+with <code>coloc.signals()</code>:</p>
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">coloc_full</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
 <span>  gene_chr <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  gene_start <span class="op">=</span> <span class="fl">44746911</span>,</span>
 <span>  gene_end <span class="op">=</span> <span class="fl">44758502</span>,</span>
-<span>  exposure_n <span class="op">=</span> <span class="fl">35559</span>,</span>
-<span>  outcome_n <span class="op">=</span> <span class="fl">400000</span>,</span>
-<span>  bfile <span class="op">=</span> <span class="st">"/path/to/ld_reference"</span>,</span>
+<span>  outcome_type <span class="op">=</span> <span class="st">"cc"</span>,</span>
+<span>  outcome_s <span class="op">=</span> <span class="fl">6098</span> <span class="op">/</span> <span class="fl">41420</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"abf"</span>, <span class="st">"susie"</span>, <span class="st">"signals"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">coloc_full</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">──</span> <span style="font-weight: bold;">Colocalization Results</span> <span style="color: #00BBBB;">──────────────────────────────────────────────────────</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> CD40 -&gt; SjD</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> 12 SNPs in analysis</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Harmonisation</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> 12 candidate SNPs -&gt; 12 kept, 0 dropped</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Flagged: 1 palindromic</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">coloc.abf</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H0 = 0</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H1 = 0.7555</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H2 = 0</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H3 = 4e-04</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H4 = 0.2441</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H4/(PP.H3+PP.H4) = 0.9983</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> N SNPs = 12</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">coloc.signals</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> 3 signal pairs tested</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Hit rs4810485-rs1535044: PP.H4 = 0.654 | PP4/(PP3+PP4) = 0.982</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Hit rs1883833-rs1535044: PP.H4 = 0.0057 | PP4/(PP3+PP4) = 0.1431</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Hit rs4813002-rs1535044: PP.H4 = 0.0054 | PP4/(PP3+PP4) = 0.1363</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Skipped methods</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> susie: no credible sets in outcome</span></span></code></pre></div>
+<p>With no outcome signal SuSiE finds 4 credible set(s) for CD40 and
+none for Sjogren’s disease, so there is nothing for
+<code>coloc.susie()</code> to pair up. <code><a href="../reference/run_coloc.html">run_coloc()</a></code> does not
+fail: it records the reason in <code>$methods_skipped</code>, which
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> reports under <em>Skipped methods</em>, and still
+runs <code>coloc.signals()</code>. As with ABF, check
+<code>$methods_skipped</code> before reading an empty field as a
+negative result.</p>
+<p><code>coloc.signals()</code> puts its best pair at PP.H4 = 0.65,
+higher than ABF’s but still short of the 0.8 usually asked of evidence
+for colocalisation – and it rests on an outcome whose strongest variant
+in the window has p = 0.014. The two methods agree that these data
+cannot settle whether CD40 and Sjogren’s disease share a variant
+here.</p>
 </div>
 <div class="section level3">
 <h3 id="case-control-outcomes">Case-control outcomes<a class="anchor" aria-label="anchor" href="#case-control-outcomes"></a>
 </h3>
-<p>For case-control outcomes, set <code>outcome_type = "cc"</code> and
-provide the proportion of cases via <code>outcome_s</code>:</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
-<span>  exposure <span class="op">=</span> <span class="va">formatted_exposure</span>,</span>
-<span>  outcome <span class="op">=</span> <span class="va">outcome_data</span>,</span>
+<p>For a case-control trait, <code>outcome_type = "cc"</code> with
+<code>outcome_s</code>, the proportion of cases (here 6,098 of 41,420
+participants), tells <code>coloc</code> how to scale the effect sizes;
+the default <code>"quant"</code> treats the outcome as a continuous
+trait with standard deviation <code>outcome_sdY</code>. The same applies
+to the exposure through <code>exposure_type</code> and
+<code>exposure_s</code>. Getting it wrong changes the prior on effect
+sizes and so the posteriors:</p>
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">coloc_quant</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">sjogren_outcome</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
 <span>  gene_chr <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  gene_start <span class="op">=</span> <span class="fl">44746911</span>,</span>
 <span>  gene_end <span class="op">=</span> <span class="fl">44758502</span>,</span>
-<span>  exposure_n <span class="op">=</span> <span class="fl">35559</span>,</span>
-<span>  outcome_n <span class="op">=</span> <span class="fl">400000</span>,</span>
-<span>  outcome_type <span class="op">=</span> <span class="st">"cc"</span>,</span>
-<span>  outcome_s <span class="op">=</span> <span class="fl">0.3</span>,</span>
-<span>  bfile <span class="op">=</span> <span class="st">"/path/to/ld_reference"</span>,</span>
-<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"abf"</span>, <span class="st">"susie"</span>, <span class="st">"signals"</span><span class="op">)</span></span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
+<span>  methods <span class="op">=</span> <span class="st">"abf"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  case_control <span class="op">=</span> <span class="va">coloc_res</span><span class="op">$</span><span class="va">coloc_abf</span><span class="op">$</span><span class="va">summary</span>,</span>
+<span>  quantitative <span class="op">=</span> <span class="va">coloc_quant</span><span class="op">$</span><span class="va">coloc_abf</span><span class="op">$</span><span class="va">summary</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt;              nsnps PP.H0.abf PP.H1.abf PP.H2.abf    PP.H3.abf PP.H4.abf</span></span>
+<span><span class="co">#&gt; case_control    12         0 0.7554989         0 0.0004065273 0.2440946</span></span>
+<span><span class="co">#&gt; quantitative    12         0 0.7153464         0 0.0004843179 0.2841692</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="plotting-coloc-results">Plotting coloc results<a class="anchor" aria-label="anchor" href="#plotting-coloc-results"></a>
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> for <code>coloc_result</code> objects supports
 three plot types:</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>    <span class="co"># bar chart of ABF posterior probabilities (default; requires ggplot2)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span>  <span class="co"># regional association plots (requires ggplot2)</span></span></code></pre></div>
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>   <span class="co"># ABF posterior probabilities (default; requires ggplot2)</span></span></code></pre></div>
+<p><img src="mrpipeline-user-guide_files/figure-html/coloc-plot-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span> <span class="co"># regional association plots (requires ggplot2)</span></span></code></pre></div>
+<p><img src="mrpipeline-user-guide_files/figure-html/coloc-plot-2.png" class="r-plt" alt="" width="672"></p>
 <p><code>type = "locuszoom"</code> renders LD-coloured regional plots
 via the <code>locuszoomr</code> package (requires
 <code>locuszoomr</code> and <code>ensembldb</code>, plus an Ensembl
@@ -1002,8 +1420,9 @@ genome-build field stored on <code>coloc_result</code>, so
 build <code>bfile</code> and the coloc data actually use. Unlike the
 other two plot types, this one draws directly to the current graphics
 device (like a base R plot) and returns <code>NULL</code> – open a
-device first if you want to save it:</p>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+device first if you want to save it. (Not run here: it needs the Ensembl
+annotation package and writes a file.)</p>
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">EnsDb.Hsapiens.v75</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf</a></span><span class="op">(</span><span class="st">"locuszoom_plot.pdf"</span>, width <span class="op">=</span> <span class="fl">9</span>, height <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>
@@ -1019,7 +1438,7 @@ device first if you want to save it:</p>
 <div class="section level2">
 <h2 id="two-stage-batch-workflow">Two-Stage Batch Workflow<a class="anchor" aria-label="anchor" href="#two-stage-batch-workflow"></a>
 </h2>
-<!-- TODO: Stage 1 (IVW screen, all proteins) → Stage 2 (sensitivity + coloc, p < 0.05) -->
+<!-- TODO: Stage 1 (IVW screen, all proteins) -> Stage 2 (sensitivity + coloc, p < 0.05) -->
 <!-- TODO: reference run_decode_iop_pipeline.R pattern -->
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -93,7 +93,8 @@ data.</p>
 <code class="sourceCode R"><span><span class="co"># Bundled datasets: cd40_exposure (formatted exposure), sjogren_outcome (outcome)</span></span>
 <span><span class="va">bfile</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"\\.bed$"</span>, <span class="st">""</span>, <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"ld_ref.bed"</span>, package <span class="op">=</span> <span class="st">"mrpipeline"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Run cis-MR</span></span>
+<span><span class="co"># Run cis-MR (the weighted median's SE is bootstrapped, hence the seed)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">mr_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
@@ -104,15 +105,53 @@ data.</p>
 <span>  rsq_thresh <span class="op">=</span> <span class="fl">0.3</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ivw_random"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Inspect results</span></span>
-<span><span class="va">mr_res</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Inspect the results:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mr_res</span></span>
+<span><span class="co">#&gt; CD40 -&gt; SjD</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> IVW (random effects): b = 0.1039, se = 0.0706, p = 0.141, OR = 1.11</span></span>
+<span><span class="co">#&gt;   [0.966-1.274]</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> 7 SNPs, mean F = 856.2</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Plot (requires ggplot2)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"forest"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">──</span> <span style="font-weight: bold;">MR Results: CD40 -&gt; SjD</span> <span style="color: #00BBBB;">─────────────────────────────────────────────────────</span></span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Method estimates</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> IVW (random effects): b = 0.1039, se = 0.0706, p = 0.141, OR = 1.11</span></span>
+<span><span class="co">#&gt;   [0.966-1.274] (7 SNPs)</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> MR Egger [random effects]: b = 0.1463, se = 0.2527, p = 0.588, OR = 1.158</span></span>
+<span><span class="co">#&gt;   [0.705-1.9] (7 SNPs)</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Weighted median: b = 0.1678, se = 0.0675, p = 0.0129, OR = 1.183 [1.036-1.35]</span></span>
+<span><span class="co">#&gt;   (7 SNPs)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Harmonisation</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> 7 candidate SNPs -&gt; 7 kept, 0 dropped</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Flagged: 1 palindromic</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Instrument strength</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Mean F-statistic: 856.2</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Min F-statistic: 450.5</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> N instruments: 7</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Pleiotropy test (Egger intercept)</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Intercept: -0.0124</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> SE: 0.0701</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> p-value: 0.867</span></span></code></pre></div>
+<p>and plot them (requires ggplot2; TwoSampleMR’s plots come as a list,
+one per exposure-outcome pair):</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># warning = FALSE: TwoSampleMR's forest plot draws an empty spacer row, which</span></span>
+<span><span class="co"># ggplot2 reports as a removed missing value</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
+<p><img src="mrpipeline_files/figure-html/unnamed-chunk-4-1.png" class="r-plt" alt="" width="576"></p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"forest"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
+<p><img src="mrpipeline_files/figure-html/unnamed-chunk-4-2.png" class="r-plt" alt="" width="576"></p>
 <p>The <code>mr_result</code> object stores the full results table,
 harmonised instruments, F-statistics, Steiger filtering output, and any
 skipped methods — accessible via <code>mr_res$results</code>,
@@ -121,7 +160,7 @@ skipped methods — accessible via <code>mr_res$results</code>,
 <div class="section level3">
 <h3 id="colocalization">Colocalization<a class="anchor" aria-label="anchor" href="#colocalization"></a>
 </h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coloc_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
@@ -132,18 +171,46 @@ skipped methods — accessible via <code>mr_res$results</code>,
 <span>  gene_end <span class="op">=</span> <span class="fl">44758502</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  methods <span class="op">=</span> <span class="st">"abf"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">coloc_res</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">coloc_res</span></span>
+<span><span class="co">#&gt; coloc_result[CD40 -&gt; SjD]: 12 SNPs</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> ABF PP.H4 = 0.284 | PP4/(PP3+PP4) = 0.998</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">coloc_res</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">──</span> <span style="font-weight: bold;">Colocalization Results</span> <span style="color: #00BBBB;">──────────────────────────────────────────────────────</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> CD40 -&gt; SjD</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> 12 SNPs in analysis</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">Harmonisation</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> 12 candidate SNPs -&gt; 12 kept, 0 dropped</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Flagged: 1 palindromic</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; ── <span style="font-weight: bold;">coloc.abf</span> ──</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H0 = 0</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H1 = 0.7153</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H2 = 0</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H3 = 5e-04</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H4 = 0.2842</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> PP.H4/(PP.H3+PP.H4) = 0.9983</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> N SNPs = 12</span></span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="mrpipeline_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="672"></p>
+<p>The bundled outcome data are partly synthetic, so these numbers
+illustrate the workflow rather than a finding.
+<code><a href="../articles/mrpipeline-user-guide.html">vignette("mrpipeline-user-guide")</a></code> walks through what each
+part of the output means.</p>
 </div>
 <div class="section level3">
 <h3 id="gene-coordinate-lookup">Gene coordinate lookup<a class="anchor" aria-label="anchor" href="#gene-coordinate-lookup"></a>
 </h3>
 <p>Look up genomic coordinates for HGNC gene symbols via Ensembl
-(requires the <code>biomaRt</code> package):</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+(requires the <code>biomaRt</code> package). Not run here, as it needs
+network access:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coords</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_gene_coords.html">get_gene_coords</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CD40"</span>, <span class="st">"APOE"</span><span class="op">)</span>, build <span class="op">=</span> <span class="st">"grch38"</span><span class="op">)</span></span>
 <span><span class="va">coords</span></span></code></pre></div>
 <p>These coordinates can be passed directly to <code><a href="../reference/run_mr.html">run_mr()</a></code> and
