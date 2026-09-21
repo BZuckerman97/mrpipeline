@@ -1149,9 +1149,33 @@ further shared SNPs and hands the result to
 <code><a href="../reference/check_allele_orientation.html">check_allele_orientation()</a></code>. The extra SNPs are evenly
 spaced picks through the sorted shared rsIDs: deterministic
 (reproducible, and the caller’s RNG state is untouched) and effectively
-random with respect to genomic position. Cost is dominated by the rsID
-intersection – about 0.5 s for a 200k-SNP exposure against a 10M-row
-outcome – recorded as <code>timing[["allele_check"]]</code>.</p>
+random with respect to genomic position. Cost scales with the total rows
+of the two inputs, not with the number of instruments, and is recorded
+as <code>timing[["allele_check"]]</code>. Profiled on a 42M-row
+genome-wide exposure against a 12M-row genome-wide outcome (9.6M shared
+rsIDs): <code><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect()</a></code> ~3 s, <code><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff()</a></code> ~0.6 s,
+the radix sort of the shared rsIDs ~1.8 s, the two <code>%in%</code>
+subsets ~1.2 s, formatting and harmonising the ~1000 sampled SNPs a few
+milliseconds – about 6 s in all. A 200k-SNP exposure takes well under a
+second.</p>
+<p>The sort is <code>sort(shared, method = "radix")</code> deliberately
+(issue #40). Base <code><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort()</a></code> chooses radix only for numeric,
+factor and logical vectors; for character vectors it falls back to shell
+sort with a locale collation call per comparison, which took ~50 s on
+the same 9.6M rsIDs – 90% of the check and ~95% of a cis-MR’s runtime in
+a pipeline that passed genome-wide inputs. Radix orders by byte (C
+locale) rather than by <code>LC_COLLATE</code>, so the sample is now
+also independent of the session locale; for rsIDs the two orders are
+identical, and a test pins the locale independence.</p>
+<p>Caching the check across <code><a href="../reference/run_mr.html">run_mr()</a></code> calls that share an
+exposure/outcome pair was considered and rejected: hashing the two rsID
+columns to build a key costs ~3 s against the ~5 s it would save,
+hashing the full frames costs more than the check itself, keying on
+<code>exposure_id</code>/<code>outcome_id</code> is unsafe (the same
+object is routinely passed under different ids), and a caller-supplied
+precomputed verdict is a skip switch by another name. The check
+therefore runs on every call, which also keeps the
+<code><a href="../reference/last_allele_check.html">last_allele_check()</a></code> record honest.</p>
 </div>
 <div class="section level3">
 <h3 id="compute_ld_matrix">

@@ -356,6 +356,20 @@ Use `allele_check = "warn"` to continue with a warning, or `"none"` to
 skip the condition (the record is still stored). Both are visible in
 `result$params$allele_check`, which keeps the decision reviewable.
 
+The check has a cost that scales with the size of the two datasets you
+pass in, not with the number of instruments, because it has to find the
+SNPs the two share before it can sample them. For a genome-wide exposure
+against a genome-wide outcome (tens of millions of rows between them)
+budget a few seconds per
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+call; a 200k-SNP exposure takes well under a second. It runs on every
+call and is not cached across calls that share a pair, so a pipeline
+that calls
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+twenty times against one outcome pays it twenty times.
+`result$timing[["allele_check"]]` reports it, alongside the other steps,
+so you can see where a slow run spends its time.
+
 ### When the check cannot run
 
 The check needs allele frequencies in *both* datasets. OR-only GWAS

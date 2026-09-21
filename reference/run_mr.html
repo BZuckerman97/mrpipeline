@@ -198,7 +198,12 @@ the instruments together with up to 1000 further SNPs shared by the two
 datasets, so it works even for a cis-MR with a handful of instruments;
 it is skipped when fewer than 10 informative non-palindromic SNPs carry
 both allele frequencies. The full record is available afterwards from
-<code><a href="last_allele_check.html">last_allele_check()</a></code> in every mode.</p></dd>
+<code><a href="last_allele_check.html">last_allele_check()</a></code> in every mode. The check runs on every call over
+the full exposure and outcome you pass in (it is not cached across
+calls that share a pair) and costs on the order of seconds when both
+are genome-wide – about 6 s for a 42M-row exposure against a 12M-row
+outcome – recorded in <code>$timing[["allele_check"]]</code> so pipeline authors
+can plan for it.</p></dd>
 
 
 <dt id="arg-harmonise-action">harmonise_action<a class="anchor" aria-label="anchor" href="#arg-harmonise-action"></a></dt>

@@ -86,9 +86,21 @@ The diagnostic record, invisibly (see
 
 ## Details
 
-Cost is dominated by the rsID intersection (about 0.5 s for a 200k-SNP
-exposure against a 10M-row outcome); formatting and harmonising ~1000
-SNPs takes a few milliseconds.
+Cost scales with the total rows of the two inputs, not with the number
+of instruments: the rsID intersection and the radix sort of the shared
+rsIDs are the only steps that touch every row (about 6 s for a 42M-row
+exposure against a 12M-row outcome, i.e. two genome-wide GWAS; well
+under a second for a 200k-SNP exposure). Formatting and harmonising the
+~1000 sampled SNPs takes a few milliseconds. The shared rsIDs are sorted
+with `method = "radix"`: base
+[`sort()`](https://rdrr.io/r/base/sort.html) uses shell sort with
+per-comparison locale collation for character vectors, which is ~25x
+slower on 10M rsIDs and made the check the dominant cost of a cis-MR
+(issue \#40). The check needs the *full* frames to sample from, so it
+cannot be made cheaper by narrowing the inputs first, and it runs on
+every call – it is not cached across
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+calls that share a pair.
 
 The check is skipped (with a `"skipped"` record, and a warning that
 orientation is unverified) when the exposure lacks `SNP`/`eaf.exposure`

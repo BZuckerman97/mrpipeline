@@ -435,6 +435,17 @@ unreliable and re-run after fixing the file.</p>
 <code>"none"</code> to skip the condition (the record is still stored).
 Both are visible in <code>result$params$allele_check</code>, which keeps
 the decision reviewable.</p>
+<p>The check has a cost that scales with the size of the two datasets
+you pass in, not with the number of instruments, because it has to find
+the SNPs the two share before it can sample them. For a genome-wide
+exposure against a genome-wide outcome (tens of millions of rows between
+them) budget a few seconds per <code><a href="../reference/run_mr.html">run_mr()</a></code> call; a 200k-SNP
+exposure takes well under a second. It runs on every call and is not
+cached across calls that share a pair, so a pipeline that calls
+<code><a href="../reference/run_mr.html">run_mr()</a></code> twenty times against one outcome pays it twenty
+times. <code>result$timing[["allele_check"]]</code> reports it,
+alongside the other steps, so you can see where a slow run spends its
+time.</p>
 </div>
 <div class="section level3">
 <h3 id="when-the-check-cannot-run">When the check cannot run<a class="anchor" aria-label="anchor" href="#when-the-check-cannot-run"></a>

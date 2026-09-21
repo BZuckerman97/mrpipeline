@@ -159,7 +159,11 @@ run_mr(
   non-palindromic SNPs carry both allele frequencies. The full record is
   available afterwards from
   [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
-  in every mode.
+  in every mode. The check runs on every call over the full exposure and
+  outcome you pass in (it is not cached across calls that share a pair)
+  and costs on the order of seconds when both are genome-wide – about 6
+  s for a 42M-row exposure against a 12M-row outcome – recorded in
+  `$timing[["allele_check"]]` so pipeline authors can plan for it.
 
 - harmonise_action:
 

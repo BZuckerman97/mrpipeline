@@ -740,9 +740,37 @@ further shared SNPs and hands the result to
 [`check_allele_orientation()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.md).
 The extra SNPs are evenly spaced picks through the sorted shared rsIDs:
 deterministic (reproducible, and the caller’s RNG state is untouched)
-and effectively random with respect to genomic position. Cost is
-dominated by the rsID intersection – about 0.5 s for a 200k-SNP exposure
-against a 10M-row outcome – recorded as `timing[["allele_check"]]`.
+and effectively random with respect to genomic position. Cost scales
+with the total rows of the two inputs, not with the number of
+instruments, and is recorded as `timing[["allele_check"]]`. Profiled on
+a 42M-row genome-wide exposure against a 12M-row genome-wide outcome
+(9.6M shared rsIDs): [`intersect()`](https://rdrr.io/r/base/sets.html)
+~3 s, [`setdiff()`](https://rdrr.io/r/base/sets.html) ~0.6 s, the radix
+sort of the shared rsIDs ~1.8 s, the two `%in%` subsets ~1.2 s,
+formatting and harmonising the ~1000 sampled SNPs a few milliseconds –
+about 6 s in all. A 200k-SNP exposure takes well under a second.
+
+The sort is `sort(shared, method = "radix")` deliberately (issue \#40).
+Base [`sort()`](https://rdrr.io/r/base/sort.html) chooses radix only for
+numeric, factor and logical vectors; for character vectors it falls back
+to shell sort with a locale collation call per comparison, which took
+~50 s on the same 9.6M rsIDs – 90% of the check and ~95% of a cis-MR’s
+runtime in a pipeline that passed genome-wide inputs. Radix orders by
+byte (C locale) rather than by `LC_COLLATE`, so the sample is now also
+independent of the session locale; for rsIDs the two orders are
+identical, and a test pins the locale independence.
+
+Caching the check across
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+calls that share an exposure/outcome pair was considered and rejected:
+hashing the two rsID columns to build a key costs ~3 s against the ~5 s
+it would save, hashing the full frames costs more than the check itself,
+keying on `exposure_id`/`outcome_id` is unsafe (the same object is
+routinely passed under different ids), and a caller-supplied precomputed
+verdict is a skip switch by another name. The check therefore runs on
+every call, which also keeps the
+[`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
+record honest.
 
 ### `compute_ld_matrix()`
 
