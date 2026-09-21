@@ -58,9 +58,18 @@ deterministic, so results are reproducible and the caller's RNG state is
 untouched, and effectively random with respect to genomic position.
 }
 \details{
-Cost is dominated by the rsID intersection (about 0.5 s for a 200k-SNP
-exposure against a 10M-row outcome); formatting and harmonising ~1000
-SNPs takes a few milliseconds.
+Cost scales with the total rows of the two inputs, not with the number
+of instruments: the rsID intersection and the radix sort of the shared
+rsIDs are the only steps that touch every row (about 6 s for a 42M-row
+exposure against a 12M-row outcome, i.e. two genome-wide GWAS; well under
+a second for a 200k-SNP exposure). Formatting and harmonising the ~1000
+sampled SNPs takes a few milliseconds. The shared rsIDs are sorted with
+\code{method = "radix"}: base \code{sort()} uses shell sort with per-comparison
+locale collation for character vectors, which is ~25x slower on 10M
+rsIDs and made the check the dominant cost of a cis-MR (issue #40). The
+check needs the \emph{full} frames to sample from, so it cannot be made
+cheaper by narrowing the inputs first, and it runs on every call -- it
+is not cached across \code{run_mr()} calls that share a pair.
 
 The check is skipped (with a \code{"skipped"} record, and a warning that
 orientation is unverified) when the exposure lacks \code{SNP}/\code{eaf.exposure} or

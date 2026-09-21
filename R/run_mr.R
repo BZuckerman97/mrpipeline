@@ -156,7 +156,12 @@
 #'   datasets, so it works even for a cis-MR with a handful of instruments;
 #'   it is skipped when fewer than 10 informative non-palindromic SNPs carry
 #'   both allele frequencies. The full record is available afterwards from
-#'   [last_allele_check()] in every mode.
+#'   [last_allele_check()] in every mode. The check runs on every call over
+#'   the full exposure and outcome you pass in (it is not cached across
+#'   calls that share a pair) and costs on the order of seconds when both
+#'   are genome-wide -- about 6 s for a 42M-row exposure against a 12M-row
+#'   outcome -- recorded in `$timing[["allele_check"]]` so pipeline authors
+#'   can plan for it.
 #' @param harmonise_action `1`, `2` (default) or `3`, passed to
 #'   [TwoSampleMR::harmonise_data()]. `1` assumes every allele is on the
 #'   forward strand; `2` infers the positive strand, resolving palindromic
