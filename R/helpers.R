@@ -410,9 +410,18 @@ check_allele_orientation <- function(
 #' deterministic, so results are reproducible and the caller's RNG state is
 #' untouched, and effectively random with respect to genomic position.
 #'
-#' Cost is dominated by the rsID intersection (about 0.5 s for a 200k-SNP
-#' exposure against a 10M-row outcome); formatting and harmonising ~1000
-#' SNPs takes a few milliseconds.
+#' Cost scales with the total rows of the two inputs, not with the number
+#' of instruments: the rsID intersection and the radix sort of the shared
+#' rsIDs are the only steps that touch every row (about 6 s for a 42M-row
+#' exposure against a 12M-row outcome, i.e. two genome-wide GWAS; well under
+#' a second for a 200k-SNP exposure). Formatting and harmonising the ~1000
+#' sampled SNPs takes a few milliseconds. The shared rsIDs are sorted with
+#' `method = "radix"`: base `sort()` uses shell sort with per-comparison
+#' locale collation for character vectors, which is ~25x slower on 10M
+#' rsIDs and made the check the dominant cost of a cis-MR (issue #40). The
+#' check needs the *full* frames to sample from, so it cannot be made
+#' cheaper by narrowing the inputs first, and it runs on every call -- it
+#' is not cached across `run_mr()` calls that share a pair.
 #'
 #' The check is skipped (with a `"skipped"` record, and a warning that
 #' orientation is unverified) when the exposure lacks `SNP`/`eaf.exposure` or
@@ -475,7 +484,14 @@ check_allele_orientation_gwas <- function(
   shared <- setdiff(intersect(exposure$SNP, outcome$rsids), instrument_snps)
   shared <- shared[!is.na(shared)]
   if (length(shared) > n_sample) {
-    shared <- sort(shared)[round(seq(1, length(shared), length.out = n_sample))]
+    # method = "radix": for character vectors base sort() falls back to shell
+    # sort with a locale collation call per comparison (radix is the default
+    # only for numeric/factor/logical), which is ~50 s for the ~10M rsIDs two
+    # genome-wide GWAS share versus ~2 s for radix. Radix orders by byte (C
+    # locale), so the sample no longer depends on LC_COLLATE either; for
+    # rsIDs the two orders are identical (issue #40).
+    shared <- sort(shared, method = "radix")
+    shared <- shared[round(seq(1, length(shared), length.out = n_sample))]
   }
   check_snps <- unique(c(instrument_snps, shared))
 

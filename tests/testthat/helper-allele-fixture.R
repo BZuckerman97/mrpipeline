@@ -78,9 +78,9 @@ make_allele_fixture <- function(noise_sd = 0.02) {
 # 40 non-palindromic SNPs: TwoSampleMR-format exposure plus outcomes in the
 # format_gwas() outcome schema (rsids, effect_allele, ...), for exercising
 # check_allele_orientation_gwas() and run_mr() with only 3 instruments.
-make_allele_gwas_fixture <- function() {
-  n <- 40L
-  snps <- paste0("rs", seq_len(n))
+# `snps` overrides the rsIDs (the first three are the instruments).
+make_allele_gwas_fixture <- function(snps = paste0("rs", 1:40)) {
+  n <- length(snps)
   ea <- rep(c("A", "C", "G", "T"), length.out = n)
   oa <- rep(c("G", "T", "A", "C"), length.out = n)
   eaf <- seq(0.05, 0.95, length.out = n)

@@ -425,6 +425,76 @@ test_that("check_allele_orientation_gwas checks instruments plus shared SNPs", {
   }
 })
 
+test_that("the sampled shared SNPs do not depend on input row order", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- make_allele_gwas_fixture()
+  sampled <- function(exposure, outcome) {
+    check_allele_orientation_gwas(
+      exposure,
+      outcome,
+      f$instruments,
+      n_sample = 10L
+    )
+    sort(last_allele_check()$variants$SNP)
+  }
+  forward <- sampled(f$exposure, f$ok)
+  reversed <- sampled(
+    f$exposure[rev(seq_len(nrow(f$exposure))), ],
+    f$ok[rev(seq_len(nrow(f$ok))), ]
+  )
+  expect_length(forward, 13L)
+  expect_identical(forward, reversed)
+})
+
+# The shared rsIDs are sorted with method = "radix" (issue #40): base sort()
+# on a character vector uses the session collation, which is slow at GWAS
+# scale and would make the sample depend on LC_COLLATE. Every non-C locale
+# orders "a" before "B"; C (and radix) order "B" before "a". The fixture puts
+# five lowercase SNPs after 36 uppercase decoys in C order and before them in
+# any other locale, so a plain sort() would pick "rsa1" under en_US and
+# "rsa5" under C, while radix picks "rsa5" in both. The uppercase decoys
+# never harmonise (TwoSampleMR lowercases outcome SNP ids), which is fine:
+# only the lowercase pick is under test.
+test_that("the sampled shared SNPs do not depend on the collation locale", {
+  skip_if_not_installed("TwoSampleMR")
+  old <- Sys.getlocale("LC_COLLATE")
+  on.exit(Sys.setlocale("LC_COLLATE", old), add = TRUE)
+
+  non_c <- NULL
+  for (loc in c("en_US.UTF-8", "en_US.utf8", "English_United States.1252")) {
+    ok <- suppressWarnings(Sys.setlocale("LC_COLLATE", loc))
+    if (nzchar(ok) && identical(sort(c("B", "a")), c("a", "B"))) {
+      non_c <- loc
+      break
+    }
+  }
+  skip_if(is.null(non_c), "no non-C collation locale available")
+
+  f <- make_allele_gwas_fixture(
+    snps = c(paste0("rsi", 1:3), paste0("rsa", 1:5), paste0("RSB", 1:36))
+  )
+  sampled_under <- function(locale) {
+    Sys.setlocale("LC_COLLATE", locale)
+    # 41 shared, n_sample = 5 -> positions 1, 11, 21, 31, 41 of the sorted
+    # shared rsIDs; too few harmonise for a verdict, hence the warning.
+    expect_warning(
+      check_allele_orientation_gwas(
+        f$exposure,
+        f$ok,
+        f$instruments,
+        n_sample = 5L
+      ),
+      class = "mrpipeline_allele_check_unverified"
+    )
+    setdiff(last_allele_check()$variants$SNP, f$instruments)
+  }
+
+  in_c <- sampled_under("C")
+  in_non_c <- sampled_under(non_c)
+  expect_identical(in_c, "rsa5")
+  expect_identical(in_non_c, "rsa5")
+})
+
 # --- align_to_ld_matrix ------------------------------------------------------
 # ld_matrix() is the list returned by compute_ld_matrix(): list(ld, alleles).
 # alleles$ld_a1 is the allele the LD matrix's sign is anchored to.
