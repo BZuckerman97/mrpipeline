@@ -1,11 +1,10 @@
 # Fixtures for LD-correction tests that need instruments in genuine LD.
 #
-# The bundled inst/extdata/ld_ref panel has random genotypes -- the largest
-# |r| between the CD40 instruments is 0.023 -- so on it corrected and
-# uncorrected results all but coincide. That is why nothing noticed the
-# diagnostics were uncorrected (issue #31). make_ld_panel() writes a small
-# PLINK fileset with a chosen pair of SNPs in strong LD, so an end-to-end
-# run_mr(ld_correct = TRUE) has something to correct for.
+# The bundled inst/extdata/ld_ref panel carries real 1000 Genomes EUR LD
+# (data-raw/ld_ref.R, issue #34), so end-to-end tests on it see a material
+# correction. make_ld_panel() is for what a real panel cannot pin down: a
+# chosen r between a chosen pair, or an exactly singular pair
+# (copy_prob = 1), on small synthetic instruments.
 
 # Five synthetic, non-palindromic instruments on chr 1, as an exposure /
 # outcome pair in the shapes run_mr() takes.
