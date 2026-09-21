@@ -1165,6 +1165,36 @@ gls_weight_matrix <- function(ld_matrix, se_outcome) {
   outer(se_outcome, se_outcome) * ld_matrix
 }
 
+#' Instrument pairs that are (near-)perfectly correlated
+#'
+#' The usual reason a GLS weight matrix is singular: two instruments in
+#' complete LD carry the same column, so `R` has a zero eigenvalue and
+#' `solve()` fails. Used by `run_mr()` to name the offending pairs rather
+#' than report the condition number alone (issue #36).
+#'
+#' @param ld_matrix Signed, aligned LD correlation matrix.
+#' @param threshold Absolute correlation at or above which a pair is
+#'   reported. Default `0.999`.
+#'
+#' @return A data frame with columns `snp_a`, `snp_b` and `r`, ordered by
+#'   decreasing `abs(r)`; zero rows when no pair reaches `threshold`.
+#'
+#' @keywords internal
+collinear_pairs <- function(ld_matrix, threshold = 0.999) {
+  hits <- which(
+    abs(ld_matrix) >= threshold & upper.tri(ld_matrix),
+    arr.ind = TRUE
+  )
+  snps <- rownames(ld_matrix) %||% as.character(seq_len(nrow(ld_matrix)))
+  pairs <- data.frame(
+    snp_a = snps[hits[, "row"]],
+    snp_b = snps[hits[, "col"]],
+    r = ld_matrix[hits],
+    stringsAsFactors = FALSE
+  )
+  pairs[order(-abs(pairs$r)), , drop = FALSE]
+}
+
 #' Cochran's Q from the correlated fits
 #'
 #' The generalised heterogeneity statistic for correlated instruments,

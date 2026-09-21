@@ -30,7 +30,8 @@
 #' @param ld_matrix LD correlation matrix if `ld_correct = TRUE`, or `NULL`.
 #' @param params List of all input parameters to `run_mr()`.
 #' @param status Character. One of `"success"`, `"no_instruments"`,
-#'   `"no_harmonised_variants"`. Default `"success"`.
+#'   `"no_harmonised_variants"`, `"singular_ld_matrix"`. Default
+#'   `"success"`.
 #' @param status_reason Character or `NULL`. Human-readable explanation when
 #'   `status != "success"`.
 #' @param timing Named numeric vector of elapsed times (seconds) for each

@@ -63,7 +63,8 @@ values are reasons for skipping.}
 \item{params}{List of all input parameters to \code{run_mr()}.}
 
 \item{status}{Character. One of \code{"success"}, \code{"no_instruments"},
-\code{"no_harmonised_variants"}. Default \code{"success"}.}
+\code{"no_harmonised_variants"}, \code{"singular_ld_matrix"}. Default
+\code{"success"}.}
 
 \item{status_reason}{Character or \code{NULL}. Human-readable explanation when
 \code{status != "success"}.}

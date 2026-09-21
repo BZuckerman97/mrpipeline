@@ -222,4 +222,75 @@ test_that("a singular LD matrix is reported at the source", {
   )
   expect_true(any(grepl("near-singular", out$warnings)))
   expect_true(any(grepl("identical or near-identical", out$warnings)))
+  # Nothing solved the matrix, so the run still produced its estimate
+  expect_equal(out$result$status, "success")
+  expect_equal(out$result$results$method, "Weighted median")
+})
+
+test_that("a singular LD matrix stops an LD-corrected run with a status", {
+  skip_if_not_installed("TwoSampleMR")
+  f <- synthetic_five_snps()
+  bfile <- make_ld_panel(f$exposure, ld_pair = c(1, 2), copy_prob = 1)
+
+  out <- run_quiet(
+    f$exposure,
+    f$outcome,
+    instruments = f$exposure$SNP,
+    bfile = bfile,
+    ld_correct = TRUE,
+    methods = c("ivw_random", "heterogeneity", "loo")
+  )
+  res <- out$result
+
+  # Before issue #36 this aborted with solve.default(omega)'s error
+  expect_s3_class(res, "mr_result")
+  expect_equal(res$status, "singular_ld_matrix")
+  expect_equal(nrow(res$results), 0)
+  expect_null(res$heterogeneity)
+  expect_null(res$loo)
+
+  # The reason names the collinear pair, not just the condition number
+  expect_match(res$status_reason, "Singular LD weight matrix")
+  expect_match(res$status_reason, "rs1/rs2|rs2/rs1")
+  expect_true(any(grepl("weight matrix is singular", out$warnings)))
+
+  # The instruments and the matrix are kept for inspection
+  expect_equal(nrow(res$instruments), 5)
+  expect_equal(dim(res$ld_matrix), c(5L, 5L))
+
+  # print()/summary() report the status rather than a missing estimate
+  expect_message(print(res), "singular_ld_matrix")
+  expect_message(summary(res), "singular_ld_matrix")
+})
+
+test_that("collinear_pairs names the r ~ 1 pairs, worst first", {
+  ld <- matrix(
+    c(
+      1,
+      1,
+      0.2,
+      1,
+      1,
+      0.3,
+      0.2,
+      0.3,
+      1
+    ),
+    nrow = 3,
+    dimnames = list(c("rs1", "rs2", "rs3"), c("rs1", "rs2", "rs3"))
+  )
+  pairs <- collinear_pairs(ld)
+  expect_equal(nrow(pairs), 1)
+  expect_equal(pairs$snp_a, "rs1")
+  expect_equal(pairs$snp_b, "rs2")
+  expect_equal(pairs$r, 1)
+
+  # A perfectly negative pair counts too, and ordering is by |r|
+  ld2 <- ld
+  ld2["rs1", "rs3"] <- -0.9995
+  ld2["rs3", "rs1"] <- -0.9995
+  expect_equal(nrow(collinear_pairs(ld2)), 2)
+  expect_equal(collinear_pairs(ld2)$r, c(1, -0.9995))
+
+  expect_equal(nrow(collinear_pairs(ld, threshold = 1.01)), 0)
 })

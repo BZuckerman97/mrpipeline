@@ -84,7 +84,11 @@
 #' (r^2 ~ 1, from absent clumping or a manual set with a duplicated
 #' variant) and more instruments than reference-panel individuals, which
 #' makes the sample correlation matrix singular; clump more stringently or
-#' drop the duplicate.
+#' drop the duplicate. When such a matrix is also *solved* -- that is, when
+#' at least one LD-correctable method was requested -- no estimate exists to
+#' return, so `run_mr()` stops there with `status = "singular_ld_matrix"`
+#' and a `status_reason` naming the collinear pairs, rather than letting the
+#' upstream `solve()` abort the call (issue #36).
 #'
 #' Random effects are multiplicative: the standard error is inflated by
 #' `max(RSE, 1)`, never deflated, so when the instruments are under-dispersed
@@ -706,6 +710,64 @@ run_mr <- function(
         ),
         "i" = "Clump more stringently or drop the duplicate."
       ))
+
+      # Every correlated fit and every correlated diagnostic solves this
+      # matrix, so on a singular one they do not return an unstable answer
+      # -- MendelianRandomization's own solve() aborts the run (issue #36).
+      # Stop here with a status instead, but only when something the caller
+      # asked for would actually use the matrix: with no LD-correctable
+      # method requested there is nothing to solve, and the warning above
+      # already says the matrix is unusable.
+      ld_requested <- intersect(
+        methods,
+        registry$shortcut[registry$ld_correctable]
+      )
+      if (length(ld_requested) > 0) {
+        pairs <- collinear_pairs(ld_mat)
+        culprits <- paste0(
+          pairs$snp_a,
+          "/",
+          pairs$snp_b,
+          " (r = ",
+          round(pairs$r, 3),
+          ")"
+        )
+        reason <- paste0(
+          "Singular LD weight matrix for '",
+          exposure_id,
+          "' (reciprocal condition number ",
+          signif(ld_rcond, 2),
+          "); no LD-corrected estimate can be computed",
+          if (length(culprits) > 0) {
+            paste0(
+              ". Collinear instruments: ",
+              paste(culprits, collapse = ", ")
+            )
+          } else {
+            ""
+          }
+        )
+        cli::cli_warn(c(
+          "No LD-corrected estimate for {.val {exposure_id}}: the weight matrix is singular.",
+          if (length(culprits) > 0) {
+            c("i" = "Collinear instrument{?s}: {.val {culprits}}.")
+          },
+          "i" = paste0(
+            "Drop one of each pair, clump more stringently, or run with ",
+            "{.code ld_correct = FALSE}."
+          )
+        ))
+        timing[["ld_correction"]] <- proc.time()[["elapsed"]] - t0
+        return(new_mr_result(
+          instruments = harmonised,
+          harmonisation = harmonisation,
+          ld_matrix = ld_mat,
+          status = "singular_ld_matrix",
+          status_reason = reason,
+          params = params,
+          timing = timing
+        ))
+      }
     }
   }
 
