@@ -19,6 +19,39 @@ knitr::opts_chunk$set(
 <!-- TODO: diagram/description of run_mr() → helpers → TwoSampleMR/ieugwasr -->
 <!-- TODO: diagram/description of run_coloc() → helpers → coloc/SuSiE -->
 
+### Lazy `exposure` and `outcome` (issue #42)
+
+`run_mr()` and `run_coloc()` take `exposure`/`outcome` as a data frame *or*
+a lazy dplyr table (a DuckDB `tbl()` via dbplyr, an Arrow query). There is
+one code path for both. Every place that selects rows from the full inputs
+is `dplyr::filter(...) |> dplyr::collect()`, and `collect()` returns a data
+frame unchanged:
+
+| Function | Selection |
+|---|---|
+| `run_mr()` | manual instruments, cis window + p-value, genome-wide p-value, the outcome at the instrument rsIDs |
+| `run_coloc()` | the exposure window, the outcome window |
+| `check_allele_orientation_gwas()` | the shared rsIDs via `shared_rsids()`, then the instrument + sampled rows |
+
+Everything downstream (clumping, harmonisation, estimators, coloc) receives
+those small collected frames and never sees a lazy table. Rules for code
+that touches the raw inputs:
+
+- Select rows only with `filter() |> collect()`. `$`, `[`, and `nrow()` do
+  not work on a lazy table (`nrow()` returns `NA`).
+- Check columns with `colnames()`, not `names()`. `names()` of a dbplyr
+  table returns its list slots (`"src"`, `"lazy_query"`).
+- Refer to local values as `.env$x` and columns as `.data$x`. Compute a
+  value into a local first: dbplyr translates any expression that is not a
+  bare `.env$x` into SQL, so `.env$region$start` or `.env$x[1]` will not
+  work.
+
+`DBI`, `dbplyr` and `duckdb` are in Suggests. Nothing in `R/` calls DBI or
+duckdb, and `dbplyr::remote_con()` is reached only for a `tbl_sql` input,
+behind `requireNamespace()`. `tests/testthat/test-lazy-input.R` runs the
+bundled data through DuckDB and requires every result and allele-check
+record to be identical to the data-frame run.
+
 ## S3 Classes
 
 ### `mr_result`
@@ -588,12 +621,14 @@ instruments plus up to 1000 further shared SNPs and hands the result to
 the sorted shared rsIDs: deterministic (reproducible, and the caller's RNG
 state is untouched) and effectively random with respect to genomic position.
 Cost scales with the total rows of the two inputs, not with the number of
-instruments, and is recorded as `timing[["allele_check"]]`. Profiled on a
-42M-row genome-wide exposure against a 12M-row genome-wide outcome (9.6M
-shared rsIDs): `intersect()` ~3 s, `setdiff()` ~0.6 s, the radix sort of
-the shared rsIDs ~1.8 s, the two `%in%` subsets ~1.2 s, formatting and
-harmonising the ~1000 sampled SNPs a few milliseconds -- about 6 s in all.
-A 200k-SNP exposure takes well under a second.
+instruments, and is recorded as `timing[["allele_check"]]`. Profiled
+before issue #42 on a 42M-row genome-wide exposure against a 12M-row
+genome-wide outcome (9.6M shared rsIDs): base `intersect()` ~3 s,
+`setdiff()` ~0.6 s, the radix sort of the shared rsIDs ~1.8 s, the two
+`%in%` subsets ~1.2 s, formatting and harmonising the ~1000 sampled SNPs a
+few milliseconds -- about 6 s in all. A 200k-SNP exposure takes well under
+a second. The intersect and setdiff now run in `shared_rsids()` (below),
+which is faster on both input types.
 
 The sort is `sort(shared, method = "radix")` deliberately (issue #40). Base
 `sort()` chooses radix only for numeric, factor and logical vectors; for
@@ -613,6 +648,35 @@ caller-supplied precomputed verdict is a skip switch by another name. The
 check therefore runs on every call, which also keeps the
 `last_allele_check()` record honest.
 
+
+
+### `shared_rsids()` and `same_backend()`
+
+`shared_rsids()` returns the rsIDs in both inputs, minus the instruments,
+for `check_allele_orientation_gwas()` to sample from. It cuts each input to
+its one rsID column and combines them with `dplyr::intersect()`, then
+removes the instruments with `dplyr::setdiff()`, both on one-column
+tibbles. When `same_backend()` finds two dbplyr tables on one connection,
+the intersect compiles to SQL `INTERSECT` and only the shared rsIDs leave
+the database. Any other pairing (two data frames, a data frame and a lazy
+table, two connections, Arrow) has each rsID column collected first: a
+cross-source `dplyr::intersect()` errors, and `copy = TRUE` would push a
+genome-wide frame into the database. A lazy input that takes this fallback
+says so when `verbose = TRUE`.
+
+The set operations run on tibbles, not vectors, on purpose. On a character
+vector, dplyr's `intersect()`/`setdiff()` call base R. On a data frame they
+use vctrs, which benchmarks about 6x faster on synthetic rsIDs:
+
+| Operation | Base R | dplyr on tibbles (vctrs) |
+|---|---|---|
+| intersect, 10M x 3M rsIDs | 1.27 s | 0.19 s |
+| setdiff, 10M minus 200 rsIDs | 0.60 s | 0.14 s |
+
+For comparison, DuckDB's `INTERSECT` on 20M x 6M rsIDs, including pulling
+the 2.4M shared ones, took 0.67 s. The collected fallback took about 4 s
+and held 1.9 GB of strings in R. NA rsIDs match each other in both SQL
+`INTERSECT` and vctrs, and are dropped afterwards, as before.
 
 ### `compute_ld_matrix()`
 

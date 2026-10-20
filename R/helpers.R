@@ -410,28 +410,36 @@ check_allele_orientation <- function(
 #' deterministic, so results are reproducible and the caller's RNG state is
 #' untouched, and effectively random with respect to genomic position.
 #'
+#' `exposure` and `outcome` may be data frames or lazy tables (issue #42).
+#' The shared rsIDs come from [shared_rsids()], which intersects the two ID
+#' columns inside the database when both tables are on one connection; then
+#' only the instruments and the sampled SNPs (about 1000 rows of each
+#' table) are collected for harmonisation.
+#'
 #' Cost scales with the total rows of the two inputs, not with the number
 #' of instruments: the rsID intersection and the radix sort of the shared
-#' rsIDs are the only steps that touch every row (about 6 s for a 42M-row
-#' exposure against a 12M-row outcome, i.e. two genome-wide GWAS; well under
-#' a second for a 200k-SNP exposure). Formatting and harmonising the ~1000
-#' sampled SNPs takes a few milliseconds. The shared rsIDs are sorted with
-#' `method = "radix"`: base `sort()` uses shell sort with per-comparison
-#' locale collation for character vectors, which is ~25x slower on 10M
-#' rsIDs and made the check the dominant cost of a cis-MR (issue #40). The
-#' check needs the *full* frames to sample from, so it cannot be made
-#' cheaper by narrowing the inputs first, and it runs on every call -- it
-#' is not cached across `run_mr()` calls that share a pair.
+#' rsIDs are the only steps that touch every row. With both tables on one
+#' DuckDB connection the intersection takes well under a second for a
+#' 20M-row exposure against a 6M-row outcome; for in-memory data frames it
+#' is a vctrs set operation of similar cost. Formatting and harmonising the
+#' ~1000 sampled SNPs takes a few milliseconds. The shared rsIDs are sorted
+#' with `method = "radix"`: base `sort()` uses shell sort with
+#' per-comparison locale collation for character vectors, which is ~25x
+#' slower on 10M rsIDs and made the check the dominant cost of a cis-MR
+#' (issue #40). The check samples from the *full* tables, so it cannot be
+#' made cheaper by narrowing the inputs first, and it runs on every call --
+#' it is not cached across `run_mr()` calls that share a pair.
 #'
 #' The check is skipped (with a `"skipped"` record, and a warning that
 #' orientation is unverified) when the exposure lacks `SNP`/`eaf.exposure` or
 #' the outcome lacks the [format_gwas()] outcome columns, or when nothing
 #' overlaps.
 #'
-#' @param exposure Data frame of TwoSampleMR-formatted exposure data (the
-#'   full dataset passed to `run_mr()`, not just the instruments).
-#' @param outcome Data frame in [format_gwas()] outcome format (`rsids`,
-#'   `effect_allele`, `other_allele`, `beta`, `se`, `eaf`, ...).
+#' @param exposure Data frame or lazy table of TwoSampleMR-formatted
+#'   exposure data (the full dataset passed to `run_mr()`, not just the
+#'   instruments).
+#' @param outcome Data frame or lazy table in [format_gwas()] outcome format
+#'   (`rsids`, `effect_allele`, `other_allele`, `beta`, `se`, `eaf`, ...).
 #' @param instrument_snps Character vector of instrument rsIDs to always
 #'   include in the check set.
 #' @param allele_check One of `"error"` (default), `"warn"` or `"none"`.
@@ -474,15 +482,15 @@ check_allele_orientation_gwas <- function(
 
   needed_exp <- c("SNP", "eaf.exposure")
   needed_out <- c("rsids", "effect_allele", "other_allele", "beta", "se", "eaf")
+  # colnames(), not names(): names() of a dbplyr table is its list slots.
   if (
-    !all(needed_exp %in% names(exposure)) ||
-      !all(needed_out %in% names(outcome))
+    !all(needed_exp %in% colnames(exposure)) ||
+      !all(needed_out %in% colnames(outcome))
   ) {
     return(skipped())
   }
 
-  shared <- setdiff(intersect(exposure$SNP, outcome$rsids), instrument_snps)
-  shared <- shared[!is.na(shared)]
+  shared <- shared_rsids(exposure, outcome, instrument_snps, verbose = verbose)
   if (length(shared) > n_sample) {
     # method = "radix": for character vectors base sort() falls back to shell
     # sort with a locale collation call per comparison (radix is the default
@@ -495,8 +503,12 @@ check_allele_orientation_gwas <- function(
   }
   check_snps <- unique(c(instrument_snps, shared))
 
-  exposure_sub <- exposure[exposure$SNP %in% check_snps, , drop = FALSE]
-  outcome_sub <- outcome[outcome$rsids %in% check_snps, , drop = FALSE]
+  exposure_sub <- exposure |>
+    dplyr::filter(.data$SNP %in% .env$check_snps) |>
+    dplyr::collect()
+  outcome_sub <- outcome |>
+    dplyr::filter(.data$rsids %in% .env$check_snps) |>
+    dplyr::collect()
   if (nrow(exposure_sub) == 0 || nrow(outcome_sub) == 0) {
     return(skipped())
   }
@@ -534,6 +546,75 @@ check_allele_orientation_gwas <- function(
     verbose = verbose,
     call = call
   )
+}
+
+#' rsIDs shared by an exposure and an outcome, minus the instruments
+#'
+#' The shared-SNP step of [check_allele_orientation_gwas()]. Each input is
+#' cut to its one rsID column and the two are combined with
+#' [dplyr::intersect()], which on two tables from the same database
+#' connection compiles to a SQL `INTERSECT`, so only the shared rsIDs leave
+#' the database (issue #42). Any other pairing -- data frames, a data frame
+#' with a lazy table, tables on different connections, Arrow queries -- has
+#' its rsID columns collected first and intersected in R. The set operations
+#' run on one-column tibbles rather than vectors: on tibbles dplyr uses
+#' vctrs, about 6x faster than base `intersect()`/`setdiff()` on 10M rsIDs;
+#' on bare character vectors dplyr's generics fall through to base.
+#'
+#' @param exposure Data frame or lazy table with an `SNP` column.
+#' @param outcome Data frame or lazy table with an `rsids` column.
+#' @param instrument_snps Character vector of rsIDs to leave out.
+#' @param verbose Logical. If `TRUE`, say when a lazy input's rsID column
+#'   has to be collected because the two tables are not on one connection.
+#'
+#' @return Character vector of unique, non-missing shared rsIDs, in no
+#'   particular order.
+#'
+#' @keywords internal
+shared_rsids <- function(exposure, outcome, instrument_snps, verbose = FALSE) {
+  e <- dplyr::select(exposure, SNP = "SNP")
+  o <- dplyr::select(outcome, SNP = "rsids")
+
+  if (!same_backend(e, o)) {
+    lazy <- !is.data.frame(e) || !is.data.frame(o)
+    e <- dplyr::collect(e)
+    o <- dplyr::collect(o)
+    if (lazy && verbose) {
+      cli::cli_inform(c(
+        paste0(
+          "Collected {nrow(e)} exposure and {nrow(o)} outcome rsIDs for ",
+          "the allele orientation check."
+        ),
+        "i" = paste0(
+          "Put {.arg exposure} and {.arg outcome} on one database ",
+          "connection to intersect them in the database instead."
+        )
+      ))
+    }
+  }
+
+  dplyr::intersect(e, o) |>
+    dplyr::collect() |>
+    dplyr::filter(!is.na(.data$SNP)) |>
+    dplyr::setdiff(dplyr::tibble(SNP = as.character(instrument_snps))) |>
+    dplyr::pull("SNP")
+}
+
+#' Are two lazy tables on the same database connection?
+#'
+#' `TRUE` only for two dbplyr tables sharing one connection, the case in
+#' which [shared_rsids()] can leave the intersection to the database.
+#'
+#' @param x,y Data frames or lazy tables.
+#'
+#' @return Logical scalar.
+#'
+#' @keywords internal
+same_backend <- function(x, y) {
+  inherits(x, "tbl_sql") &&
+    inherits(y, "tbl_sql") &&
+    requireNamespace("dbplyr", quietly = TRUE) &&
+    identical(dbplyr::remote_con(x), dbplyr::remote_con(y))
 }
 
 #' Compute LD correlation matrix from a local reference panel

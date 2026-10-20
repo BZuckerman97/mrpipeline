@@ -65,13 +65,28 @@
 #' to `coloc::runsusie()` -- see that function's documentation for the full
 #' algorithm.
 #'
-#' @param exposure Data frame of formatted exposure data (output of
-#'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
+#' @section Lazy tables:
+#' `exposure` and `outcome` may be lazy dplyr tables instead of data frames:
+#' a [dplyr::tbl()] on a DuckDB connection (via the `duckdb` and `dbplyr`
+#' packages), or any other backend that supports [dplyr::filter()] and
+#' [dplyr::collect()], such as an Arrow dataset query. `run_coloc()` filters
+#' each to the colocalization window in the backend and collects only those
+#' rows, so a genome-wide GWAS never has to be loaded into memory. Results
+#' are identical to passing the same data as data frames. Opening the
+#' database is up to the caller, and the connection must stay open for the
+#' duration of the call. Store `chr.exposure` and `chr` as text: the window
+#' filter compares `as.character(chr)`, and a database casts a
+#' floating-point `20` to `"20.0"`. See [run_mr()] for the same option there.
+#'
+#' @param exposure Formatted exposure data (output of
+#'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions): a data
+#'   frame, or a lazy table with the same columns -- see *Lazy tables*.
 #' @param exposure_id Character. Label for the exposure (e.g. protein name or
 #'   trait). Used in printed output and stored in the returned object.
-#' @param outcome Data frame of outcome summary statistics with standardised
-#'   columns: `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
-#'   `effect_allele`, `other_allele`.
+#' @param outcome Outcome summary statistics with standardised columns:
+#'   `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
+#'   `effect_allele`, `other_allele`. A data frame, or a lazy table with the
+#'   same columns -- see *Lazy tables*.
 #' @param outcome_id Character. Label for the outcome (e.g. disease name or
 #'   trait). Used in printed output and stored in the returned object.
 #' @param gene_chr Character or integer. Chromosome of the gene/region.
@@ -288,10 +303,11 @@ run_coloc <- function(
 
   exposure_filt <- exposure |>
     dplyr::filter(
-      as.character(.data$chr.exposure) == chr_val,
-      .data$pos.exposure >= min_pos,
-      .data$pos.exposure <= max_pos
-    )
+      as.character(.data$chr.exposure) == .env$chr_val,
+      .data$pos.exposure >= .env$min_pos,
+      .data$pos.exposure <= .env$max_pos
+    ) |>
+    dplyr::collect()
 
   if (nrow(exposure_filt) == 0) {
     cli::cli_warn(
@@ -319,10 +335,11 @@ run_coloc <- function(
 
   outcome_in_window <- outcome |>
     dplyr::filter(
-      as.character(.data$chr) == chr_val,
-      .data$pos >= min_pos,
-      .data$pos <= max_pos
-    )
+      as.character(.data$chr) == .env$chr_val,
+      .data$pos >= .env$min_pos,
+      .data$pos <= .env$max_pos
+    ) |>
+    dplyr::collect()
 
   if (nrow(outcome_in_window) == 0) {
     cli::cli_warn("No outcome SNPs in region chr{chr_val}:{min_pos}-{max_pos}.")
