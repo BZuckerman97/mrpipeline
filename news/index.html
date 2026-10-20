@@ -49,6 +49,10 @@
 <h3 id="performance-0-8-0">Performance<a class="anchor" aria-label="anchor" href="#performance-0-8-0"></a></h3>
 <ul><li>The allele orientation check intersects the shared rsIDs with <code><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">dplyr::intersect()</a></code>/<code><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">dplyr::setdiff()</a></code> on one-column tibbles rather than base <code><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect()</a></code>/<code><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff()</a></code> on vectors. That is about 6x faster for data-frame inputs too (vctrs set operations; benchmarked on 10M rsIDs).</li>
 </ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-8-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-8-0"></a></h3>
+<ul><li>Seeded analyses no longer depend on whether a call is the first in the session. Loading ieugwasr draws from the random-number generator, and ieugwasr used to load inside the first <code><a href="../reference/run_mr.html">run_mr()</a></code> call, after the caller’s <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>. That call’s weighted-median bootstrap SE and TwoSampleMR’s <code>id.outcome</code> therefore differed from an identical later call. mrpipeline now loads ieugwasr when it loads, and puts the RNG state back as it was. withr moves from an indirect dependency (via dplyr’s tidyselect) to Imports (#43).</li>
+</ul></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

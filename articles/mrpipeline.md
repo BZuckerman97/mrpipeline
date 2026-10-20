@@ -68,8 +68,8 @@ summary(mr_res)
 #>   [0.966-1.274] (7 SNPs)
 #> • MR Egger [random effects]: b = 0.1463, se = 0.2527, p = 0.588, OR = 1.158
 #>   [0.705-1.9] (7 SNPs)
-#> • Weighted median: b = 0.1678, se = 0.0675, p = 0.0129, OR = 1.183 [1.036-1.35]
-#>   (7 SNPs)
+#> • Weighted median: b = 0.1678, se = 0.0673, p = 0.0127, OR = 1.183
+#>   [1.037-1.349] (7 SNPs)
 #> 
 #> ── Harmonisation ──
 #> 

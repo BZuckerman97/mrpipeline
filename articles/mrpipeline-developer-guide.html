@@ -131,6 +131,23 @@ Suggests. Nothing in <code>R/</code> calls DBI or duckdb, and
 through DuckDB and requires every result and allele-check record to be
 identical to the data-frame run.</p>
 </div>
+<div class="section level3">
+<h3 id="package-load-hook-rzzz-r">Package load hook (<code>R/zzz.R</code>)<a class="anchor" aria-label="anchor" href="#package-load-hook-rzzz-r"></a>
+</h3>
+<p><code>.onLoad()</code> loads ieugwasr inside
+<code><a href="https://withr.r-lib.org/reference/with_seed.html" class="external-link">withr::with_preserve_seed()</a></code> (issue #43). ieugwasr’s own
+<code>.onLoad()</code> calls <code><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample()</a></code>, and mrpipeline only
+reaches ieugwasr through <code>::</code>. Without the hook, ieugwasr
+loaded inside the first <code><a href="../reference/run_mr.html">run_mr()</a></code> of a session, after the
+caller’s <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>, so that call’s bootstrapped results
+differed from an identical later call. Any new dependency that draws
+random numbers when it loads needs the same treatment.</p>
+<p><code>tests/testthat/test-onload.R</code> checks this in a fresh
+<code>callr</code> process. It skips under
+<code>devtools::test()</code>, because <code><a href="https://pkgload.r-lib.org/reference/load_all.html" class="external-link">pkgload::load_all()</a></code>
+loads all of Imports before <code>.onLoad()</code> runs; R CMD check
+runs it against the installed package.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="s3-classes">S3 Classes<a class="anchor" aria-label="anchor" href="#s3-classes"></a>

@@ -38,3 +38,16 @@
   [`intersect()`](https://rdrr.io/r/base/sets.html)/[`setdiff()`](https://rdrr.io/r/base/sets.html)
   on vectors. That is about 6x faster for data-frame inputs too (vctrs
   set operations; benchmarked on 10M rsIDs).
+
+### Bug fixes
+
+- Seeded analyses no longer depend on whether a call is the first in the
+  session. Loading ieugwasr draws from the random-number generator, and
+  ieugwasr used to load inside the first
+  [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+  call, after the caller’s
+  [`set.seed()`](https://rdrr.io/r/base/Random.html). That call’s
+  weighted-median bootstrap SE and TwoSampleMR’s `id.outcome` therefore
+  differed from an identical later call. mrpipeline now loads ieugwasr
+  when it loads, and puts the RNG state back as it was. withr moves from
+  an indirect dependency (via dplyr’s tidyselect) to Imports (#43).

@@ -45,6 +45,27 @@ is reached only for a `tbl_sql` input, behind
 and requires every result and allele-check record to be identical to the
 data-frame run.
 
+### Package load hook (`R/zzz.R`)
+
+`.onLoad()` loads ieugwasr inside
+[`withr::with_preserve_seed()`](https://withr.r-lib.org/reference/with_seed.html)
+(issue \#43). ieugwasr’s own `.onLoad()` calls
+[`sample()`](https://rdrr.io/r/base/sample.html), and mrpipeline only
+reaches ieugwasr through `::`. Without the hook, ieugwasr loaded inside
+the first
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+of a session, after the caller’s
+[`set.seed()`](https://rdrr.io/r/base/Random.html), so that call’s
+bootstrapped results differed from an identical later call. Any new
+dependency that draws random numbers when it loads needs the same
+treatment.
+
+`tests/testthat/test-onload.R` checks this in a fresh `callr` process.
+It skips under `devtools::test()`, because
+[`pkgload::load_all()`](https://pkgload.r-lib.org/reference/load_all.html)
+loads all of Imports before `.onLoad()` runs; R CMD check runs it
+against the installed package.
+
 ## S3 Classes
 
 ### `mr_result`
