@@ -12,8 +12,12 @@
 # after the caller's set.seed() -- and that call's weighted-median bootstrap
 # SE and TwoSampleMR id.outcome differ from an identical later call.
 # ieugwasr is in Imports, its load is silent, and run_mr() needs it on
-# almost every path anyway (clumping, LD).
+# almost every path anyway (clumping, LD). covr cannot trace a load hook
+# (it runs before tracing starts; test-onload.R exercises it in a
+# subprocess), hence nocov.
+# nocov start
 .onLoad <- function(libname, pkgname) {
   withr::with_preserve_seed(requireNamespace("ieugwasr", quietly = TRUE))
   invisible()
 }
+# nocov end
