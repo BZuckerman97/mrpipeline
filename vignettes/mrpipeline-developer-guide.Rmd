@@ -52,6 +52,21 @@ behind `requireNamespace()`. `tests/testthat/test-lazy-input.R` runs the
 bundled data through DuckDB and requires every result and allele-check
 record to be identical to the data-frame run.
 
+### Package load hook (`R/zzz.R`)
+
+`.onLoad()` loads ieugwasr inside `withr::with_preserve_seed()` (issue #43).
+ieugwasr's own `.onLoad()` calls `sample()`, and mrpipeline only reaches
+ieugwasr through `::`. Without the hook, ieugwasr loaded inside the first
+`run_mr()` of a session, after the caller's `set.seed()`, so that call's
+bootstrapped results differed from an identical later call. Any new
+dependency that draws random numbers when it loads needs the same
+treatment.
+
+`tests/testthat/test-onload.R` checks this in a fresh `callr` process.
+It skips under `devtools::test()`, because `pkgload::load_all()` loads all
+of Imports before `.onLoad()` runs; R CMD check runs it against the
+installed package.
+
 ## S3 Classes
 
 ### `mr_result`
