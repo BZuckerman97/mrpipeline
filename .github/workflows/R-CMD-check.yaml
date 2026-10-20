@@ -21,13 +21,17 @@ jobs:
         config:
           - {os: macos-latest,   r: 'release'}
           - {os: windows-latest, r: 'release'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
+          # No binaries exist for R-devel, so duckdb (Suggests) would compile
+          # for ~35 min; its lazy-table tests skip without it and run on the
+          # other jobs.
+          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release', skip-pkgs: 'duckdb=?ignore', force-suggests: 'false'}
           - {os: ubuntu-latest,   r: 'release'}
           - {os: ubuntu-latest,   r: 'oldrel-1'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      _R_CHECK_FORCE_SUGGESTS_: ${{ matrix.config.force-suggests || 'true' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +46,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          extra-packages: any::rcmdcheck ${{ matrix.config.skip-pkgs }}
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
