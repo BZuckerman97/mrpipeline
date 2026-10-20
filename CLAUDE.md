@@ -146,6 +146,22 @@ whether) that project is affected.
 
 ## Build and Check Commands
 
+There is deliberately no project `.Rprofile`: R reads only one, so a
+project file would silently replace every developer’s `~/.Rprofile` (and
+on CI it hid the one `r-lib/actions/setup-r` writes, which made every
+Ubuntu job compile all dependencies from source, PR \#46). TwoSampleMR
+is on the MRC IEU r-universe, not CRAN, and pak ignores DESCRIPTION’s
+`Additional_repositories`, so put the repo in your own `~/.Rprofile`
+once:
+
+``` r
+
+options(repos = c(getOption("repos"), mrcieu = "https://mrcieu.r-universe.dev"))
+```
+
+CI gets it from the `extra-repositories` input of `setup-r` in each
+workflow.
+
 ``` r
 
 devtools::load_all()      # load package for interactive development

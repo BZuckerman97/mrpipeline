@@ -922,7 +922,7 @@ outcome_lazy <- dplyr::tbl(con, dplyr::sql(paste0(
 )))
 exposure_lazy
 #> # A query:  ?? x 14
-#> # Database: DuckDB 1.5.6 [unknown@Linux 6.17.0-1022-azure:R 4.6.1/:memory:]
+#> # Database: DuckDB 1.5.6 [unknown@Linux 7.0.0-1017-azure:R 4.6.1/:memory:]
 #>    SNP    chr.exposure pos.exposure effect_allele.exposure other_allele.exposure
 #>    <chr>  <chr>               <dbl> <chr>                  <chr>                
 #>  1 rs384… 20               44666595 T                      G                    

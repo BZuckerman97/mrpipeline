@@ -72,14 +72,18 @@
 </div>
 <div class="section level2">
 <h2 id="build-and-check-commands">Build and Check Commands<a class="anchor" aria-label="anchor" href="#build-and-check-commands"></a></h2>
+<p>There is deliberately no project <code>.Rprofile</code>: R reads only one, so a project file would silently replace every developer’s <code>~/.Rprofile</code> (and on CI it hid the one <code>r-lib/actions/setup-r</code> writes, which made every Ubuntu job compile all dependencies from source, PR #46). TwoSampleMR is on the MRC IEU r-universe, not CRAN, and pak ignores DESCRIPTION’s <code>Additional_repositories</code>, so put the repo in your own <code>~/.Rprofile</code> once:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>repos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"repos"</span><span class="op">)</span>, mrcieu <span class="op">=</span> <span class="st">"https://mrcieu.r-universe.dev"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>CI gets it from the <code>extra-repositories</code> input of <code>setup-r</code> in each workflow.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">load_all</span><span class="op">(</span><span class="op">)</span>      <span class="co"># load package for interactive development</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">document</span><span class="op">(</span><span class="op">)</span>      <span class="co"># regenerate NAMESPACE and man/ from roxygen2</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">check</span><span class="op">(</span><span class="op">)</span>         <span class="co"># R CMD Check (must pass: 0 errors, 0 warnings)</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">test</span><span class="op">(</span><span class="op">)</span>          <span class="co"># run testthat tests</span></span>
 <span><span class="fu">pkgdown</span><span class="fu">::</span><span class="fu"><a href="https://pkgdown.r-lib.org/reference/build_site.html" class="external-link">build_site</a></span><span class="op">(</span><span class="op">)</span>     <span class="co"># build documentation site (must succeed)</span></span></code></pre></div>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="ex">air</span> format .              <span class="co"># auto-format R code (run before every commit)</span></span></code></pre></div>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="ex">air</span> format .              <span class="co"># auto-format R code (run before every commit)</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">lintr</span><span class="fu">::</span><span class="fu">lint_package</span><span class="op">(</span><span class="op">)</span>     <span class="co"># style/lint checks (run before every commit)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -87,13 +91,13 @@
 <p><strong>ASCII only:</strong> Never use non-ASCII characters anywhere in <code>.R</code> or <code>.Rd</code> files – R CMD check warns on them and CI will fail. Common offenders: - Em dash (Unicode U+2014) – write <code>--</code> instead - Box-drawing horizontal (Unicode U+2500, used in RStudio section headers) – write <code>-</code> instead - Right arrow (Unicode U+2192) – write <code>-&gt;</code> instead - Any other Unicode punctuation or symbols</p>
 <p>Section dividers in code comments must use plain hyphens: <code># -- Section name --</code>.</p>
 <p><strong>Messages / warnings / errors:</strong> Use <code>cli</code> package exclusively.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_inform</a></span><span class="op">(</span><span class="st">"Loading {protein} data..."</span><span class="op">)</span>   <span class="co"># informational</span></span>
 <span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_warn</a></span><span class="op">(</span><span class="st">"Only {n} SNPs retained."</span><span class="op">)</span>       <span class="co"># warning</span></span>
 <span><span class="fu">cli</span><span class="fu">::</span><span class="fu"><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli_abort</a></span><span class="op">(</span><span class="st">"bfile is required for LD-corrected MR."</span><span class="op">)</span>  <span class="co"># error</span></span></code></pre></div>
 <p><strong>Pipe:</strong> Native <code>|&gt;</code> only. Never <code>%&gt;%</code>.</p>
 <p><strong>String operations:</strong> Use <code>stringr</code> functions.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_remove.html" class="external-link">str_remove</a></span><span class="op">(</span><span class="va">x</span>, <span class="st">"_.*"</span><span class="op">)</span>      <span class="co"># not gsub("_.*", "", x)</span></span>
 <span><span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_detect.html" class="external-link">str_detect</a></span><span class="op">(</span><span class="va">x</span>, <span class="st">"^chr"</span><span class="op">)</span>     <span class="co"># not grepl("^chr", x)</span></span>
 <span><span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_starts.html" class="external-link">str_starts</a></span><span class="op">(</span><span class="va">x</span>, <span class="st">"rs"</span><span class="op">)</span>       <span class="co"># not startsWith(x, "rs")</span></span></code></pre></div>
@@ -106,8 +110,8 @@
 <h2 id="documentation-rule--always-regenerate-man-after-changing-function-signatures">Documentation Rule – ALWAYS regenerate man/ after changing function signatures<a class="anchor" aria-label="anchor" href="#documentation-rule--always-regenerate-man-after-changing-function-signatures"></a></h2>
 <p>Any time you add, remove, or rename a parameter in ANY function (exported or internal), you MUST regenerate the man/ files before committing. Failure to do this causes R CMD check to error on all CI platforms.</p>
 <p><strong>After every function signature change, remind the user to run:</strong></p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="ex">air</span> format .           <span class="co"># must be run before devtools::document()</span></span></code></pre></div>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="ex">air</span> format .           <span class="co"># must be run before devtools::document()</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">document</span><span class="op">(</span><span class="op">)</span>   <span class="co"># must be run in an R session, not via Rscript</span></span></code></pre></div>
 <p>Then stage and commit the updated <code>man/*.Rd</code> files in the same commit as the code change. Never let a signature change and its .Rd update go in separate commits.</p>
 <p>If <code>devtools::document()</code> fails (e.g. missing dependency), patch the <code>.Rd</code> file manually: update the <code>\usage{}</code> block and add a <code>\item{}</code> in <code>\arguments{}</code>.</p>

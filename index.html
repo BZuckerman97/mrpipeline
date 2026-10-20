@@ -64,7 +64,10 @@
 </h2>
 <p>Install from GitHub:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># install.packages("pak")</span></span>
+<code class="sourceCode R"><span><span class="co"># TwoSampleMR is on the MRC IEU r-universe, not CRAN; pak needs the repo in</span></span>
+<span><span class="co"># options(repos) to find it.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">options</a></span><span class="op">(</span>repos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"repos"</span><span class="op">)</span>, mrcieu <span class="op">=</span> <span class="st">"https://mrcieu.r-universe.dev"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co"># install.packages("pak")</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"BZuckerman97/mrpipeline"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">

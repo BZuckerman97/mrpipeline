@@ -12,6 +12,9 @@ Install from GitHub:
 
 ``` r
 
+# TwoSampleMR is on the MRC IEU r-universe, not CRAN; pak needs the repo in
+# options(repos) to find it.
+options(repos = c(getOption("repos"), mrcieu = "https://mrcieu.r-universe.dev"))
 # install.packages("pak")
 pak::pak("BZuckerman97/mrpipeline")
 ```
