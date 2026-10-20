@@ -9,6 +9,7 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/articles/mrpipeline.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/authors.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/index.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/news/index.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/cd40_exposure.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.html</loc></url>
@@ -62,6 +63,8 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/resolve_sample_size.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/run_mr.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/same_backend.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/shared_rsids.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/sjogren_outcome.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/summary.coloc_result.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/summary.mr_result.html</loc></url>

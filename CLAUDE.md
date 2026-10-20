@@ -42,6 +42,11 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 [`gls_weight_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/gls_weight_matrix.md),
 [`collinear_pairs()`](https://github.com/BZuckerman97/mrpipeline/reference/collinear_pairs.md)
 (names the r ~ 1 pairs behind a singular GLS matrix, issue \#36),
+[`shared_rsids()`](https://github.com/BZuckerman97/mrpipeline/reference/shared_rsids.md)
+/
+[`same_backend()`](https://github.com/BZuckerman97/mrpipeline/reference/same_backend.md)
+(the allele check’s shared-rsID set, intersected in the database when
+both inputs are lazy tables on one connection, issue \#42),
 [`diag_ids()`](https://github.com/BZuckerman97/mrpipeline/reference/diag_ids.md),
 [`heterogeneity_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/heterogeneity_correlated.md),
 [`pleiotropy_correlated()`](https://github.com/BZuckerman97/mrpipeline/reference/pleiotropy_correlated.md),
@@ -79,6 +84,23 @@ registry row** – never a new hard-coded name list.
 [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)),
 `coloc_result` (from
 [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md))
+
+**Lazy inputs (issue \#42):** `exposure`/`outcome` in
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md),
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+and
+[`check_allele_orientation_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.md)
+may be lazy dplyr tables (DuckDB via dbplyr, Arrow), not only data
+frames. Select rows from them only with
+`dplyr::filter(...) |> dplyr::collect()` (one code path; `collect()` is
+a no-op on a data frame), check columns with
+[`colnames()`](https://rdrr.io/r/base/colnames.html) (never
+[`names()`](https://rdrr.io/r/base/names.html)), and refer to locals as
+`.env$x` computed beforehand. Never `$`, `[` or
+[`nrow()`](https://rdrr.io/r/base/nrow.html) on the raw inputs.
+`tests/testthat/test-lazy-input.R` requires DuckDB-backed runs to be
+identical to data-frame runs. DBI/dbplyr/duckdb stay in Suggests;
+connection and DuckDB-file helpers are project code, not package code.
 
 ## `run_mr()` has no `flip_beta` argument – do not reintroduce one
 

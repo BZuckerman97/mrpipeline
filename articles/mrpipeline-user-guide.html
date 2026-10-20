@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,7 @@
     <li><a class="dropdown-item" href="../articles/mrpipeline-user-guide.html">mrpipeline User Guide</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -621,7 +622,7 @@ the analysis says what it ran.</p>
 <span><span class="co">#&gt; 1 IVW (random effects)    7 0.1039171 0.07064066 0.14127327 1.109508</span></span>
 <span><span class="co">#&gt; 2  IVW (fixed effects)    7 0.1039171 0.05004810 0.03786213 1.109508</span></span>
 <span><span class="co">#&gt; 3             MR Egger    7 0.1463184 0.25272353 0.58771400 1.157565</span></span>
-<span><span class="co">#&gt; 4      Weighted median    7 0.1677675 0.06749428 0.01293133 1.182662</span></span></code></pre></div>
+<span><span class="co">#&gt; 4      Weighted median    7 0.1677675 0.06729715 0.01266917 1.182662</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="sensitivity-analyses">Sensitivity analyses<a class="anchor" aria-label="anchor" href="#sensitivity-analyses"></a>
@@ -853,7 +854,7 @@ structure (through <code>MendelianRandomization</code> with
 <span><span class="co">#&gt; 1 IVW (random effects) 0.1526528 0.05802051 random         TRUE</span></span>
 <span><span class="co">#&gt; 2  IVW (fixed effects) 0.1526528 0.02730979  fixed         TRUE</span></span>
 <span><span class="co">#&gt; 3             MR Egger 0.4547481 0.28286288 random         TRUE</span></span>
-<span><span class="co">#&gt; 4      Weighted median 0.1677675 0.06810721   &lt;NA&gt;        FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt; 4      Weighted median 0.1677675 0.06811952   &lt;NA&gt;        FALSE</span></span></code></pre></div>
 <p>Its instruments are the 7 from before, with pairwise |r| up to 0.53
 in the panel – a typical lenient cis-MR set, and one with something to
 correct for. Without <code>ld_correct</code> (<code>mr_res</code>,
@@ -1026,13 +1027,133 @@ instead:</p>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;"> in `run_mr()`:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> 1 instrument not found in exposure data: <span style="color: #0000BB;">"rs0000001"</span></span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="large-gwas-lazy-tables">Large GWAS: lazy tables<a class="anchor" aria-label="anchor" href="#large-gwas-lazy-tables"></a>
+</h3>
+<p>A genome-wide GWAS can run to tens of millions of rows, yet
+<code><a href="../reference/run_mr.html">run_mr()</a></code> only ever uses a few hundred of them: the
+instruments, the outcome at those rsIDs, and about 1000 shared SNPs for
+the allele orientation check. <code><a href="../reference/run_coloc.html">run_coloc()</a></code> uses only its
+window. So both functions accept a lazy dplyr table as well as a data
+frame – a <code><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">dplyr::tbl()</a></code> on a DuckDB connection, or an Arrow
+dataset query – and filter in the database, collecting only those rows.
+The full GWAS stays on disk.</p>
+<p><code>DBI</code>, <code>dbplyr</code> and <code>duckdb</code> are
+suggested packages, so install them to use this. Opening the database is
+your code, not <code>mrpipeline</code>’s. Here DuckDB reads
+tab-separated files directly, standing in for formatted GWAS files on
+disk:</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Stand-ins for formatted GWAS files on disk</span></span>
+<span><span class="va">exposure_tsv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".tsv"</span><span class="op">)</span></span>
+<span><span class="va">outcome_tsv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".tsv"</span><span class="op">)</span></span>
+<span><span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="va">cd40_exposure</span>, <span class="va">exposure_tsv</span>, sep <span class="op">=</span> <span class="st">"\t"</span><span class="op">)</span></span>
+<span><span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="va">sjogren_outcome</span>, <span class="va">outcome_tsv</span>, sep <span class="op">=</span> <span class="st">"\t"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># read_csv() scans a file on demand: nothing is loaded into R here. The</span></span>
+<span><span class="co"># chromosome columns are read as text (see below).</span></span>
+<span><span class="va">exposure_lazy</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/sql.html" class="external-link">sql</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span></span>
+<span>  <span class="st">"SELECT * FROM read_csv('"</span>, <span class="va">exposure_tsv</span>, <span class="st">"', "</span>,</span>
+<span>  <span class="st">"types = {'chr.exposure': 'VARCHAR'})"</span></span>
+<span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">outcome_lazy</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/sql.html" class="external-link">sql</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span></span>
+<span>  <span class="st">"SELECT * FROM read_csv('"</span>, <span class="va">outcome_tsv</span>, <span class="st">"', "</span>,</span>
+<span>  <span class="st">"types = {'chr': 'VARCHAR'})"</span></span>
+<span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">exposure_lazy</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A query:  ?? x 14</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># Database: DuckDB 1.5.6 [unknown@Linux 6.17.0-1022-azure:R 4.6.1/:memory:]</span></span></span>
+<span><span class="co">#&gt;    SNP    chr.exposure pos.exposure effect_allele.exposure other_allele.exposure</span></span>
+<span><span class="co">#&gt;    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>               <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 1</span> rs384… 20               44<span style="text-decoration: underline;">666</span>595 T                      G                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 2</span> rs572… 20               44<span style="text-decoration: underline;">668</span>401 G                      C                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 3</span> rs229… 20               44<span style="text-decoration: underline;">673</span>546 G                      C                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 4</span> rs229… 20               44<span style="text-decoration: underline;">674</span>743 C                      A                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 5</span> rs374… 20               44<span style="text-decoration: underline;">680</span>412 T                      C                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 6</span> rs9074 20               44<span style="text-decoration: underline;">688</span>665 A                      G                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 7</span> rs242… 20               44<span style="text-decoration: underline;">702</span>120 C                      T                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 8</span> rs601… 20               44<span style="text-decoration: underline;">712</span>815 A                      G                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 9</span> rs445… 20               44<span style="text-decoration: underline;">721</span>307 T                      C                    </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">10</span> rs741… 20               44<span style="text-decoration: underline;">721</span>385 T                      G                    </span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ more rows</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># ℹ 9 more variables: beta.exposure &lt;dbl&gt;, se.exposure &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   pval.exposure &lt;dbl&gt;, eaf.exposure &lt;dbl&gt;, samplesize.exposure &lt;dbl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   exposure &lt;chr&gt;, id.exposure &lt;chr&gt;, mr_keep.exposure &lt;lgl&gt;,</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;">#   pval_origin.exposure &lt;chr&gt;</span></span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">mr_lazy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="va">exposure_lazy</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="va">outcome_lazy</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"SjD"</span>,</span>
+<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"20"</span>, start <span class="op">=</span> <span class="fl">44746911</span>, end <span class="op">=</span> <span class="fl">44758502</span><span class="op">)</span>,</span>
+<span>  rsq_thresh <span class="op">=</span> <span class="fl">0.3</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
+<span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="st">"ivw_random"</span>, <span class="st">"ivw_fixed"</span>, <span class="st">"egger"</span>, <span class="st">"weighted_median"</span>,</span>
+<span>    <span class="st">"steiger"</span>, <span class="st">"pleiotropy"</span>, <span class="st">"heterogeneity"</span>, <span class="st">"loo"</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">mr_lazy</span><span class="op">$</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"method"</span>, <span class="st">"nsnp"</span>, <span class="st">"b"</span>, <span class="st">"se"</span>, <span class="st">"pval"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;                 method nsnp         b         se       pval</span></span>
+<span><span class="co">#&gt; 1 IVW (random effects)    7 0.1039171 0.07064066 0.14127327</span></span>
+<span><span class="co">#&gt; 2  IVW (fixed effects)    7 0.1039171 0.05004810 0.03786213</span></span>
+<span><span class="co">#&gt; 3             MR Egger    7 0.1463184 0.25272353 0.58771400</span></span>
+<span><span class="co">#&gt; 4      Weighted median    7 0.1677675 0.06729715 0.01266917</span></span>
+<span></span>
+<span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbDisconnect.html" class="external-link">dbDisconnect</a></span><span class="op">(</span><span class="va">con</span>, shutdown <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>These are the estimates from the in-memory analysis above. Two points
+matter in practice:</p>
+<ul>
+<li>
+<strong>Keep both tables on one connection.</strong> The allele
+orientation check intersects the exposure and outcome rsIDs. On one
+connection that runs inside the database and returns only the shared
+rsIDs. If the tables are on different connections, or one is a data
+frame, each rsID column is collected into R instead (with
+<code>verbose = TRUE</code> you are told so). That works, but for two
+genome-wide GWAS it is tens of millions of strings.</li>
+<li>
+<strong>Store chromosome columns as text.</strong> The region
+filters compare <code>as.character(chr)</code> with the requested
+chromosome. A database casts a floating-point <code>20</code> to
+<code>"20.0"</code>, which matches nothing. The <code>types</code>
+argument above prevents that; [format_gwas()] already writes
+<code>chr</code> as character.</li>
+</ul>
+<p>For a pipeline, write each formatted GWAS into one DuckDB file once,
+then open it read-only for each analysis. Connections cannot be saved
+between R sessions, so a <code>targets</code> pipeline should track the
+file path and open the connection inside the target:</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Once, after format_gwas() / format_pqtl_*()</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"gwas.duckdb"</span><span class="op">)</span></span>
+<span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbWriteTable.html" class="external-link">dbWriteTable</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"exposure"</span>, <span class="va">formatted_exposure</span><span class="op">)</span></span>
+<span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbWriteTable.html" class="external-link">dbWriteTable</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"outcome"</span>, <span class="va">formatted_outcome</span><span class="op">)</span></span>
+<span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbDisconnect.html" class="external-link">dbDisconnect</a></span><span class="op">(</span><span class="va">con</span>, shutdown <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># For each analysis</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span><span class="fu">duckdb</span><span class="fu">::</span><span class="fu"><a href="https://r.duckdb.org/reference/duckdb.html" class="external-link">duckdb</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"gwas.duckdb"</span>, read_only <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_mr.html">run_mr</a></span><span class="op">(</span></span>
+<span>  exposure <span class="op">=</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"exposure"</span><span class="op">)</span>,</span>
+<span>  exposure_id <span class="op">=</span> <span class="st">"PCSK9"</span>,</span>
+<span>  outcome <span class="op">=</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/tbl.html" class="external-link">tbl</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"outcome"</span><span class="op">)</span>,</span>
+<span>  outcome_id <span class="op">=</span> <span class="st">"CHD"</span>,</span>
+<span>  instrument_region <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>chromosome <span class="op">=</span> <span class="st">"1"</span>, start <span class="op">=</span> <span class="fl">55039548</span>, end <span class="op">=</span> <span class="fl">55064852</span><span class="op">)</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="va">bfile</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbDisconnect.html" class="external-link">dbDisconnect</a></span><span class="op">(</span><span class="va">con</span>, shutdown <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="interpreting-mr-results">Interpreting MR Results<a class="anchor" aria-label="anchor" href="#interpreting-mr-results"></a>
 </h2>
 <p>Use <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> for a one-line summary and
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> for full details:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mr_res</span></span>
 <span><span class="co">#&gt; CD40 -&gt; SjD</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> IVW (random effects): b = 0.1039, se = 0.0706, p = 0.141, OR = 1.11</span></span>
@@ -1050,8 +1171,8 @@ instead:</p>
 <span><span class="co">#&gt;   [1.006-1.224] (7 SNPs)</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> MR Egger [random effects]: b = 0.1463, se = 0.2527, p = 0.588, OR = 1.158</span></span>
 <span><span class="co">#&gt;   [0.705-1.9] (7 SNPs)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Weighted median: b = 0.1678, se = 0.0675, p = 0.0129, OR = 1.183 [1.036-1.35]</span></span>
-<span><span class="co">#&gt;   (7 SNPs)</span></span>
+<span><span class="co">#&gt; <span style="color: #00BBBB;">•</span> Weighted median: b = 0.1678, se = 0.0673, p = 0.0127, OR = 1.183</span></span>
+<span><span class="co">#&gt;   [1.037-1.349] (7 SNPs)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; ── <span style="font-weight: bold;">Harmonisation</span> ──</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -1102,7 +1223,7 @@ exposure (<code>rsq.exposure</code>) than in the outcome
 (<code>steiger_dir = FALSE</code>) suggests reverse causation or
 pleiotropy, and is a candidate for exclusion. <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>
 reports how many pass; <code>$steiger</code> has the per-SNP detail:</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mr_res</span><span class="op">$</span><span class="va">steiger</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"SNP"</span>, <span class="st">"rsq.exposure"</span>, <span class="st">"rsq.outcome"</span>, <span class="st">"steiger_dir"</span>, <span class="st">"steiger_pval"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;          SNP rsq.exposure  rsq.outcome steiger_dir  steiger_pval</span></span>
 <span><span class="co">#&gt; 1 rs13045469   0.01320879 1.632257e-05        TRUE  4.860524e-52</span></span>
@@ -1120,7 +1241,7 @@ the rest and records a reason for each method it skipped – too few
 instruments, a missing sample size, a failed fit. Always check it before
 reading the absence of a row as meaningful. For the two-instrument
 manual run above:</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">manual_res</span><span class="op">$</span><span class="va">methods_skipped</span></span>
 <span><span class="co">#&gt;                       egger             weighted_median </span></span>
 <span><span class="co">#&gt; "Requires &gt;= 3 instruments" "Requires &gt;= 3 instruments" </span></span>
@@ -1137,12 +1258,12 @@ plotting functions (requires <code>ggplot2</code>):
 SNP), <code>"funnel"</code> and <code>"loo"</code> (leave-one-out). Each
 returns TwoSampleMR’s list of plots, one per exposure-outcome pair, so
 take <code>[[1]]</code> for a single analysis:</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># warning = FALSE: TwoSampleMR's leave-one-out plot draws an empty spacer</span></span>
 <span><span class="co"># row, which ggplot2 reports as a removed missing value</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"scatter"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
 <p><img src="mrpipeline-user-guide_files/figure-html/mr-plot-1.png" class="r-plt" alt="" width="576"></p>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mr_res</span>, type <span class="op">=</span> <span class="st">"loo"</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
 <p><img src="mrpipeline-user-guide_files/figure-html/mr-plot-2.png" class="r-plt" alt="" width="576"></p>
 <p><code>plot(mr_res, type = "forest")</code> shows one row per SNP. For
@@ -1159,14 +1280,14 @@ and <code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()<
 is listed above random effects by default. Method labels do not encode
 LD correction (that lives in the <code>ld_corrected</code> column), so
 LD-corrected results match the same defaults:</p>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="va">mr_res</span><span class="op">)</span></span></code></pre></div>
 <p><img src="mrpipeline-user-guide_files/figure-html/forest-plot-single-1.png" class="r-plt" alt="" width="672"></p>
 <p>Pass a named list to section several results into one figure. The <a href="#ld-corrected-mr">LD-corrected MR</a> comparison above is one
 example; a primary analysis alongside positive and negative controls is
 another. The package bundles no control outcomes, so this and the next
 example use placeholder results and are not run:</p>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest_plot.html">forest_plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  Primary <span class="op">=</span> <span class="va">mr_res</span>,</span>
 <span>  <span class="st">"Positive control"</span> <span class="op">=</span> <span class="va">positive_control_res</span>,</span>
@@ -1177,7 +1298,7 @@ example use placeholder results and are not run:</p>
 coloured and/or shaped by a grouping column you attach yourself
 (e.g. which instrument was used). Build the combined data frame from one
 or more results’ <code>$results</code>, then plot:</p>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">combined</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
 <span>  <span class="va">mr_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Primary"</span><span class="op">)</span>,</span>
 <span>  <span class="va">positive_control_res</span><span class="op">$</span><span class="va">results</span> <span class="op">|&gt;</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>subcategory <span class="op">=</span> <span class="st">"Positive control"</span><span class="op">)</span>,</span>
@@ -1204,7 +1325,7 @@ output device (e.g. wrap the call in
 <code><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf()</a></code>/<code><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off()</a></code> to save a file). Its input is
 a plain data frame, built here from made-up values to show the
 layout:</p>
-<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Illustrative values, not results.</span></span>
 <span><span class="va">table_dat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="st">"Genetically-proxied NLRP3 inhibition"</span>,</span>
@@ -1240,7 +1361,7 @@ reference panel. Sample sizes are read from the data when
 <code>exposure_n</code>/<code>outcome_n</code> are not given. Sjogren’s
 disease is a case-control outcome, so <code>outcome_type</code> and the
 case fraction <code>outcome_s</code> are set too (see <a href="#case-control-outcomes">Case-control outcomes</a>):</p>
-<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coloc_res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
@@ -1260,7 +1381,7 @@ case fraction <code>outcome_s</code> are set too (see <a href="#case-control-out
 <p><code>coloc</code> itself prints its posteriors as it runs, so that
 chunk’s printed output is hidden here; its warning is kept, and is the
 first clue to the result. Inspect the result object instead:</p>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coloc_res</span></span>
 <span><span class="co">#&gt; coloc_result[CD40 -&gt; SjD]: 12 SNPs</span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">ℹ</span> ABF PP.H4 = 0.244 | PP4/(PP3+PP4) = 0.998</span></span>
@@ -1312,7 +1433,7 @@ several independent signals. Adding <code>"susie"</code> and
 SuSiE, then tests colocalisation across all pairs of credible sets with
 <code>coloc.susie()</code>, and across conditionally independent signals
 with <code>coloc.signals()</code>:</p>
-<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">coloc_full</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
@@ -1327,7 +1448,7 @@ with <code>coloc.signals()</code>:</p>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"abf"</span>, <span class="st">"susie"</span>, <span class="st">"signals"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">coloc_full</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; <span style="color: #00BBBB;">──</span> <span style="font-weight: bold;">Colocalization Results</span> <span style="color: #00BBBB;">──────────────────────────────────────────────────────</span></span></span>
@@ -1385,7 +1506,7 @@ trait with standard deviation <code>outcome_sdY</code>. The same applies
 to the exposure through <code>exposure_type</code> and
 <code>exposure_s</code>. Getting it wrong changes the prior on effect
 sizes and so the posteriors:</p>
-<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">coloc_quant</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_coloc.html">run_coloc</a></span><span class="op">(</span></span>
 <span>  exposure <span class="op">=</span> <span class="va">cd40_exposure</span>,</span>
 <span>  exposure_id <span class="op">=</span> <span class="st">"CD40"</span>,</span>
@@ -1397,7 +1518,7 @@ sizes and so the posteriors:</p>
 <span>  bfile <span class="op">=</span> <span class="va">bfile</span>,</span>
 <span>  methods <span class="op">=</span> <span class="st">"abf"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
 <span>  case_control <span class="op">=</span> <span class="va">coloc_res</span><span class="op">$</span><span class="va">coloc_abf</span><span class="op">$</span><span class="va">summary</span>,</span>
 <span>  quantitative <span class="op">=</span> <span class="va">coloc_quant</span><span class="op">$</span><span class="va">coloc_abf</span><span class="op">$</span><span class="va">summary</span></span>
@@ -1411,10 +1532,10 @@ sizes and so the posteriors:</p>
 </h3>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> for <code>coloc_result</code> objects supports
 three plot types:</p>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>   <span class="co"># ABF posterior probabilities (default; requires ggplot2)</span></span></code></pre></div>
 <p><img src="mrpipeline-user-guide_files/figure-html/coloc-plot-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span> <span class="co"># regional association plots (requires ggplot2)</span></span></code></pre></div>
 <p><img src="mrpipeline-user-guide_files/figure-html/coloc-plot-2.png" class="r-plt" alt="" width="672"></p>
 <p><code>type = "locuszoom"</code> renders LD-coloured regional plots
@@ -1433,7 +1554,7 @@ other two plot types, this one draws directly to the current graphics
 device (like a base R plot) and returns <code>NULL</code> – open a
 device first if you want to save it. (Not run here: it needs the Ensembl
 annotation package and writes a file.)</p>
-<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">EnsDb.Hsapiens.v75</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf</a></span><span class="op">(</span><span class="st">"locuszoom_plot.pdf"</span>, width <span class="op">=</span> <span class="fl">9</span>, height <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>

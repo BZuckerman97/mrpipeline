@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,7 @@
     <li><a class="dropdown-item" href="../articles/mrpipeline-user-guide.html">mrpipeline User Guide</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -70,6 +71,66 @@
 </h2>
 <!-- TODO: diagram/description of run_mr() → helpers → TwoSampleMR/ieugwasr -->
 <!-- TODO: diagram/description of run_coloc() → helpers → coloc/SuSiE -->
+<div class="section level3">
+<h3 id="lazy-exposure-and-outcome-issue-42">Lazy <code>exposure</code> and <code>outcome</code> (issue #42)<a class="anchor" aria-label="anchor" href="#lazy-exposure-and-outcome-issue-42"></a>
+</h3>
+<p><code><a href="../reference/run_mr.html">run_mr()</a></code> and <code><a href="../reference/run_coloc.html">run_coloc()</a></code> take
+<code>exposure</code>/<code>outcome</code> as a data frame <em>or</em> a
+lazy dplyr table (a DuckDB <code>tbl()</code> via dbplyr, an Arrow
+query). There is one code path for both. Every place that selects rows
+from the full inputs is
+<code>dplyr::filter(...) |&gt; dplyr::collect()</code>, and
+<code>collect()</code> returns a data frame unchanged:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Function</th>
+<th>Selection</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code><a href="../reference/run_mr.html">run_mr()</a></code></td>
+<td>manual instruments, cis window + p-value, genome-wide p-value, the
+outcome at the instrument rsIDs</td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/run_coloc.html">run_coloc()</a></code></td>
+<td>the exposure window, the outcome window</td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/check_allele_orientation_gwas.html">check_allele_orientation_gwas()</a></code></td>
+<td>the shared rsIDs via <code><a href="../reference/shared_rsids.html">shared_rsids()</a></code>, then the
+instrument + sampled rows</td>
+</tr>
+</tbody>
+</table>
+<p>Everything downstream (clumping, harmonisation, estimators, coloc)
+receives those small collected frames and never sees a lazy table. Rules
+for code that touches the raw inputs:</p>
+<ul>
+<li>Select rows only with <code>filter() |&gt; collect()</code>.
+<code>$</code>, <code>[</code>, and <code><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow()</a></code> do not work on a
+lazy table (<code><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow()</a></code> returns <code>NA</code>).</li>
+<li>Check columns with <code><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames()</a></code>, not
+<code><a href="https://rdrr.io/r/base/names.html" class="external-link">names()</a></code>. <code><a href="https://rdrr.io/r/base/names.html" class="external-link">names()</a></code> of a dbplyr table returns its
+list slots (<code>"src"</code>, <code>"lazy_query"</code>).</li>
+<li>Refer to local values as <code>.env$x</code> and columns as
+<code>.data$x</code>. Compute a value into a local first: dbplyr
+translates any expression that is not a bare <code>.env$x</code> into
+SQL, so <code>.env$region$start</code> or <code>.env$x[1]</code> will
+not work.</li>
+</ul>
+<p><code>DBI</code>, <code>dbplyr</code> and <code>duckdb</code> are in
+Suggests. Nothing in <code>R/</code> calls DBI or duckdb, and
+<code><a href="https://dbplyr.tidyverse.org/reference/remote_name.html" class="external-link">dbplyr::remote_con()</a></code> is reached only for a
+<code>tbl_sql</code> input, behind <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>.
+<code>tests/testthat/test-lazy-input.R</code> runs the bundled data
+through DuckDB and requires every result and allele-check record to be
+identical to the data-frame run.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="s3-classes">S3 Classes<a class="anchor" aria-label="anchor" href="#s3-classes"></a>
@@ -1151,13 +1212,15 @@ spaced picks through the sorted shared rsIDs: deterministic
 (reproducible, and the caller’s RNG state is untouched) and effectively
 random with respect to genomic position. Cost scales with the total rows
 of the two inputs, not with the number of instruments, and is recorded
-as <code>timing[["allele_check"]]</code>. Profiled on a 42M-row
-genome-wide exposure against a 12M-row genome-wide outcome (9.6M shared
-rsIDs): <code><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect()</a></code> ~3 s, <code><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff()</a></code> ~0.6 s,
-the radix sort of the shared rsIDs ~1.8 s, the two <code>%in%</code>
-subsets ~1.2 s, formatting and harmonising the ~1000 sampled SNPs a few
-milliseconds – about 6 s in all. A 200k-SNP exposure takes well under a
-second.</p>
+as <code>timing[["allele_check"]]</code>. Profiled before issue #42 on a
+42M-row genome-wide exposure against a 12M-row genome-wide outcome (9.6M
+shared rsIDs): base <code><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect()</a></code> ~3 s,
+<code><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff()</a></code> ~0.6 s, the radix sort of the shared rsIDs ~1.8
+s, the two <code>%in%</code> subsets ~1.2 s, formatting and harmonising
+the ~1000 sampled SNPs a few milliseconds – about 6 s in all. A 200k-SNP
+exposure takes well under a second. The intersect and setdiff now run in
+<code><a href="../reference/shared_rsids.html">shared_rsids()</a></code> (below), which is faster on both input
+types.</p>
 <p>The sort is <code>sort(shared, method = "radix")</code> deliberately
 (issue #40). Base <code><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort()</a></code> chooses radix only for numeric,
 factor and logical vectors; for character vectors it falls back to shell
@@ -1176,6 +1239,53 @@ object is routinely passed under different ids), and a caller-supplied
 precomputed verdict is a skip switch by another name. The check
 therefore runs on every call, which also keeps the
 <code><a href="../reference/last_allele_check.html">last_allele_check()</a></code> record honest.</p>
+</div>
+<div class="section level3">
+<h3 id="shared_rsids-and-same_backend">
+<code>shared_rsids()</code> and <code>same_backend()</code><a class="anchor" aria-label="anchor" href="#shared_rsids-and-same_backend"></a>
+</h3>
+<p><code><a href="../reference/shared_rsids.html">shared_rsids()</a></code> returns the rsIDs in both inputs, minus
+the instruments, for <code><a href="../reference/check_allele_orientation_gwas.html">check_allele_orientation_gwas()</a></code> to
+sample from. It cuts each input to its one rsID column and combines them
+with <code><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">dplyr::intersect()</a></code>, then removes the instruments with
+<code><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">dplyr::setdiff()</a></code>, both on one-column tibbles. When
+<code><a href="../reference/same_backend.html">same_backend()</a></code> finds two dbplyr tables on one connection,
+the intersect compiles to SQL <code>INTERSECT</code> and only the shared
+rsIDs leave the database. Any other pairing (two data frames, a data
+frame and a lazy table, two connections, Arrow) has each rsID column
+collected first: a cross-source <code><a href="https://generics.r-lib.org/reference/setops.html" class="external-link">dplyr::intersect()</a></code> errors,
+and <code>copy = TRUE</code> would push a genome-wide frame into the
+database. A lazy input that takes this fallback says so when
+<code>verbose = TRUE</code>.</p>
+<p>The set operations run on tibbles, not vectors, on purpose. On a
+character vector, dplyr’s
+<code><a href="https://rdrr.io/r/base/sets.html" class="external-link">intersect()</a></code>/<code><a href="https://rdrr.io/r/base/sets.html" class="external-link">setdiff()</a></code> call base R. On a data
+frame they use vctrs, which benchmarks about 6x faster on synthetic
+rsIDs:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Operation</th>
+<th>Base R</th>
+<th>dplyr on tibbles (vctrs)</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>intersect, 10M x 3M rsIDs</td>
+<td>1.27 s</td>
+<td>0.19 s</td>
+</tr>
+<tr class="even">
+<td>setdiff, 10M minus 200 rsIDs</td>
+<td>0.60 s</td>
+<td>0.14 s</td>
+</tr>
+</tbody>
+</table>
+<p>For comparison, DuckDB’s <code>INTERSECT</code> on 20M x 6M rsIDs,
+including pulling the 2.4M shared ones, took 0.67 s. The collected
+fallback took about 4 s and held 1.9 GB of strings in R. NA rsIDs match
+each other in both SQL <code>INTERSECT</code> and vctrs, and are dropped
+afterwards, as before.</p>
 </div>
 <div class="section level3">
 <h3 id="compute_ld_matrix">

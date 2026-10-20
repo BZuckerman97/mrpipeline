@@ -2,6 +2,49 @@
 
 ## Package Architecture
 
+### Lazy `exposure` and `outcome` (issue \#42)
+
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+and
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+take `exposure`/`outcome` as a data frame *or* a lazy dplyr table (a
+DuckDB `tbl()` via dbplyr, an Arrow query). There is one code path for
+both. Every place that selects rows from the full inputs is
+`dplyr::filter(...) |> dplyr::collect()`, and `collect()` returns a data
+frame unchanged:
+
+| Function | Selection |
+|----|----|
+| [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md) | manual instruments, cis window + p-value, genome-wide p-value, the outcome at the instrument rsIDs |
+| [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md) | the exposure window, the outcome window |
+| [`check_allele_orientation_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.md) | the shared rsIDs via [`shared_rsids()`](https://github.com/BZuckerman97/mrpipeline/reference/shared_rsids.md), then the instrument + sampled rows |
+
+Everything downstream (clumping, harmonisation, estimators, coloc)
+receives those small collected frames and never sees a lazy table. Rules
+for code that touches the raw inputs:
+
+- Select rows only with `filter() |> collect()`. `$`, `[`, and
+  [`nrow()`](https://rdrr.io/r/base/nrow.html) do not work on a lazy
+  table ([`nrow()`](https://rdrr.io/r/base/nrow.html) returns `NA`).
+- Check columns with
+  [`colnames()`](https://rdrr.io/r/base/colnames.html), not
+  [`names()`](https://rdrr.io/r/base/names.html).
+  [`names()`](https://rdrr.io/r/base/names.html) of a dbplyr table
+  returns its list slots (`"src"`, `"lazy_query"`).
+- Refer to local values as `.env$x` and columns as `.data$x`. Compute a
+  value into a local first: dbplyr translates any expression that is not
+  a bare `.env$x` into SQL, so `.env$region$start` or `.env$x[1]` will
+  not work.
+
+`DBI`, `dbplyr` and `duckdb` are in Suggests. Nothing in `R/` calls DBI
+or duckdb, and
+[`dbplyr::remote_con()`](https://dbplyr.tidyverse.org/reference/remote_name.html)
+is reached only for a `tbl_sql` input, behind
+[`requireNamespace()`](https://rdrr.io/r/base/ns-load.html).
+`tests/testthat/test-lazy-input.R` runs the bundled data through DuckDB
+and requires every result and allele-check record to be identical to the
+data-frame run.
+
 ## S3 Classes
 
 ### `mr_result`
@@ -742,13 +785,17 @@ The extra SNPs are evenly spaced picks through the sorted shared rsIDs:
 deterministic (reproducible, and the caller’s RNG state is untouched)
 and effectively random with respect to genomic position. Cost scales
 with the total rows of the two inputs, not with the number of
-instruments, and is recorded as `timing[["allele_check"]]`. Profiled on
-a 42M-row genome-wide exposure against a 12M-row genome-wide outcome
-(9.6M shared rsIDs): [`intersect()`](https://rdrr.io/r/base/sets.html)
-~3 s, [`setdiff()`](https://rdrr.io/r/base/sets.html) ~0.6 s, the radix
-sort of the shared rsIDs ~1.8 s, the two `%in%` subsets ~1.2 s,
-formatting and harmonising the ~1000 sampled SNPs a few milliseconds –
-about 6 s in all. A 200k-SNP exposure takes well under a second.
+instruments, and is recorded as `timing[["allele_check"]]`. Profiled
+before issue \#42 on a 42M-row genome-wide exposure against a 12M-row
+genome-wide outcome (9.6M shared rsIDs): base
+[`intersect()`](https://rdrr.io/r/base/sets.html) ~3 s,
+[`setdiff()`](https://rdrr.io/r/base/sets.html) ~0.6 s, the radix sort
+of the shared rsIDs ~1.8 s, the two `%in%` subsets ~1.2 s, formatting
+and harmonising the ~1000 sampled SNPs a few milliseconds – about 6 s in
+all. A 200k-SNP exposure takes well under a second. The intersect and
+setdiff now run in
+[`shared_rsids()`](https://github.com/BZuckerman97/mrpipeline/reference/shared_rsids.md)
+(below), which is faster on both input types.
 
 The sort is `sort(shared, method = "radix")` deliberately (issue \#40).
 Base [`sort()`](https://rdrr.io/r/base/sort.html) chooses radix only for
@@ -771,6 +818,43 @@ verdict is a skip switch by another name. The check therefore runs on
 every call, which also keeps the
 [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
 record honest.
+
+### `shared_rsids()` and `same_backend()`
+
+[`shared_rsids()`](https://github.com/BZuckerman97/mrpipeline/reference/shared_rsids.md)
+returns the rsIDs in both inputs, minus the instruments, for
+[`check_allele_orientation_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.md)
+to sample from. It cuts each input to its one rsID column and combines
+them with
+[`dplyr::intersect()`](https://generics.r-lib.org/reference/setops.html),
+then removes the instruments with
+[`dplyr::setdiff()`](https://generics.r-lib.org/reference/setops.html),
+both on one-column tibbles. When
+[`same_backend()`](https://github.com/BZuckerman97/mrpipeline/reference/same_backend.md)
+finds two dbplyr tables on one connection, the intersect compiles to SQL
+`INTERSECT` and only the shared rsIDs leave the database. Any other
+pairing (two data frames, a data frame and a lazy table, two
+connections, Arrow) has each rsID column collected first: a cross-source
+[`dplyr::intersect()`](https://generics.r-lib.org/reference/setops.html)
+errors, and `copy = TRUE` would push a genome-wide frame into the
+database. A lazy input that takes this fallback says so when
+`verbose = TRUE`.
+
+The set operations run on tibbles, not vectors, on purpose. On a
+character vector, dplyr’s
+[`intersect()`](https://rdrr.io/r/base/sets.html)/[`setdiff()`](https://rdrr.io/r/base/sets.html)
+call base R. On a data frame they use vctrs, which benchmarks about 6x
+faster on synthetic rsIDs:
+
+| Operation                    | Base R | dplyr on tibbles (vctrs) |
+|------------------------------|--------|--------------------------|
+| intersect, 10M x 3M rsIDs    | 1.27 s | 0.19 s                   |
+| setdiff, 10M minus 200 rsIDs | 0.60 s | 0.14 s                   |
+
+For comparison, DuckDB’s `INTERSECT` on 20M x 6M rsIDs, including
+pulling the 2.4M shared ones, took 0.67 s. The collected fallback took
+about 4 s and held 1.9 GB of strings in R. NA rsIDs match each other in
+both SQL `INTERSECT` and vctrs, and are dropped afterwards, as before.
 
 ### `compute_ld_matrix()`
 

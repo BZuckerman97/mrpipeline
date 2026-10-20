@@ -25,7 +25,7 @@ untouched, and effectively random with respect to genomic position."></head><bod
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.7.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,6 +40,7 @@ untouched, and effectively random with respect to genomic position."></head><bod
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/mrpipeline-developer-guide.html">mrpipeline Developer Guide</a></li>
     <li><a class="dropdown-item" href="../articles/mrpipeline-user-guide.html">mrpipeline User Guide</a></li>
   </ul></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
       </ul></div>
@@ -87,13 +88,14 @@ untouched, and effectively random with respect to genomic position.</p>
 
 
 <dl><dt id="arg-exposure">exposure<a class="anchor" aria-label="anchor" href="#arg-exposure"></a></dt>
-<dd><p>Data frame of TwoSampleMR-formatted exposure data (the
-full dataset passed to <code><a href="run_mr.html">run_mr()</a></code>, not just the instruments).</p></dd>
+<dd><p>Data frame or lazy table of TwoSampleMR-formatted
+exposure data (the full dataset passed to <code><a href="run_mr.html">run_mr()</a></code>, not just the
+instruments).</p></dd>
 
 
 <dt id="arg-outcome">outcome<a class="anchor" aria-label="anchor" href="#arg-outcome"></a></dt>
-<dd><p>Data frame in <code><a href="format_gwas.html">format_gwas()</a></code> outcome format (<code>rsids</code>,
-<code>effect_allele</code>, <code>other_allele</code>, <code>beta</code>, <code>se</code>, <code>eaf</code>, ...).</p></dd>
+<dd><p>Data frame or lazy table in <code><a href="format_gwas.html">format_gwas()</a></code> outcome format
+(<code>rsids</code>, <code>effect_allele</code>, <code>other_allele</code>, <code>beta</code>, <code>se</code>, <code>eaf</code>, ...).</p></dd>
 
 
 <dt id="arg-instrument-snps">instrument_snps<a class="anchor" aria-label="anchor" href="#arg-instrument-snps"></a></dt>
@@ -134,18 +136,24 @@ that cannot reach a verdict warns regardless.</p></dd>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Cost scales with the total rows of the two inputs, not with the number
+    <p><code>exposure</code> and <code>outcome</code> may be data frames or lazy tables (issue #42).
+The shared rsIDs come from <code><a href="shared_rsids.html">shared_rsids()</a></code>, which intersects the two ID
+columns inside the database when both tables are on one connection; then
+only the instruments and the sampled SNPs (about 1000 rows of each
+table) are collected for harmonisation.</p>
+<p>Cost scales with the total rows of the two inputs, not with the number
 of instruments: the rsID intersection and the radix sort of the shared
-rsIDs are the only steps that touch every row (about 6 s for a 42M-row
-exposure against a 12M-row outcome, i.e. two genome-wide GWAS; well under
-a second for a 200k-SNP exposure). Formatting and harmonising the ~1000
-sampled SNPs takes a few milliseconds. The shared rsIDs are sorted with
-<code>method = "radix"</code>: base <code><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort()</a></code> uses shell sort with per-comparison
-locale collation for character vectors, which is ~25x slower on 10M
-rsIDs and made the check the dominant cost of a cis-MR (issue #40). The
-check needs the <em>full</em> frames to sample from, so it cannot be made
-cheaper by narrowing the inputs first, and it runs on every call – it
-is not cached across <code><a href="run_mr.html">run_mr()</a></code> calls that share a pair.</p>
+rsIDs are the only steps that touch every row. With both tables on one
+DuckDB connection the intersection takes well under a second for a
+20M-row exposure against a 6M-row outcome; for in-memory data frames it
+is a vctrs set operation of similar cost. Formatting and harmonising the
+~1000 sampled SNPs takes a few milliseconds. The shared rsIDs are sorted
+with <code>method = "radix"</code>: base <code><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort()</a></code> uses shell sort with
+per-comparison locale collation for character vectors, which is ~25x
+slower on 10M rsIDs and made the check the dominant cost of a cis-MR
+(issue #40). The check samples from the <em>full</em> tables, so it cannot be
+made cheaper by narrowing the inputs first, and it runs on every call –
+it is not cached across <code><a href="run_mr.html">run_mr()</a></code> calls that share a pair.</p>
 <p>The check is skipped (with a <code>"skipped"</code> record, and a warning that
 orientation is unverified) when the exposure lacks <code>SNP</code>/<code>eaf.exposure</code> or
 the outcome lacks the <code><a href="format_gwas.html">format_gwas()</a></code> outcome columns, or when nothing

@@ -550,7 +550,7 @@ mr_res$results[, c("method", "nsnp", "b", "se", "pval", "or")]
 #> 1 IVW (random effects)    7 0.1039171 0.07064066 0.14127327 1.109508
 #> 2  IVW (fixed effects)    7 0.1039171 0.05004810 0.03786213 1.109508
 #> 3             MR Egger    7 0.1463184 0.25272353 0.58771400 1.157565
-#> 4      Weighted median    7 0.1677675 0.06749428 0.01293133 1.182662
+#> 4      Weighted median    7 0.1677675 0.06729715 0.01266917 1.182662
 ```
 
 ### Sensitivity analyses
@@ -687,7 +687,7 @@ corrected$results[, c("method", "b", "se", "model", "ld_corrected")]
 #> 1 IVW (random effects) 0.1526528 0.05802051 random         TRUE
 #> 2  IVW (fixed effects) 0.1526528 0.02730979  fixed         TRUE
 #> 3             MR Egger 0.4547481 0.28286288 random         TRUE
-#> 4      Weighted median 0.1677675 0.06810721   <NA>        FALSE
+#> 4      Weighted median 0.1677675 0.06811952   <NA>        FALSE
 ```
 
 Its instruments are the 7 from before, with pairwise \|r\| up to 0.53 in
@@ -881,6 +881,132 @@ run_mr(
 #> ! 1 instrument not found in exposure data: "rs0000001"
 ```
 
+### Large GWAS: lazy tables
+
+A genome-wide GWAS can run to tens of millions of rows, yet
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+only ever uses a few hundred of them: the instruments, the outcome at
+those rsIDs, and about 1000 shared SNPs for the allele orientation
+check.
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+uses only its window. So both functions accept a lazy dplyr table as
+well as a data frame – a
+[`dplyr::tbl()`](https://dplyr.tidyverse.org/reference/tbl.html) on a
+DuckDB connection, or an Arrow dataset query – and filter in the
+database, collecting only those rows. The full GWAS stays on disk.
+
+`DBI`, `dbplyr` and `duckdb` are suggested packages, so install them to
+use this. Opening the database is your code, not `mrpipeline`’s. Here
+DuckDB reads tab-separated files directly, standing in for formatted
+GWAS files on disk:
+
+``` r
+
+# Stand-ins for formatted GWAS files on disk
+exposure_tsv <- tempfile(fileext = ".tsv")
+outcome_tsv <- tempfile(fileext = ".tsv")
+data.table::fwrite(cd40_exposure, exposure_tsv, sep = "\t")
+data.table::fwrite(sjogren_outcome, outcome_tsv, sep = "\t")
+
+con <- DBI::dbConnect(duckdb::duckdb())
+
+# read_csv() scans a file on demand: nothing is loaded into R here. The
+# chromosome columns are read as text (see below).
+exposure_lazy <- dplyr::tbl(con, dplyr::sql(paste0(
+  "SELECT * FROM read_csv('", exposure_tsv, "', ",
+  "types = {'chr.exposure': 'VARCHAR'})"
+)))
+outcome_lazy <- dplyr::tbl(con, dplyr::sql(paste0(
+  "SELECT * FROM read_csv('", outcome_tsv, "', ",
+  "types = {'chr': 'VARCHAR'})"
+)))
+exposure_lazy
+#> # A query:  ?? x 14
+#> # Database: DuckDB 1.5.6 [unknown@Linux 6.17.0-1022-azure:R 4.6.1/:memory:]
+#>    SNP    chr.exposure pos.exposure effect_allele.exposure other_allele.exposure
+#>    <chr>  <chr>               <dbl> <chr>                  <chr>                
+#>  1 rs384… 20               44666595 T                      G                    
+#>  2 rs572… 20               44668401 G                      C                    
+#>  3 rs229… 20               44673546 G                      C                    
+#>  4 rs229… 20               44674743 C                      A                    
+#>  5 rs374… 20               44680412 T                      C                    
+#>  6 rs9074 20               44688665 A                      G                    
+#>  7 rs242… 20               44702120 C                      T                    
+#>  8 rs601… 20               44712815 A                      G                    
+#>  9 rs445… 20               44721307 T                      C                    
+#> 10 rs741… 20               44721385 T                      G                    
+#> # ℹ more rows
+#> # ℹ 9 more variables: beta.exposure <dbl>, se.exposure <dbl>,
+#> #   pval.exposure <dbl>, eaf.exposure <dbl>, samplesize.exposure <dbl>,
+#> #   exposure <chr>, id.exposure <chr>, mr_keep.exposure <lgl>,
+#> #   pval_origin.exposure <chr>
+
+set.seed(1)
+mr_lazy <- run_mr(
+  exposure = exposure_lazy,
+  exposure_id = "CD40",
+  outcome = outcome_lazy,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
+  bfile = bfile,
+  methods = c(
+    "ivw_random", "ivw_fixed", "egger", "weighted_median",
+    "steiger", "pleiotropy", "heterogeneity", "loo"
+  )
+)
+mr_lazy$results[, c("method", "nsnp", "b", "se", "pval")]
+#>                 method nsnp         b         se       pval
+#> 1 IVW (random effects)    7 0.1039171 0.07064066 0.14127327
+#> 2  IVW (fixed effects)    7 0.1039171 0.05004810 0.03786213
+#> 3             MR Egger    7 0.1463184 0.25272353 0.58771400
+#> 4      Weighted median    7 0.1677675 0.06729715 0.01266917
+
+DBI::dbDisconnect(con, shutdown = TRUE)
+```
+
+These are the estimates from the in-memory analysis above. Two points
+matter in practice:
+
+- **Keep both tables on one connection.** The allele orientation check
+  intersects the exposure and outcome rsIDs. On one connection that runs
+  inside the database and returns only the shared rsIDs. If the tables
+  are on different connections, or one is a data frame, each rsID column
+  is collected into R instead (with `verbose = TRUE` you are told so).
+  That works, but for two genome-wide GWAS it is tens of millions of
+  strings.
+- **Store chromosome columns as text.** The region filters compare
+  `as.character(chr)` with the requested chromosome. A database casts a
+  floating-point `20` to `"20.0"`, which matches nothing. The `types`
+  argument above prevents that; \[format_gwas()\] already writes `chr`
+  as character.
+
+For a pipeline, write each formatted GWAS into one DuckDB file once,
+then open it read-only for each analysis. Connections cannot be saved
+between R sessions, so a `targets` pipeline should track the file path
+and open the connection inside the target:
+
+``` r
+
+# Once, after format_gwas() / format_pqtl_*()
+con <- DBI::dbConnect(duckdb::duckdb(), "gwas.duckdb")
+DBI::dbWriteTable(con, "exposure", formatted_exposure)
+DBI::dbWriteTable(con, "outcome", formatted_outcome)
+DBI::dbDisconnect(con, shutdown = TRUE)
+
+# For each analysis
+con <- DBI::dbConnect(duckdb::duckdb(), "gwas.duckdb", read_only = TRUE)
+result <- run_mr(
+  exposure = dplyr::tbl(con, "exposure"),
+  exposure_id = "PCSK9",
+  outcome = dplyr::tbl(con, "outcome"),
+  outcome_id = "CHD",
+  instrument_region = list(chromosome = "1", start = 55039548, end = 55064852),
+  bfile = bfile
+)
+DBI::dbDisconnect(con, shutdown = TRUE)
+```
+
 ## Interpreting MR Results
 
 Use [`print()`](https://rdrr.io/r/base/print.html) for a one-line
@@ -906,8 +1032,8 @@ summary(mr_res)
 #>   [1.006-1.224] (7 SNPs)
 #> • MR Egger [random effects]: b = 0.1463, se = 0.2527, p = 0.588, OR = 1.158
 #>   [0.705-1.9] (7 SNPs)
-#> • Weighted median: b = 0.1678, se = 0.0675, p = 0.0129, OR = 1.183 [1.036-1.35]
-#>   (7 SNPs)
+#> • Weighted median: b = 0.1678, se = 0.0673, p = 0.0127, OR = 1.183
+#>   [1.037-1.349] (7 SNPs)
 #> 
 #> ── Harmonisation ──
 #> 

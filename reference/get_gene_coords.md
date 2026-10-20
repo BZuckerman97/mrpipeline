@@ -47,10 +47,8 @@ get_gene_coords("CD40")
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
 #> Also defined by ‘Rmpfr’
 #> Ensembl site unresponsive, trying asia mirror
-#> # A tibble: 1 × 4
-#>   hgnc_symbol chromosome    start      end
-#>   <chr>       <chr>         <int>    <int>
-#> 1 CD40        20         46118240 46130378
+#> Ensembl site unresponsive, trying useast mirror
+#> Error in .chooseEnsemblMirror(mirror = mirror, http_config = http_config): Unable to query any Ensembl site
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
 #> Error in req_perform(request): Failed to perform HTTP request.
 #> Caused by error in `curl::curl_fetch_memory()`:

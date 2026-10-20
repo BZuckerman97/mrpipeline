@@ -33,14 +33,14 @@ check_allele_orientation_gwas(
 
 - exposure:
 
-  Data frame of TwoSampleMR-formatted exposure data (the full dataset
-  passed to
+  Data frame or lazy table of TwoSampleMR-formatted exposure data (the
+  full dataset passed to
   [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md),
   not just the instruments).
 
 - outcome:
 
-  Data frame in
+  Data frame or lazy table in
   [`format_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.md)
   outcome format (`rsids`, `effect_allele`, `other_allele`, `beta`,
   `se`, `eaf`, ...).
@@ -86,19 +86,27 @@ The diagnostic record, invisibly (see
 
 ## Details
 
+`exposure` and `outcome` may be data frames or lazy tables (issue \#42).
+The shared rsIDs come from
+[`shared_rsids()`](https://github.com/BZuckerman97/mrpipeline/reference/shared_rsids.md),
+which intersects the two ID columns inside the database when both tables
+are on one connection; then only the instruments and the sampled SNPs
+(about 1000 rows of each table) are collected for harmonisation.
+
 Cost scales with the total rows of the two inputs, not with the number
 of instruments: the rsID intersection and the radix sort of the shared
-rsIDs are the only steps that touch every row (about 6 s for a 42M-row
-exposure against a 12M-row outcome, i.e. two genome-wide GWAS; well
-under a second for a 200k-SNP exposure). Formatting and harmonising the
+rsIDs are the only steps that touch every row. With both tables on one
+DuckDB connection the intersection takes well under a second for a
+20M-row exposure against a 6M-row outcome; for in-memory data frames it
+is a vctrs set operation of similar cost. Formatting and harmonising the
 ~1000 sampled SNPs takes a few milliseconds. The shared rsIDs are sorted
 with `method = "radix"`: base
 [`sort()`](https://rdrr.io/r/base/sort.html) uses shell sort with
 per-comparison locale collation for character vectors, which is ~25x
 slower on 10M rsIDs and made the check the dominant cost of a cis-MR
-(issue \#40). The check needs the *full* frames to sample from, so it
-cannot be made cheaper by narrowing the inputs first, and it runs on
-every call – it is not cached across
+(issue \#40). The check samples from the *full* tables, so it cannot be
+made cheaper by narrowing the inputs first, and it runs on every call –
+it is not cached across
 [`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
 calls that share a pair.
 

@@ -38,9 +38,10 @@ run_mr(
 
 - exposure:
 
-  Data frame of formatted exposure data (output of
+  Formatted exposure data (output of
   [`TwoSampleMR::format_data()`](https://mrcieu.github.io/TwoSampleMR/reference/format_data.html)
-  or `format_pqtl_*()` functions).
+  or `format_pqtl_*()` functions): a data frame, or a lazy table with
+  the same columns – see *Lazy tables*.
 
 - exposure_id:
 
@@ -48,9 +49,10 @@ run_mr(
 
 - outcome:
 
-  Data frame of outcome summary statistics with standardised columns:
-  `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
-  `effect_allele`, `other_allele`. Formatted internally via
+  Outcome summary statistics with standardised columns: `rsids`, `chr`,
+  `pos`, `beta`, `se`, `eaf`, `pval`, `n`, `effect_allele`,
+  `other_allele`. A data frame, or a lazy table with the same columns –
+  see *Lazy tables*. Formatted internally via
   [`TwoSampleMR::format_data()`](https://mrcieu.github.io/TwoSampleMR/reference/format_data.html).
 
 - outcome_id:
@@ -160,9 +162,10 @@ run_mr(
   available afterwards from
   [`last_allele_check()`](https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.md)
   in every mode. The check runs on every call over the full exposure and
-  outcome you pass in (it is not cached across calls that share a pair)
-  and costs on the order of seconds when both are genome-wide – about 6
-  s for a 42M-row exposure against a 12M-row outcome – recorded in
+  outcome you pass in (it is not cached across calls that share a pair).
+  Its cost is the intersection of the two rsID columns: a few seconds
+  for two genome-wide data frames, under a second for two lazy tables on
+  one database connection (see *Lazy tables*). It is recorded in
   `$timing[["allele_check"]]` so pipeline authors can plan for it.
 
 - harmonise_action:
@@ -325,6 +328,37 @@ number of instruments.
 | `pleiotropy` | Egger intercept (pleiotropy) test | – | `$pleiotropy` | – | yes | 3 |
 | `heterogeneity` | Cochran's Q heterogeneity test | – | `$heterogeneity` | – | yes | 2 |
 | `loo` | Leave-one-out IVW | – | `$loo` | – | yes | 3 |
+
+## Lazy tables
+
+`exposure` and `outcome` may be lazy dplyr tables instead of data
+frames: a
+[`dplyr::tbl()`](https://dplyr.tidyverse.org/reference/tbl.html) on a
+DuckDB connection (via the `duckdb` and `dbplyr` packages), or any other
+backend that supports
+[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
+and
+[`dplyr::collect()`](https://dplyr.tidyverse.org/reference/compute.html),
+such as an Arrow dataset query. `run_mr()` only ever needs a few hundred
+rows of each – the selected instruments, the outcome at those rsIDs, and
+about 1000 SNPs for the allele orientation check – so it filters in the
+backend and collects just those rows. A genome-wide GWAS can then stay
+on disk instead of being loaded into memory on every call. Results are
+identical to passing the same data as data frames.
+
+Opening the database is up to the caller, and the connection must stay
+open for the duration of the call. Two things keep the lazy path fast
+and exact:
+
+- Put both tables on **one connection** (e.g. one DuckDB file). The
+  allele check then intersects the two rsID columns inside the database.
+  Otherwise each table's rsID column is collected into R for it – about
+  54M strings for a 42M-row exposure and a 12M-row outcome – and, with
+  `verbose = TRUE`, a message says so.
+
+- Store `chr.exposure` and `chr` as **text**. The cis filter compares
+  `as.character(chr)` with the requested chromosome, and a database
+  casts a floating-point `20` to `"20.0"`, which matches nothing.
 
 ## See also
 

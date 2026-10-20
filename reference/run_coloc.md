@@ -47,9 +47,10 @@ run_coloc(
 
 - exposure:
 
-  Data frame of formatted exposure data (output of
+  Formatted exposure data (output of
   [`TwoSampleMR::format_data()`](https://mrcieu.github.io/TwoSampleMR/reference/format_data.html)
-  or `format_pqtl_*()` functions).
+  or `format_pqtl_*()` functions): a data frame, or a lazy table with
+  the same columns – see *Lazy tables*.
 
 - exposure_id:
 
@@ -58,9 +59,10 @@ run_coloc(
 
 - outcome:
 
-  Data frame of outcome summary statistics with standardised columns:
-  `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
-  `effect_allele`, `other_allele`.
+  Outcome summary statistics with standardised columns: `rsids`, `chr`,
+  `pos`, `beta`, `se`, `eaf`, `pval`, `n`, `effect_allele`,
+  `other_allele`. A data frame, or a lazy table with the same columns –
+  see *Lazy tables*.
 
 - outcome_id:
 
@@ -318,6 +320,27 @@ which can't be resolved by allele identity alone), and returns a
 immediately before they're passed to
 [`coloc::runsusie()`](https://rdrr.io/pkg/coloc/man/runsusie.html) – see
 that function's documentation for the full algorithm.
+
+## Lazy tables
+
+`exposure` and `outcome` may be lazy dplyr tables instead of data
+frames: a
+[`dplyr::tbl()`](https://dplyr.tidyverse.org/reference/tbl.html) on a
+DuckDB connection (via the `duckdb` and `dbplyr` packages), or any other
+backend that supports
+[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
+and
+[`dplyr::collect()`](https://dplyr.tidyverse.org/reference/compute.html),
+such as an Arrow dataset query. `run_coloc()` filters each to the
+colocalization window in the backend and collects only those rows, so a
+genome-wide GWAS never has to be loaded into memory. Results are
+identical to passing the same data as data frames. Opening the database
+is up to the caller, and the connection must stay open for the duration
+of the call. Store `chr.exposure` and `chr` as text: the window filter
+compares `as.character(chr)`, and a database casts a floating-point `20`
+to `"20.0"`. See
+[`run_mr()`](https://github.com/BZuckerman97/mrpipeline/reference/run_mr.md)
+for the same option there.
 
 ## See also
 
