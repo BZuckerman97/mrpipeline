@@ -942,6 +942,26 @@ Before opening any pull request:
 4. `devtools::check()` — must produce 0 errors, 0 warnings
 5. `devtools::test()` — all tests must pass
 
+## Repositories and `.Rprofile`
+
+TwoSampleMR is published on the MRC IEU r-universe, not CRAN. DESCRIPTION
+lists it under `Additional_repositories` for R CMD check, but pak (which
+`devtools::install_deps()`, `pak::pak()` and the CI actions all use) ignores
+that field: the repository has to be in `options(repos)`. Add it once to
+your own `~/.Rprofile`:
+
+```r
+options(repos = c(getOption("repos"), mrcieu = "https://mrcieu.r-universe.dev"))
+```
+
+The package deliberately has no project `.Rprofile`. R reads only one of
+`./.Rprofile` and `~/.Rprofile`, so a project file replaces each
+developer's own profile, and on CI it replaced the one that
+`r-lib/actions/setup-r` writes -- the file that points Linux at Posit
+Package Manager's binary repository. For months every Ubuntu job compiled
+every dependency from source because of this (PR #46). CI instead passes
+the r-universe through `setup-r`'s `extra-repositories` input.
+
 ## Contributing
 
 <!-- TODO: branch naming convention (phase-N/short-description) -->
