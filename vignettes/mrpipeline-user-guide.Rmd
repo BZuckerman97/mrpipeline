@@ -16,10 +16,6 @@ knitr::opts_chunk$set(
   message = FALSE
 )
 library(mrpipeline)
-# ieugwasr draws from the RNG when its namespace loads, which otherwise
-# happens inside the first run_mr() call -- after that chunk's set.seed() --
-# so the first seeded analysis would differ from an identical later one.
-loadNamespace("ieugwasr")
 
 # The evaluated examples need the bundled LD panel and a PLINK binary.
 # genetics.binaRies::get_plink_binary() downloads PLINK on first use and
