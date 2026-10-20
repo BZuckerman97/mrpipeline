@@ -16,6 +16,10 @@ knitr::opts_chunk$set(
   message = FALSE
 )
 library(mrpipeline)
+# ieugwasr draws from the RNG when its namespace loads, which otherwise
+# happens inside the first run_mr() call -- after that chunk's set.seed() --
+# so the first seeded analysis would differ from an identical later one.
+loadNamespace("ieugwasr")
 
 # The evaluated examples need the bundled LD panel and a PLINK binary.
 # genetics.binaRies::get_plink_binary() downloads PLINK on first use and
@@ -34,6 +38,10 @@ has_ld <- file.exists(paste0(bfile, ".bed")) && file.exists(plink_bin)
 has_gg <- has_ld && requireNamespace("ggplot2", quietly = TRUE)
 has_susie <- has_ld && requireNamespace("susieR", quietly = TRUE)
 has_forestplot <- requireNamespace("forestplot", quietly = TRUE)
+has_duckdb <- has_ld &&
+  requireNamespace("DBI", quietly = TRUE) &&
+  requireNamespace("dbplyr", quietly = TRUE) &&
+  requireNamespace("duckdb", quietly = TRUE)
 
 # Numbers quoted in the prose come from the evaluated results, never typed.
 # Counts print as integers; anything else to `digits` significant figures,
@@ -830,6 +838,107 @@ run_mr(
   instruments = c("rs4810485", "rs4813002", "rs0000001"),
   instruments_strict = TRUE
 )
+```
+
+### Large GWAS: lazy tables
+
+A genome-wide GWAS can run to tens of millions of rows, yet `run_mr()` only
+ever uses a few hundred of them: the instruments, the outcome at those
+rsIDs, and about 1000 shared SNPs for the allele orientation check.
+`run_coloc()` uses only its window. So both functions accept a lazy dplyr
+table as well as a data frame -- a `dplyr::tbl()` on a DuckDB connection, or
+an Arrow dataset query -- and filter in the database, collecting only those
+rows. The full GWAS stays on disk.
+
+`DBI`, `dbplyr` and `duckdb` are suggested packages, so install them to use
+this. Opening the database is your code, not `mrpipeline`'s. Here DuckDB
+reads tab-separated files directly, standing in for formatted GWAS files on
+disk:
+
+```{r lazy-tables, eval = has_duckdb}
+# Stand-ins for formatted GWAS files on disk
+exposure_tsv <- tempfile(fileext = ".tsv")
+outcome_tsv <- tempfile(fileext = ".tsv")
+data.table::fwrite(cd40_exposure, exposure_tsv, sep = "\t")
+data.table::fwrite(sjogren_outcome, outcome_tsv, sep = "\t")
+
+con <- DBI::dbConnect(duckdb::duckdb())
+
+# read_csv() scans a file on demand: nothing is loaded into R here. The
+# chromosome columns are read as text (see below).
+exposure_lazy <- dplyr::tbl(con, dplyr::sql(paste0(
+  "SELECT * FROM read_csv('", exposure_tsv, "', ",
+  "types = {'chr.exposure': 'VARCHAR'})"
+)))
+outcome_lazy <- dplyr::tbl(con, dplyr::sql(paste0(
+  "SELECT * FROM read_csv('", outcome_tsv, "', ",
+  "types = {'chr': 'VARCHAR'})"
+)))
+exposure_lazy
+
+set.seed(1)
+mr_lazy <- run_mr(
+  exposure = exposure_lazy,
+  exposure_id = "CD40",
+  outcome = outcome_lazy,
+  outcome_id = "SjD",
+  instrument_region = list(chromosome = "20", start = 44746911, end = 44758502),
+  rsq_thresh = 0.3,
+  bfile = bfile,
+  methods = c(
+    "ivw_random", "ivw_fixed", "egger", "weighted_median",
+    "steiger", "pleiotropy", "heterogeneity", "loo"
+  )
+)
+mr_lazy$results[, c("method", "nsnp", "b", "se", "pval")]
+
+DBI::dbDisconnect(con, shutdown = TRUE)
+```
+
+```{r lazy-tables-check, include = FALSE, eval = has_duckdb}
+# The prose claims the lazy run reproduces the in-memory one; fail the build
+# rather than publish that if it ever stops being true.
+stopifnot(isTRUE(all.equal(mr_lazy$results, mr_res$results)))
+```
+
+These are the estimates from the in-memory analysis above. Two points
+matter in practice:
+
+- **Keep both tables on one connection.** The allele orientation check
+  intersects the exposure and outcome rsIDs. On one connection that runs
+  inside the database and returns only the shared rsIDs. If the tables are
+  on different connections, or one is a data frame, each rsID column is
+  collected into R instead (with `verbose = TRUE` you are told so). That
+  works, but for two genome-wide GWAS it is tens of millions of strings.
+- **Store chromosome columns as text.** The region filters compare
+  `as.character(chr)` with the requested chromosome. A database casts a
+  floating-point `20` to `"20.0"`, which matches nothing. The `types`
+  argument above prevents that; [format_gwas()] already writes `chr` as
+  character.
+
+For a pipeline, write each formatted GWAS into one DuckDB file once, then
+open it read-only for each analysis. Connections cannot be saved between R
+sessions, so a `targets` pipeline should track the file path and open the
+connection inside the target:
+
+```{r lazy-tables-file, eval = FALSE}
+# Once, after format_gwas() / format_pqtl_*()
+con <- DBI::dbConnect(duckdb::duckdb(), "gwas.duckdb")
+DBI::dbWriteTable(con, "exposure", formatted_exposure)
+DBI::dbWriteTable(con, "outcome", formatted_outcome)
+DBI::dbDisconnect(con, shutdown = TRUE)
+
+# For each analysis
+con <- DBI::dbConnect(duckdb::duckdb(), "gwas.duckdb", read_only = TRUE)
+result <- run_mr(
+  exposure = dplyr::tbl(con, "exposure"),
+  exposure_id = "PCSK9",
+  outcome = dplyr::tbl(con, "outcome"),
+  outcome_id = "CHD",
+  instrument_region = list(chromosome = "1", start = 55039548, end = 55064852),
+  bfile = bfile
+)
+DBI::dbDisconnect(con, shutdown = TRUE)
 ```
 
 ## Interpreting MR Results

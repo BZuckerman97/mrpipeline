@@ -39,15 +39,17 @@ run_coloc(
 )
 }
 \arguments{
-\item{exposure}{Data frame of formatted exposure data (output of
-\code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}} or \verb{format_pqtl_*()} functions).}
+\item{exposure}{Formatted exposure data (output of
+\code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}} or \verb{format_pqtl_*()} functions): a data
+frame, or a lazy table with the same columns -- see \emph{Lazy tables}.}
 
 \item{exposure_id}{Character. Label for the exposure (e.g. protein name or
 trait). Used in printed output and stored in the returned object.}
 
-\item{outcome}{Data frame of outcome summary statistics with standardised
-columns: \code{rsids}, \code{chr}, \code{pos}, \code{beta}, \code{se}, \code{eaf}, \code{pval}, \code{n},
-\code{effect_allele}, \code{other_allele}.}
+\item{outcome}{Outcome summary statistics with standardised columns:
+\code{rsids}, \code{chr}, \code{pos}, \code{beta}, \code{se}, \code{eaf}, \code{pval}, \code{n},
+\code{effect_allele}, \code{other_allele}. A data frame, or a lazy table with the
+same columns -- see \emph{Lazy tables}.}
 
 \item{outcome_id}{Character. Label for the outcome (e.g. disease name or
 trait). Used in printed output and stored in the returned object.}
@@ -235,6 +237,21 @@ alone), and returns a \code{ld_sign} vector multiplied into
 \code{dataset_exp$beta}/\code{dataset_out$beta} immediately before they're passed
 to \code{coloc::runsusie()} -- see that function's documentation for the full
 algorithm.
+}
+
+\section{Lazy tables}{
+
+\code{exposure} and \code{outcome} may be lazy dplyr tables instead of data frames:
+a \code{\link[dplyr:tbl]{dplyr::tbl()}} on a DuckDB connection (via the \code{duckdb} and \code{dbplyr}
+packages), or any other backend that supports \code{\link[dplyr:filter]{dplyr::filter()}} and
+\code{\link[dplyr:collect]{dplyr::collect()}}, such as an Arrow dataset query. \code{run_coloc()} filters
+each to the colocalization window in the backend and collects only those
+rows, so a genome-wide GWAS never has to be loaded into memory. Results
+are identical to passing the same data as data frames. Opening the
+database is up to the caller, and the connection must stay open for the
+duration of the call. Store \code{chr.exposure} and \code{chr} as text: the window
+filter compares \code{as.character(chr)}, and a database casts a
+floating-point \code{20} to \code{"20.0"}. See \code{\link[=run_mr]{run_mr()}} for the same option there.
 }
 
 \examples{

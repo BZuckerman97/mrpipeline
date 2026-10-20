@@ -96,13 +96,40 @@
 #'
 #' @eval rd_method_table()
 #'
-#' @param exposure Data frame of formatted exposure data (output of
-#'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions).
+#' @section Lazy tables:
+#' `exposure` and `outcome` may be lazy dplyr tables instead of data frames:
+#' a [dplyr::tbl()] on a DuckDB connection (via the `duckdb` and `dbplyr`
+#' packages), or any other backend that supports [dplyr::filter()] and
+#' [dplyr::collect()], such as an Arrow dataset query. `run_mr()` only ever
+#' needs a few hundred rows of each -- the selected instruments, the
+#' outcome at those rsIDs, and about 1000 SNPs for the allele orientation
+#' check -- so it filters in the backend and collects just those rows. A
+#' genome-wide GWAS can then stay on disk instead of being loaded into
+#' memory on every call. Results are identical to passing the same data as
+#' data frames.
+#'
+#' Opening the database is up to the caller, and the connection must stay
+#' open for the duration of the call. Two things keep the lazy path fast
+#' and exact:
+#'
+#' - Put both tables on **one connection** (e.g. one DuckDB file). The
+#'   allele check then intersects the two rsID columns inside the database.
+#'   Otherwise each table's rsID column is collected into R for it -- about
+#'   54M strings for a 42M-row exposure and a 12M-row outcome -- and, with
+#'   `verbose = TRUE`, a message says so.
+#' - Store `chr.exposure` and `chr` as **text**. The cis filter compares
+#'   `as.character(chr)` with the requested chromosome, and a database casts
+#'   a floating-point `20` to `"20.0"`, which matches nothing.
+#'
+#' @param exposure Formatted exposure data (output of
+#'   [TwoSampleMR::format_data()] or `format_pqtl_*()` functions): a data
+#'   frame, or a lazy table with the same columns -- see *Lazy tables*.
 #' @param exposure_id Character. Identifier for the exposure (e.g. protein
 #'   name).
-#' @param outcome Data frame of outcome summary statistics with standardised
-#'   columns: `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
-#'   `effect_allele`, `other_allele`. Formatted internally via
+#' @param outcome Outcome summary statistics with standardised columns:
+#'   `rsids`, `chr`, `pos`, `beta`, `se`, `eaf`, `pval`, `n`,
+#'   `effect_allele`, `other_allele`. A data frame, or a lazy table with the
+#'   same columns -- see *Lazy tables*. Formatted internally via
 #'   [TwoSampleMR::format_data()].
 #' @param outcome_id Character. Identifier for the outcome (e.g. disease name).
 #' @param instrument_region List with elements `chromosome`, `start`, `end`
@@ -158,10 +185,11 @@
 #'   both allele frequencies. The full record is available afterwards from
 #'   [last_allele_check()] in every mode. The check runs on every call over
 #'   the full exposure and outcome you pass in (it is not cached across
-#'   calls that share a pair) and costs on the order of seconds when both
-#'   are genome-wide -- about 6 s for a 42M-row exposure against a 12M-row
-#'   outcome -- recorded in `$timing[["allele_check"]]` so pipeline authors
-#'   can plan for it.
+#'   calls that share a pair). Its cost is the intersection of the two rsID
+#'   columns: a few seconds for two genome-wide data frames, under a second
+#'   for two lazy tables on one database connection (see *Lazy tables*).
+#'   It is recorded in `$timing[["allele_check"]]` so pipeline authors can
+#'   plan for it.
 #' @param harmonise_action `1`, `2` (default) or `3`, passed to
 #'   [TwoSampleMR::harmonise_data()]. `1` assumes every allele is on the
 #'   forward strand; `2` infers the positive strand, resolving palindromic
@@ -357,7 +385,9 @@ run_mr <- function(
     if (verbose) {
       cli::cli_inform("Using {length(instruments)} manual instrument{?s}.")
     }
-    exposure_iv <- exposure[exposure$SNP %in% instruments, ]
+    exposure_iv <- exposure |>
+      dplyr::filter(.data$SNP %in% .env$instruments) |>
+      dplyr::collect()
 
     missing <- setdiff(instruments, exposure_iv$SNP)
     if (length(missing) > 0) {
@@ -388,14 +418,20 @@ run_mr <- function(
       ))
     }
 
+    # Locals referenced through .env so a lazy backend (dbplyr, arrow) never
+    # has to translate `instrument_region$start` itself.
+    chr_val <- as.character(instrument_region$chromosome)
+    min_pos <- instrument_region$start - window
+    max_pos <- instrument_region$end + window
+
     exposure_iv <- exposure |>
       dplyr::filter(
-        as.character(.data$chr.exposure) ==
-          as.character(instrument_region$chromosome),
-        .data$pos.exposure >= (instrument_region$start - window),
-        .data$pos.exposure <= (instrument_region$end + window)
+        as.character(.data$chr.exposure) == .env$chr_val,
+        .data$pos.exposure >= .env$min_pos,
+        .data$pos.exposure <= .env$max_pos
       ) |>
-      dplyr::filter(.data$pval.exposure < pval_thresh)
+      dplyr::filter(.data$pval.exposure < .env$pval_thresh) |>
+      dplyr::collect()
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn(
@@ -459,7 +495,8 @@ run_mr <- function(
     }
 
     exposure_iv <- exposure |>
-      dplyr::filter(.data$pval.exposure < pval_thresh)
+      dplyr::filter(.data$pval.exposure < .env$pval_thresh) |>
+      dplyr::collect()
 
     if (nrow(exposure_iv) == 0) {
       cli::cli_warn(
@@ -589,9 +626,15 @@ run_mr <- function(
   # format_gwas() returns the full GWAS file (potentially millions of rows).
   # TwoSampleMR::format_data() on a multi-million-row frame can overflow the
   # C stack; restricting to the ~10-50 instrument rsIDs avoids this and
-  # speeds up harmonisation without affecting results.
-  if ("rsids" %in% names(outcome) && nrow(exposure_iv) > 0) {
-    outcome <- outcome[outcome$rsids %in% exposure_iv$SNP, , drop = FALSE]
+  # speeds up harmonisation without affecting results. For a lazy outcome
+  # this is the only outcome query: just these rows leave the backend.
+  if ("rsids" %in% colnames(outcome)) {
+    snps <- exposure_iv$SNP
+    outcome <- outcome |>
+      dplyr::filter(.data$rsids %in% .env$snps) |>
+      dplyr::collect()
+  } else {
+    outcome <- dplyr::collect(outcome)
   }
 
   if (nrow(outcome) == 0) {

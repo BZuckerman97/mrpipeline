@@ -16,11 +16,12 @@ check_allele_orientation_gwas(
 )
 }
 \arguments{
-\item{exposure}{Data frame of TwoSampleMR-formatted exposure data (the
-full dataset passed to \code{run_mr()}, not just the instruments).}
+\item{exposure}{Data frame or lazy table of TwoSampleMR-formatted
+exposure data (the full dataset passed to \code{run_mr()}, not just the
+instruments).}
 
-\item{outcome}{Data frame in \code{\link[=format_gwas]{format_gwas()}} outcome format (\code{rsids},
-\code{effect_allele}, \code{other_allele}, \code{beta}, \code{se}, \code{eaf}, ...).}
+\item{outcome}{Data frame or lazy table in \code{\link[=format_gwas]{format_gwas()}} outcome format
+(\code{rsids}, \code{effect_allele}, \code{other_allele}, \code{beta}, \code{se}, \code{eaf}, ...).}
 
 \item{instrument_snps}{Character vector of instrument rsIDs to always
 include in the check set.}
@@ -58,18 +59,25 @@ deterministic, so results are reproducible and the caller's RNG state is
 untouched, and effectively random with respect to genomic position.
 }
 \details{
+\code{exposure} and \code{outcome} may be data frames or lazy tables (issue #42).
+The shared rsIDs come from \code{\link[=shared_rsids]{shared_rsids()}}, which intersects the two ID
+columns inside the database when both tables are on one connection; then
+only the instruments and the sampled SNPs (about 1000 rows of each
+table) are collected for harmonisation.
+
 Cost scales with the total rows of the two inputs, not with the number
 of instruments: the rsID intersection and the radix sort of the shared
-rsIDs are the only steps that touch every row (about 6 s for a 42M-row
-exposure against a 12M-row outcome, i.e. two genome-wide GWAS; well under
-a second for a 200k-SNP exposure). Formatting and harmonising the ~1000
-sampled SNPs takes a few milliseconds. The shared rsIDs are sorted with
-\code{method = "radix"}: base \code{sort()} uses shell sort with per-comparison
-locale collation for character vectors, which is ~25x slower on 10M
-rsIDs and made the check the dominant cost of a cis-MR (issue #40). The
-check needs the \emph{full} frames to sample from, so it cannot be made
-cheaper by narrowing the inputs first, and it runs on every call -- it
-is not cached across \code{run_mr()} calls that share a pair.
+rsIDs are the only steps that touch every row. With both tables on one
+DuckDB connection the intersection takes well under a second for a
+20M-row exposure against a 6M-row outcome; for in-memory data frames it
+is a vctrs set operation of similar cost. Formatting and harmonising the
+~1000 sampled SNPs takes a few milliseconds. The shared rsIDs are sorted
+with \code{method = "radix"}: base \code{sort()} uses shell sort with
+per-comparison locale collation for character vectors, which is ~25x
+slower on 10M rsIDs and made the check the dominant cost of a cis-MR
+(issue #40). The check samples from the \emph{full} tables, so it cannot be
+made cheaper by narrowing the inputs first, and it runs on every call --
+it is not cached across \code{run_mr()} calls that share a pair.
 
 The check is skipped (with a \code{"skipped"} record, and a warning that
 orientation is unverified) when the exposure lacks \code{SNP}/\code{eaf.exposure} or

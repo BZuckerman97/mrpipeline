@@ -160,3 +160,36 @@ run_quiet <- function(exposure, outcome, ...) {
   ))
   list(result = result, warnings = warnings)
 }
+
+# --- Bundled CD40 -> SjD data (inst/extdata/ld_ref panel) -----------------
+
+# Resolve the bundled reference panel, skipping cleanly where it is absent.
+ld_bfile <- function() {
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  testthat::skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  bfile
+}
+
+cd40_region <- list(chromosome = "20", start = 44746911, end = 44758502)
+
+# The bundled panel is real 1000 Genomes EUR LD, so the default
+# rsq_thresh = 0.001 clumps the CD40 cis region down to one instrument. At
+# 0.3 seven survive, with pairwise |r| up to 0.53 -- enough LD that the
+# corrected and uncorrected fits differ materially.
+cd40_rsq <- 0.3
+
+# Three of the CD40 cis instruments: none palindromic, pairwise r 0.45,
+# -0.27 and -0.16 in the panel (rcond of R 0.36), and ConMix converges on
+# them (it does not on every triple -- "wrong sign in by argument" from
+# mr_conmix()). Avoid rs4810485: it is in perfect LD with rs1883832 (r = 1),
+# which makes the GLS weight matrix singular.
+cd40_three_snps <- function() {
+  c("rs1883832", "rs4810486", "rs77048809")
+}

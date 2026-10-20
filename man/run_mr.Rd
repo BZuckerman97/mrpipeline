@@ -31,15 +31,17 @@ run_mr(
 )
 }
 \arguments{
-\item{exposure}{Data frame of formatted exposure data (output of
-\code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}} or \verb{format_pqtl_*()} functions).}
+\item{exposure}{Formatted exposure data (output of
+\code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}} or \verb{format_pqtl_*()} functions): a data
+frame, or a lazy table with the same columns -- see \emph{Lazy tables}.}
 
 \item{exposure_id}{Character. Identifier for the exposure (e.g. protein
 name).}
 
-\item{outcome}{Data frame of outcome summary statistics with standardised
-columns: \code{rsids}, \code{chr}, \code{pos}, \code{beta}, \code{se}, \code{eaf}, \code{pval}, \code{n},
-\code{effect_allele}, \code{other_allele}. Formatted internally via
+\item{outcome}{Outcome summary statistics with standardised columns:
+\code{rsids}, \code{chr}, \code{pos}, \code{beta}, \code{se}, \code{eaf}, \code{pval}, \code{n},
+\code{effect_allele}, \code{other_allele}. A data frame, or a lazy table with the
+same columns -- see \emph{Lazy tables}. Formatted internally via
 \code{\link[TwoSampleMR:format_data]{TwoSampleMR::format_data()}}.}
 
 \item{outcome_id}{Character. Identifier for the outcome (e.g. disease name).}
@@ -113,10 +115,11 @@ it is skipped when fewer than 10 informative non-palindromic SNPs carry
 both allele frequencies. The full record is available afterwards from
 \code{\link[=last_allele_check]{last_allele_check()}} in every mode. The check runs on every call over
 the full exposure and outcome you pass in (it is not cached across
-calls that share a pair) and costs on the order of seconds when both
-are genome-wide -- about 6 s for a 42M-row exposure against a 12M-row
-outcome -- recorded in \verb{$timing[["allele_check"]]} so pipeline authors
-can plan for it.}
+calls that share a pair). Its cost is the intersection of the two rsID
+columns: a few seconds for two genome-wide data frames, under a second
+for two lazy tables on one database connection (see \emph{Lazy tables}).
+It is recorded in \verb{$timing[["allele_check"]]} so pipeline authors can
+plan for it.}
 
 \item{harmonise_action}{\code{1}, \code{2} (default) or \code{3}, passed to
 \code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}}. \code{1} assumes every allele is on the
@@ -263,6 +266,34 @@ applies; \verb{min n} the minimum number of instruments.\tabular{lllllll}{
    \code{pleiotropy} \tab Egger intercept (pleiotropy) test \tab -- \tab \verb{$pleiotropy} \tab -- \tab yes \tab 3 \cr
    \code{heterogeneity} \tab Cochran's Q heterogeneity test \tab -- \tab \verb{$heterogeneity} \tab -- \tab yes \tab 2 \cr
    \code{loo} \tab Leave-one-out IVW \tab -- \tab \verb{$loo} \tab -- \tab yes \tab 3 \cr
+}
+}
+
+\section{Lazy tables}{
+
+\code{exposure} and \code{outcome} may be lazy dplyr tables instead of data frames:
+a \code{\link[dplyr:tbl]{dplyr::tbl()}} on a DuckDB connection (via the \code{duckdb} and \code{dbplyr}
+packages), or any other backend that supports \code{\link[dplyr:filter]{dplyr::filter()}} and
+\code{\link[dplyr:collect]{dplyr::collect()}}, such as an Arrow dataset query. \code{run_mr()} only ever
+needs a few hundred rows of each -- the selected instruments, the
+outcome at those rsIDs, and about 1000 SNPs for the allele orientation
+check -- so it filters in the backend and collects just those rows. A
+genome-wide GWAS can then stay on disk instead of being loaded into
+memory on every call. Results are identical to passing the same data as
+data frames.
+
+Opening the database is up to the caller, and the connection must stay
+open for the duration of the call. Two things keep the lazy path fast
+and exact:
+\itemize{
+\item Put both tables on \strong{one connection} (e.g. one DuckDB file). The
+allele check then intersects the two rsID columns inside the database.
+Otherwise each table's rsID column is collected into R for it -- about
+54M strings for a 42M-row exposure and a 12M-row outcome -- and, with
+\code{verbose = TRUE}, a message says so.
+\item Store \code{chr.exposure} and \code{chr} as \strong{text}. The cis filter compares
+\code{as.character(chr)} with the requested chromosome, and a database casts
+a floating-point \code{20} to \code{"20.0"}, which matches nothing.
 }
 }
 
