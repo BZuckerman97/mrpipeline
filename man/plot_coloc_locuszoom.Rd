@@ -4,7 +4,14 @@
 \alias{plot_coloc_locuszoom}
 \title{LD-coloured regional plots for coloc results, via locuszoomr}
 \usage{
-plot_coloc_locuszoom(x, ens_db, bfile, plink_bin = NULL, index_snp = NULL, ...)
+plot_coloc_locuszoom(
+  x,
+  ens_db,
+  bfile = NULL,
+  plink_bin = NULL,
+  index_snp = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{A \code{coloc_result} object.}
@@ -18,7 +25,7 @@ via \code{get(ens_db)} on the search path, and errors
 ("Ensembl database not loaded") if it isn't attached.}
 
 \item{bfile}{Path to PLINK bfile prefix (without .bed/.bim/.fam), used as
-the local LD reference panel.}
+the local LD reference panel, or \code{NULL} (the default) for no LD colouring.}
 
 \item{plink_bin}{Path to PLINK binary. If \code{NULL}, auto-detected via
 \code{\link[genetics.binaRies:get_plink_binary]{genetics.binaRies::get_plink_binary()}}.}
@@ -42,9 +49,13 @@ Builds exposure and outcome regional plots using \code{locuszoomr::locus()},
 coloured by LD (r2) to a chosen index SNP, and stacks them with
 \code{locuszoomr::multi_layout()}. LD is computed from a local reference panel
 via \code{\link[=compute_ld_to_index]{compute_ld_to_index()}} (reusing \code{\link[=compute_ld_matrix]{compute_ld_matrix()}} -- no network
-lookups).
+lookups). Without \code{bfile}, a warning says how to add LD colouring and the
+plots are drawn uncoloured.
 }
 \details{
+SNPs absent from the panel are kept, with no LD value. That happens when
+\code{x} came from \code{\link[=run_coloc]{run_coloc()}} with no \code{bfile}, or was aligned to another panel.
+
 There is no genome-build field stored on a \code{coloc_result} -- \code{ens_db} must
 match whatever build the exposure/outcome data (and \code{bfile}) actually use
 (e.g. \code{EnsDb.Hsapiens.v75} for GRCh37, \code{EnsDb.Hsapiens.v86} for GRCh38).

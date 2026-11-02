@@ -306,8 +306,9 @@ cannot proceed (e.g. no SNPs in region). The object contains:
 - `coloc_prop_test` — output of `colocPropTest::coloc.prop.test()`, or `NULL`
 - `n_snps` — integer, number of SNPs used in the analysis
 - `harmonised_data` — the harmonised data the analysis actually ran on:
-  filtered, then subset and reordered by `align_to_ld_matrix()` so its rows
-  correspond one-to-one with the coloc datasets
+  filtered, then (when `bfile` was given) subset and reordered by
+  `align_to_ld_matrix()` so its rows correspond one-to-one with the coloc
+  datasets
 - `harmonisation` — the complete, unfiltered `harmonise_data()` output,
   with the `mr_keep`/`palindromic`/`ambiguous`/`remove` flags
 - `methods_skipped` — named character vector (method name → reason skipped).
@@ -344,6 +345,7 @@ Both S3 classes have `plot()` methods defined in `R/plot.R`:
   - `"locuszoom"`: LD-coloured regional plots via the (`Suggests`-only)
     `locuszoomr` package, dispatched to the internal
     `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)`.
+    With `bfile = NULL` it warns and draws the plots with no LD colouring.
     Unlike every other plot function in this file, this one does **not**
     return a ggplot object (or any re-renderable object) -- `locuszoomr`'s
     `locus()`/`multi_layout()` draw directly to the current graphics device
@@ -709,7 +711,9 @@ computed on exactly the instrument set and allele coding that
 
 Reuses `compute_ld_matrix()` and squares its signed correlation column for
 one chosen index SNP to get r2 -- no separate LD mechanism. Backs
-`plot_coloc_locuszoom()`'s LD colouring; not used anywhere else.
+`plot_coloc_locuszoom()`'s LD colouring; not used anywhere else. Aborts if the
+index SNP is not in the panel, which can happen for a `coloc_result` from a
+`run_coloc()` call with no `bfile`.
 
 ### `clump_instruments()`
 

@@ -732,6 +732,30 @@ test_that("compute_ld_matrix works with local reference panel", {
 # --- compute_ld_to_index ------------------------------------------------------
 # Integration test: requires local bfile + plink
 
+test_that("compute_ld_to_index errors clearly if the index SNP is not in the panel", {
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+
+  bim <- utils::read.table(
+    paste0(bfile, ".bim"),
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  test_snps <- c(head(bim$V2, 5), "rsNotInPanel")
+
+  expect_error(
+    compute_ld_to_index(test_snps, "rsNotInPanel", bfile),
+    "rsNotInPanel.*not in the LD reference panel"
+  )
+})
+
 test_that("compute_ld_to_index matches compute_ld_matrix's squared, signed r", {
   bfile <- sub(
     "\\.bed$",

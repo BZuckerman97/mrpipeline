@@ -197,6 +197,74 @@ test_that("plot.coloc_result locuszoom renders with locuszoomr/ensembldb install
   expect_gt(file.size(out_file), 1000)
 })
 
+test_that("plot.coloc_result locuszoom without bfile warns and draws uncoloured", {
+  skip_if_not_installed("locuszoomr")
+  skip_if_not_installed("ensembldb")
+  skip_if_not_installed("EnsDb.Hsapiens.v75")
+  library(EnsDb.Hsapiens.v75)
+
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+
+  bim <- utils::read.table(
+    paste0(bfile, ".bim"),
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  test_snps <- head(bim$V2, 5)
+
+  dat <- data.frame(
+    SNP = test_snps,
+    chr.exposure = bim$V1[seq_along(test_snps)],
+    pos.exposure = bim$V4[seq_along(test_snps)],
+    pval.exposure = c(1e-8, 0.01, 0.02, 0.03, 0.04),
+    chr.outcome = bim$V1[seq_along(test_snps)],
+    pos.outcome = bim$V4[seq_along(test_snps)],
+    pval.outcome = c(0.05, 1e-6, 0.06, 0.07, 0.08)
+  )
+  res <- new_coloc_result(
+    harmonised_data = dat,
+    n_snps = length(test_snps),
+    status = "success"
+  )
+
+  out_file <- tempfile(fileext = ".png")
+  grDevices::png(out_file, width = 800, height = 800)
+  expect_warning(
+    plot(res, type = "locuszoom", ens_db = "EnsDb.Hsapiens.v75"),
+    "no LD colouring.*bfile.*mrpipeline-user-guide"
+  )
+  grDevices::dev.off()
+  expect_gt(file.size(out_file), 1000)
+
+  # A result from run_coloc() with no bfile can hold SNPs absent from a panel
+  # used for plotting: they stay on the plot, without an LD value
+  dat$SNP[5] <- "rsNotInPanel"
+  res <- new_coloc_result(
+    harmonised_data = dat,
+    n_snps = length(test_snps),
+    status = "success"
+  )
+  out_file <- tempfile(fileext = ".png")
+  grDevices::png(out_file, width = 800, height = 800)
+  p <- plot(
+    res,
+    type = "locuszoom",
+    ens_db = "EnsDb.Hsapiens.v75",
+    bfile = bfile
+  )
+  grDevices::dev.off()
+  expect_null(p)
+  expect_gt(file.size(out_file), 1000)
+})
+
 # --- forest_plot ---------------------------------------------------------
 
 test_that("forest_plot on a single result returns a plot with default methods", {

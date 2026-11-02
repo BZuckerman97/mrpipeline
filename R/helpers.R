@@ -717,6 +717,12 @@ compute_ld_to_index <- function(
   plink_memory = NULL
 ) {
   m <- compute_ld_matrix(snps, bfile, plink_bin, plink_threads, plink_memory)
+  if (!index_snp %in% colnames(m$ld)) {
+    cli::cli_abort(c(
+      "Index SNP {.val {index_snp}} is not in the LD reference panel {.file {bfile}}.",
+      "i" = "Choose a SNP in the panel with {.arg index_snp}, or leave out {.arg bfile} to plot without LD colouring."
+    ))
+  }
   r <- m$ld[, index_snp]
   data.frame(SNP = names(r), r2 = as.numeric(r)^2, stringsAsFactors = FALSE)
 }

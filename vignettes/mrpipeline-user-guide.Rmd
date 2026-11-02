@@ -166,8 +166,9 @@ Several steps need linkage disequilibrium (LD) between variants, which
 |---|---|---|
 | Instrument clumping in `run_mr()` | OpenGWAS API (needs an `OPENGWAS_JWT` token; rate-limited) | Local PLINK |
 | `run_mr(ld_correct = TRUE)` | Error | LD matrix of the instruments |
-| `run_coloc()` (SuSiE, `coloc.signals`, LD alignment) | Required -- `bfile` has no default | LD matrix of the region |
-| `plot(coloc_res, type = "locuszoom")` | Required | LD colouring |
+| `run_coloc()`, `methods = "abf"` | Runs on all harmonised SNPs, no PLINK needed | Runs on the SNPs aligned to the panel |
+| `run_coloc()` with SuSiE, `coloc.signals` or `prop_test` | Error | LD matrix of the region |
+| `plot(coloc_res, type = "locuszoom")` | Warning, plots have no LD colouring | LD colouring |
 
 A local panel is recommended for anything beyond a quick look: it is
 reproducible (the API's panel can change), it is not rate-limited, which
@@ -1087,8 +1088,8 @@ for it.
 
 The simplest test uses Approximate Bayes Factors (ABF), which assume at most
 one causal variant per trait. Supply the formatted exposure, the outcome in
-`format_gwas()` outcome format, the gene region (padded by `coloc_window`,
-10 kb by default) and an LD reference panel. Sample sizes are read from the
+`format_gwas()` outcome format and the gene region (padded by `coloc_window`,
+10 kb by default). Sample sizes are read from the
 data when `exposure_n`/`outcome_n` are not given. Sjogren's disease is a
 case-control outcome, so `outcome_type` and the case fraction `outcome_s`
 are set too (see [Case-control outcomes](#case-control-outcomes)):
@@ -1108,6 +1109,18 @@ coloc_res <- run_coloc(
   methods = "abf"
 )
 ```
+
+ABF itself uses no LD, so `bfile` is optional here. Whether you supply one
+decides which SNPs are analysed:
+
+- With `bfile`, as above, the analysis runs on the SNPs aligned to the panel,
+  the same SNPs the LD-based methods use. SNPs that are missing from the
+  panel, or whose alleles do not match it, are dropped, so a causal variant
+  absent from the panel cannot contribute to the result.
+- With no `bfile`, it runs on the full harmonised SNP set and PLINK is not
+  needed. To get ABF on the full set as well as the LD-based methods, run
+  `run_coloc()` twice: `methods = "abf"` with no `bfile`, then the other
+  methods with one.
 
 `coloc` itself prints its posteriors as it runs, so that chunk's printed
 output is hidden here; its warning is kept, and is the first clue to the

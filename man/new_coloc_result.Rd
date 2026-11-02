@@ -38,10 +38,10 @@ new_coloc_result(
 \item{n_snps}{Integer. Number of SNPs used in the analysis.}
 
 \item{harmonised_data}{Data frame of the harmonised data the analysis
-actually ran on: filtered, and subset and reordered by
-\code{\link[=align_to_ld_matrix]{align_to_ld_matrix()}} to match the LD matrix, so its rows correspond
-one-to-one with the coloc datasets. The plotting functions rely on that
-correspondence.}
+actually ran on: filtered and, when \code{\link[=run_coloc]{run_coloc()}} was given a \code{bfile},
+subset and reordered by \code{\link[=align_to_ld_matrix]{align_to_ld_matrix()}} to match the LD matrix, so
+its rows correspond one-to-one with the coloc datasets. The plotting
+functions rely on that correspondence.}
 
 \item{harmonisation}{Data frame. The complete, unfiltered
 \code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}} output -- every candidate variant, with

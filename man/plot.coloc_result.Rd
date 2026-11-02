@@ -16,8 +16,9 @@ plots via the \code{locuszoomr} package (see \code{\link[=plot_coloc_locuszoom]{
 additional required arguments, passed through \code{...}).}
 
 \item{...}{For \code{type = "locuszoom"}, forwarded to
-\code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}} (\code{ens_db}, \code{bfile}, and optionally \code{plink_bin}/
-\code{index_snp}). Ignored for other types.}
+\code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}} (\code{ens_db}, and optionally \code{bfile}, \code{plink_bin}
+and \code{index_snp}). Without \code{bfile} the plots have no LD colouring. Ignored
+for other types.}
 }
 \value{
 For \code{type = "pp_bar"}/\code{"regional"}, a ggplot object (or \code{NULL}
