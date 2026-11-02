@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,14 @@
 
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.9.0" id="mrpipeline-090">mrpipeline 0.9.0<a class="anchor" aria-label="anchor" href="#mrpipeline-090"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-9-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-9-0"></a></h3>
+<ul><li>
+<code><a href="../reference/run_coloc.html">run_coloc()</a></code> no longer requires <code>bfile</code> for <code>methods = "abf"</code>, which uses no LD. With no <code>bfile</code> it runs on the full harmonised SNP set and PLINK is not needed; <code>"susie"</code>, <code>"signals"</code> and <code>"prop_test"</code> still need <code>bfile</code>, and the error names them. Supplying a <code>bfile</code> is unchanged: every method, <code>"abf"</code> included, runs on the SNPs aligned to the panel. Without <code>bfile</code>, <code>plot(type = "locuszoom")</code> now warns and draws the plots with no LD colouring, and SNPs absent from the panel are kept rather than dropped (#48).</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.8.0" id="mrpipeline-080">mrpipeline 0.8.0<a class="anchor" aria-label="anchor" href="#mrpipeline-080"></a></h2>
 <div class="section level3">

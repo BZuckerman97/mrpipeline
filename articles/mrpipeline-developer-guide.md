@@ -380,7 +380,7 @@ call returns a `coloc_result` object — even when analysis cannot proceed
   `NULL`
 - `n_snps` — integer, number of SNPs used in the analysis
 - `harmonised_data` — the harmonised data the analysis actually ran on:
-  filtered, then subset and reordered by
+  filtered, then (when `bfile` was given) subset and reordered by
   [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
   so its rows correspond one-to-one with the coloc datasets
 - `harmonisation` — the complete, unfiltered `harmonise_data()` output,
@@ -433,8 +433,9 @@ in `R/plot.R`:
   - `"locuszoom"`: LD-coloured regional plots via the (`Suggests`-only)
     `locuszoomr` package, dispatched to the internal
     `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)`.
-    Unlike every other plot function in this file, this one does **not**
-    return a ggplot object (or any re-renderable object) –
+    With `bfile = NULL` it warns and draws the plots with no LD
+    colouring. Unlike every other plot function in this file, this one
+    does **not** return a ggplot object (or any re-renderable object) –
     `locuszoomr`’s `locus()`/`multi_layout()` draw directly to the
     current graphics device as a side effect, like base/grid plotting
     functions, and
@@ -899,7 +900,10 @@ Reuses
 and squares its signed correlation column for one chosen index SNP to
 get r2 – no separate LD mechanism. Backs
 [`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)’s
-LD colouring; not used anywhere else.
+LD colouring; not used anywhere else. Aborts if the index SNP is not in
+the panel, which can happen for a `coloc_result` from a
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+call with no `bfile`.
 
 ### `clump_instruments()`
 

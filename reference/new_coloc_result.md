@@ -62,7 +62,9 @@ new_coloc_result(
 - harmonised_data:
 
   Data frame of the harmonised data the analysis actually ran on:
-  filtered, and subset and reordered by
+  filtered and, when
+  [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+  was given a `bfile`, subset and reordered by
   [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
   to match the LD matrix, so its rows correspond one-to-one with the
   coloc datasets. The plotting functions rely on that correspondence.

@@ -1,5 +1,19 @@
 # Changelog
 
+## mrpipeline 0.9.0
+
+### New features
+
+- [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+  no longer requires `bfile` for `methods = "abf"`, which uses no LD.
+  With no `bfile` it runs on the full harmonised SNP set and PLINK is
+  not needed; `"susie"`, `"signals"` and `"prop_test"` still need
+  `bfile`, and the error names them. Supplying a `bfile` is unchanged:
+  every method, `"abf"` included, runs on the SNPs aligned to the panel.
+  Without `bfile`, `plot(type = "locuszoom")` now warns and draws the
+  plots with no LD colouring, and SNPs absent from the panel are kept
+  rather than dropped (#48).
+
 ## mrpipeline 0.8.0
 
 ### New features

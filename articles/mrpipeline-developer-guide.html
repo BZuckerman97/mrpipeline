@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -723,9 +723,9 @@ or <code>NULL</code>
 analysis</li>
 <li>
 <code>harmonised_data</code> — the harmonised data the analysis
-actually ran on: filtered, then subset and reordered by
-<code><a href="../reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code> so its rows correspond one-to-one with
-the coloc datasets</li>
+actually ran on: filtered, then (when <code>bfile</code> was given)
+subset and reordered by <code><a href="../reference/align_to_ld_matrix.html">align_to_ld_matrix()</a></code> so its rows
+correspond one-to-one with the coloc datasets</li>
 <li>
 <code>harmonisation</code> — the complete, unfiltered
 <code>harmonise_data()</code> output, with the
@@ -803,7 +803,8 @@ probabilities (H0–H4)</li>
 (<code>Suggests</code>-only) <code>locuszoomr</code> package, dispatched
 to the internal
 <code>plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)</code>.
-Unlike every other plot function in this file, this one does
+With <code>bfile = NULL</code> it warns and draws the plots with no LD
+colouring. Unlike every other plot function in this file, this one does
 <strong>not</strong> return a ggplot object (or any re-renderable
 object) – <code>locuszoomr</code>’s
 <code>locus()</code>/<code>multi_layout()</code> draw directly to the
@@ -1328,7 +1329,9 @@ exposure.</p>
 <p>Reuses <code><a href="../reference/compute_ld_matrix.html">compute_ld_matrix()</a></code> and squares its signed
 correlation column for one chosen index SNP to get r2 – no separate LD
 mechanism. Backs <code><a href="../reference/plot_coloc_locuszoom.html">plot_coloc_locuszoom()</a></code>’s LD colouring; not
-used anywhere else.</p>
+used anywhere else. Aborts if the index SNP is not in the panel, which
+can happen for a <code>coloc_result</code> from a
+<code><a href="../reference/run_coloc.html">run_coloc()</a></code> call with no <code>bfile</code>.</p>
 </div>
 <div class="section level3">
 <h3 id="clump_instruments">

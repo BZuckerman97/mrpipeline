@@ -8,12 +8,20 @@ LD is computed from a local reference panel via
 [`compute_ld_to_index()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_to_index.md)
 (reusing
 [`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
-– no network lookups).
+– no network lookups). Without `bfile`, a warning says how to add LD
+colouring and the plots are drawn uncoloured.
 
 ## Usage
 
 ``` r
-plot_coloc_locuszoom(x, ens_db, bfile, plink_bin = NULL, index_snp = NULL, ...)
+plot_coloc_locuszoom(
+  x,
+  ens_db,
+  bfile = NULL,
+  plink_bin = NULL,
+  index_snp = NULL,
+  ...
+)
 ```
 
 ## Arguments
@@ -38,7 +46,7 @@ plot_coloc_locuszoom(x, ens_db, bfile, plink_bin = NULL, index_snp = NULL, ...)
 - bfile:
 
   Path to PLINK bfile prefix (without .bed/.bim/.fam), used as the local
-  LD reference panel.
+  LD reference panel, or `NULL` (the default) for no LD colouring.
 
 - plink_bin:
 
@@ -69,6 +77,11 @@ and [`dev.off()`](https://rdrr.io/r/grDevices/dev.html) after, to save
 the result.
 
 ## Details
+
+SNPs absent from the panel are kept, with no LD value. That happens when
+`x` came from
+[`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+with no `bfile`, or was aligned to another panel.
 
 There is no genome-build field stored on a `coloc_result` – `ens_db`
 must match whatever build the exposure/outcome data (and `bfile`)

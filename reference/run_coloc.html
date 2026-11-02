@@ -13,7 +13,7 @@ coloc_result S3 object."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -70,7 +70,7 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 <span>  outcome_s <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  exposure_sdY <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  outcome_sdY <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  <span class="va">bfile</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  plink_bin <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  methods <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"abf"</span>, <span class="st">"susie"</span>, <span class="st">"signals"</span><span class="op">)</span>,</span>
 <span>  p1 <span class="op">=</span> <span class="fl">1e-04</span>,</span>
@@ -174,7 +174,9 @@ Required when <code>outcome_type = "cc"</code>.</p></dd>
 
 <dt id="arg-bfile">bfile<a class="anchor" aria-label="anchor" href="#arg-bfile"></a></dt>
 <dd><p>Character. Path to PLINK bfile prefix (without
-.bed/.bim/.fam) for LD reference. Required.</p></dd>
+.bed/.bim/.fam) for LD reference, or <code>NULL</code> (the default). Required for
+<code>"susie"</code>, <code>"signals"</code> and <code>"prop_test"</code>. <code>"abf"</code> uses no LD, so it can
+run without one. See the LD reference panel section.</p></dd>
 
 
 <dt id="arg-plink-bin">plink_bin<a class="anchor" aria-label="anchor" href="#arg-plink-bin"></a></dt>
@@ -321,6 +323,22 @@ it doesn't print live during a <code>tar_make()</code> run. Any SNP missing EAF 
 <em>both</em> sides is dropped (with a warning) before colocalization, since there
 is no value left to fall back to.</p>
     </div>
+    <div class="section level2">
+    <h2 id="ld-reference-panel">LD reference panel<a class="anchor" aria-label="anchor" href="#ld-reference-panel"></a></h2>
+
+
+<p><code>"abf"</code> uses no LD, while <code>"susie"</code>, <code>"signals"</code> and <code>"prop_test"</code> need
+<code>bfile</code>, so requesting any of them without one is an error. Whether
+<code>bfile</code> is supplied decides which SNPs every method runs on:</p><ul><li><p>With <code>bfile</code>, all methods, <code>"abf"</code> included, run on the SNPs that pass
+<code><a href="align_to_ld_matrix.html">align_to_ld_matrix()</a></code>. SNPs absent from the panel, with alleles that do
+not match it, or palindromic with an ambiguous EAF are dropped, so all
+methods in a call see the same SNPs, and the <code>"abf"</code> result depends on
+the panel.</p></li>
+<li><p>With <code>bfile = NULL</code>, <code>methods = "abf"</code> runs on the full harmonised SNP
+set and PLINK is not needed. To get <code>"abf"</code> on the full set alongside the
+LD-based methods, call <code>run_coloc()</code> twice: once with <code>methods = "abf"</code>
+and no <code>bfile</code>, and once with <code>bfile</code> for the others.</p></li>
+</ul></div>
     <div class="section level2">
     <h2 id="ld-matrix-orientation">LD matrix orientation<a class="anchor" aria-label="anchor" href="#ld-matrix-orientation"></a></h2>
 

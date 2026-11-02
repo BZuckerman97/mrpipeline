@@ -25,7 +25,7 @@ run_coloc(
   outcome_s = NULL,
   exposure_sdY = 1,
   outcome_sdY = 1,
-  bfile,
+  bfile = NULL,
   plink_bin = NULL,
   methods = c("abf", "susie", "signals"),
   p1 = 1e-04,
@@ -129,7 +129,9 @@ run_coloc(
 - bfile:
 
   Character. Path to PLINK bfile prefix (without .bed/.bim/.fam) for LD
-  reference. Required.
+  reference, or `NULL` (the default). Required for `"susie"`,
+  `"signals"` and `"prop_test"`. `"abf"` uses no LD, so it can run
+  without one. See the LD reference panel section.
 
 - plink_bin:
 
@@ -284,6 +286,24 @@ in the warnings captured by `targets` metadata
 live during a `tar_make()` run. Any SNP missing EAF on *both* sides is
 dropped (with a warning) before colocalization, since there is no value
 left to fall back to.
+
+## LD reference panel
+
+`"abf"` uses no LD, while `"susie"`, `"signals"` and `"prop_test"` need
+`bfile`, so requesting any of them without one is an error. Whether
+`bfile` is supplied decides which SNPs every method runs on:
+
+- With `bfile`, all methods, `"abf"` included, run on the SNPs that pass
+  [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md).
+  SNPs absent from the panel, with alleles that do not match it, or
+  palindromic with an ambiguous EAF are dropped, so all methods in a
+  call see the same SNPs, and the `"abf"` result depends on the panel.
+
+- With `bfile = NULL`, `methods = "abf"` runs on the full harmonised SNP
+  set and PLINK is not needed. To get `"abf"` on the full set alongside
+  the LD-based methods, call `run_coloc()` twice: once with
+  `methods = "abf"` and no `bfile`, and once with `bfile` for the
+  others.
 
 ## LD matrix orientation
 

@@ -3,11 +3,13 @@
 coloured by LD (r2) to a chosen index SNP, and stacks them with
 locuszoomr::multi_layout(). LD is computed from a local reference panel
 via compute_ld_to_index() (reusing compute_ld_matrix() – no network
-lookups)."><meta property="og:description" content="Builds exposure and outcome regional plots using locuszoomr::locus(),
+lookups). Without bfile, a warning says how to add LD colouring and the
+plots are drawn uncoloured."><meta property="og:description" content="Builds exposure and outcome regional plots using locuszoomr::locus(),
 coloured by LD (r2) to a chosen index SNP, and stacks them with
 locuszoomr::multi_layout(). LD is computed from a local reference panel
 via compute_ld_to_index() (reusing compute_ld_matrix() – no network
-lookups)."></head><body>
+lookups). Without bfile, a warning says how to add LD colouring and the
+plots are drawn uncoloured."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -15,7 +17,7 @@ lookups)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.8.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,12 +53,20 @@ lookups)."></head><body>
 coloured by LD (r2) to a chosen index SNP, and stacks them with
 <code><a href="https://rdrr.io/pkg/locuszoomr/man/multi_layout.html" class="external-link">locuszoomr::multi_layout()</a></code>. LD is computed from a local reference panel
 via <code><a href="compute_ld_to_index.html">compute_ld_to_index()</a></code> (reusing <code><a href="compute_ld_matrix.html">compute_ld_matrix()</a></code> – no network
-lookups).</p>
+lookups). Without <code>bfile</code>, a warning says how to add LD colouring and the
+plots are drawn uncoloured.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plot_coloc_locuszoom</span><span class="op">(</span><span class="va">x</span>, <span class="va">ens_db</span>, <span class="va">bfile</span>, plink_bin <span class="op">=</span> <span class="cn">NULL</span>, index_snp <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plot_coloc_locuszoom</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  <span class="va">ens_db</span>,</span>
+<span>  bfile <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  plink_bin <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  index_snp <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -79,7 +89,7 @@ via <code>get(ens_db)</code> on the search path, and errors
 
 <dt id="arg-bfile">bfile<a class="anchor" aria-label="anchor" href="#arg-bfile"></a></dt>
 <dd><p>Path to PLINK bfile prefix (without .bed/.bim/.fam), used as
-the local LD reference panel.</p></dd>
+the local LD reference panel, or <code>NULL</code> (the default) for no LD colouring.</p></dd>
 
 
 <dt id="arg-plink-bin">plink_bin<a class="anchor" aria-label="anchor" href="#arg-plink-bin"></a></dt>
@@ -108,7 +118,9 @@ effect – open a device (<code><a href="https://rdrr.io/r/grDevices/pdf.html" c
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>There is no genome-build field stored on a <code>coloc_result</code> – <code>ens_db</code> must
+    <p>SNPs absent from the panel are kept, with no LD value. That happens when
+<code>x</code> came from <code><a href="run_coloc.html">run_coloc()</a></code> with no <code>bfile</code>, or was aligned to another panel.</p>
+<p>There is no genome-build field stored on a <code>coloc_result</code> – <code>ens_db</code> must
 match whatever build the exposure/outcome data (and <code>bfile</code>) actually use
 (e.g. <code>EnsDb.Hsapiens.v75</code> for GRCh37, <code>EnsDb.Hsapiens.v86</code> for GRCh38).</p>
     </div>

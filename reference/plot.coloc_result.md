@@ -29,8 +29,9 @@ plot(x, type = c("pp_bar", "regional", "locuszoom"), ...)
 
   For `type = "locuszoom"`, forwarded to
   [`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)
-  (`ens_db`, `bfile`, and optionally `plink_bin`/ `index_snp`). Ignored
-  for other types.
+  (`ens_db`, and optionally `bfile`, `plink_bin` and `index_snp`).
+  Without `bfile` the plots have no LD colouring. Ignored for other
+  types.
 
 ## Value
 
