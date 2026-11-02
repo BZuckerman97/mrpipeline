@@ -168,7 +168,7 @@ Several steps need linkage disequilibrium (LD) between variants, which
 | `run_mr(ld_correct = TRUE)` | Error | LD matrix of the instruments |
 | `run_coloc()`, `methods = "abf"` | Runs on all harmonised SNPs, no PLINK needed | Runs on the SNPs aligned to the panel |
 | `run_coloc()` with SuSiE, `coloc.signals` or `prop_test` | Error | LD matrix of the region |
-| `plot(coloc_res, type = "locuszoom")` | Warning, plots have no LD colouring | LD colouring |
+| `plot(coloc_res, type = "regional")` | Uses r2 stored by `run_coloc()`, or no LD colouring if none is stored | Computes r2 if none is stored or for another `index_snp` |
 
 A local panel is recommended for anything beyond a quick look: it is
 reproducible (the API's panel can change), it is not rate-limited, which
@@ -1238,38 +1238,81 @@ rbind(
 
 ### Plotting coloc results
 
-`plot()` for `coloc_result` objects supports three plot types:
+`plot()` for `coloc_result` objects has two plot types, both returning a
+ggplot (they require `ggplot2`):
 
-```{r coloc-plot, eval = has_gg, fig.width = 7, fig.height = 4}
-plot(coloc_res, type = "pp_bar")   # ABF posterior probabilities (default; requires ggplot2)
-plot(coloc_res, type = "regional") # regional association plots (requires ggplot2)
+```{r coloc-plot, eval = has_gg, fig.width = 7, fig.height = 5}
+plot(coloc_res, type = "pp_bar")   # ABF posterior probabilities (default)
+plot(coloc_res, type = "regional") # regional association plots
 ```
 
-`type = "locuszoom"` renders LD-coloured regional plots via the
-`locuszoomr` package (requires `locuszoomr` and `ensembldb`, plus an
-Ensembl annotation package matching your data's genome build, e.g.
-`EnsDb.Hsapiens.v75` for GRCh37 -- **attached** with `library()`, not just
-installed, since `locuszoomr::locus()` looks up a character `ens_db` on the
-search path). It needs a local LD reference panel (`bfile`) and an
-`ens_db` -- there is no genome-build field stored on `coloc_result`, so
-`ens_db` must be supplied explicitly and must match whatever build `bfile`
-and the coloc data actually use. Unlike the other two plot types, this one
-draws directly to the current graphics device (like a base R plot) and
-returns `NULL` -- open a device first if you want to save it. (Not run here:
-it needs the Ensembl annotation package and writes a file.)
+**LD colouring.** With a `bfile`, `run_coloc()` stores each SNP's r2 with an
+index SNP: the exposure lead (the lowest `pval.exposure`, with ties going to the
+largest |beta/se|), or the SNP you name with `run_coloc(index_snp = )`.
+`index_snp` affects only plotting: no coloc method reads it. `type = "regional"`
+colours both panels by that r2, so plotting needs no PLINK or panel, and marks
+the index SNP with a purple diamond. Because the same r2 is used in both panels,
+the outcome panel shows LD with that SNP, not with the outcome lead. SNPs with
+no r2 are grey.
 
-```{r coloc-plot-locuszoom, eval = FALSE}
-library(EnsDb.Hsapiens.v75)
+With no `bfile`, `run_coloc(index_snp = )` only records the SNP: the plot marks
+it and is otherwise uncoloured. Passing `bfile` to `plot()` computes r2 for that
+plot, which is how to colour a result from `run_coloc()` with no `bfile`, or one
+saved by an earlier version. It isn't saved back to the result, and SNPs absent
+from the panel stay grey. `index_snp` in `plot()` overrides the index SNP for
+one plot, which needs `bfile` because only one SNP's r2 is stored. The SNP used
+is the first of `plot(index_snp = )`, `run_coloc(index_snp = )` and the exposure
+lead:
 
-pdf("locuszoom_plot.pdf", width = 9, height = 8)
+```{r coloc-plot-ld, eval = FALSE}
+# A result with no stored r2, coloured by LD with its index SNP
+plot(coloc_res, type = "regional", bfile = "/path/to/ld_reference")
+
+# Any result, coloured by LD with a chosen SNP
 plot(
   coloc_res,
-  type = "locuszoom",
-  ens_db = "EnsDb.Hsapiens.v75",
+  type = "regional",
+  index_snp = "rs1883832",
   bfile = "/path/to/ld_reference"
 )
-dev.off()
 ```
+
+**Gene track.** `ens_db` adds a gene track under the panels and plots position
+in Mb. It requires `locuszoomr`, `ensembldb` and `cowplot`, plus an Ensembl
+annotation package matching your data's genome build, e.g.
+`EnsDb.Hsapiens.v75` for GRCh37. There is no genome-build field stored on
+`coloc_result`, so it must be supplied explicitly. As a string it must be
+**attached** with `library()`, not just installed, since
+`locuszoomr::locus()` looks it up on the search path. (Not run here: it needs
+the annotation package.)
+
+```{r coloc-plot-genes, eval = FALSE}
+library(EnsDb.Hsapiens.v75)
+
+plot(coloc_res, type = "regional", ens_db = "EnsDb.Hsapiens.v75") +
+  ggplot2::labs(title = "CD40")
+```
+
+With a gene track the result is a composed plot: `labs(title = ...)` works, but
+`theme()` changes to the panels do not reach it.
+
+`type = "locuszoom"` is deprecated in favour of `type = "regional"` with
+`ens_db`. It still works, and warns. Unlike the other types it draws to the
+current graphics device and returns `NULL`.
+
+### Plotting overview
+
+| Call | Shows | Returns |
+|---|---|---|
+| `plot(mr_res, type = "scatter")` (default) | SNP effects with method fits | list of ggplots, take `[[1]]` |
+| `plot(mr_res, type = "forest")` | one row per SNP | list of ggplots |
+| `plot(mr_res, type = "funnel")` | funnel plot | list of ggplots |
+| `plot(mr_res, type = "loo")` | leave-one-out results | list of ggplots |
+| `forest_plot()` | one row per method, for one or several results | ggplot |
+| `outcome_forest_plot()` | one row per outcome | ggplot |
+| `table_forest_plot()` | one row per outcome, with an inline result table | forestplot object, render with `plot()` |
+| `plot(coloc_res, type = "pp_bar")` (default) | ABF posterior probabilities | ggplot |
+| `plot(coloc_res, type = "regional")` | exposure and outcome -log10(p), coloured by LD when available, with an optional gene track | ggplot |
 
 ## Two-Stage Batch Workflow
 

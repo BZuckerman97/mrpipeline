@@ -1,3 +1,30 @@
+# mrpipeline 0.10.0
+
+## New features
+
+* `plot(type = "regional")` for `coloc_result` objects colours both panels by
+  LD (r2) with an index SNP and marks that SNP, with SNPs that have no r2 in
+  grey. `run_coloc()` now stores the r2 when given a `bfile`, so plotting needs
+  no PLINK or LD panel. It uses the exposure lead, with ties in `pval.exposure`
+  going to the largest |beta/se|, or the SNP given by the new `index_snp`
+  argument to `run_coloc()`, which affects only plotting. `index_snp` in
+  `plot()` overrides it for one plot (r2 is then computed, so `bfile` is
+  needed). Results with no stored r2, from
+  `run_coloc()` with no `bfile` or saved by an earlier version, still plot:
+  they are uncoloured unless `bfile` is passed to `plot()`.
+* `plot(type = "regional", ens_db = )` adds a gene track under the panels and
+  plots position in Mb. Without `ens_db` the plot needs no `locuszoomr` or
+  `ensembldb`, and stays a plain ggplot. `cowplot` is added to Suggests for the
+  gene track.
+* `coloc_result` gains `ld_index_snp`, and on a successful run with a `bfile`,
+  `harmonised_data` gains a column `ld_r2_index`. Coloc results are unchanged.
+
+## Deprecated
+
+* `plot(type = "locuszoom")` for `coloc_result` objects is deprecated in favour
+  of `plot(type = "regional", ens_db = )`, which returns a ggplot. It still
+  works, and now warns.
+
 # mrpipeline 0.9.0
 
 ## New features

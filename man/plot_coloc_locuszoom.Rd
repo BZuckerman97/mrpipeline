@@ -45,14 +45,17 @@ effect -- open a device (\code{pdf()}, \code{png()}, ...) before calling, and
 \code{dev.off()} after, to save the result.
 }
 \description{
+Deprecated: use \code{plot(x, type = "regional", ens_db = ...)}, which returns a
+ggplot. \code{plot_coloc_locuszoom()} keeps working for now, and warns.
+}
+\details{
 Builds exposure and outcome regional plots using \code{locuszoomr::locus()},
 coloured by LD (r2) to a chosen index SNP, and stacks them with
 \code{locuszoomr::multi_layout()}. LD is computed from a local reference panel
 via \code{\link[=compute_ld_to_index]{compute_ld_to_index()}} (reusing \code{\link[=compute_ld_matrix]{compute_ld_matrix()}} -- no network
 lookups). Without \code{bfile}, a warning says how to add LD colouring and the
 plots are drawn uncoloured.
-}
-\details{
+
 SNPs absent from the panel are kept, with no LD value. That happens when
 \code{x} came from \code{\link[=run_coloc]{run_coloc()}} with no \code{bfile}, or was aligned to another panel.
 

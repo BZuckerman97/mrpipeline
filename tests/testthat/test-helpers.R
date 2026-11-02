@@ -729,6 +729,24 @@ test_that("compute_ld_matrix works with local reference panel", {
   expect_true(all(c("ld_a1", "ld_a2") %in% names(result$alleles)))
 })
 
+# --- exposure_lead ------------------------------------------------------------
+
+test_that("exposure_lead takes the lowest p and breaks ties on |beta/se|", {
+  dat <- data.frame(
+    SNP = paste0("rs", 1:4),
+    beta.exposure = c(0.1, -0.9, 0.5, 0.3),
+    se.exposure = 0.05,
+    pval.exposure = c(0.01, 1e-200, 1e-200, 1)
+  )
+  expect_equal(exposure_lead(dat), "rs2")
+
+  dat$pval.exposure[1] <- 1e-300
+  expect_equal(exposure_lead(dat), "rs1")
+
+  dat$pval.exposure[] <- NA
+  expect_null(exposure_lead(dat))
+})
+
 # --- compute_ld_to_index ------------------------------------------------------
 # Integration test: requires local bfile + plink
 

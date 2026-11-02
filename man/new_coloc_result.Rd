@@ -18,7 +18,8 @@ new_coloc_result(
   params = list(),
   status = "success",
   status_reason = NULL,
-  timing = numeric(0)
+  timing = numeric(0),
+  ld_index_snp = NULL
 )
 }
 \arguments{
@@ -41,7 +42,9 @@ new_coloc_result(
 actually ran on: filtered and, when \code{\link[=run_coloc]{run_coloc()}} was given a \code{bfile},
 subset and reordered by \code{\link[=align_to_ld_matrix]{align_to_ld_matrix()}} to match the LD matrix, so
 its rows correspond one-to-one with the coloc datasets. The plotting
-functions rely on that correspondence.}
+functions rely on that correspondence. On a successful run with a \code{bfile}
+it also has a column \code{ld_r2_index}, each SNP's r2 with \code{ld_index_snp},
+which \code{plot(type = "regional")} uses for LD colouring.}
 
 \item{harmonisation}{Data frame. The complete, unfiltered
 \code{\link[TwoSampleMR:harmonise_data]{TwoSampleMR::harmonise_data()}} output -- every candidate variant, with
@@ -63,6 +66,13 @@ values are reasons for skipping.}
 
 \item{timing}{Named numeric vector of elapsed times (seconds) for each
 major step inside \code{run_coloc()}. Empty by default.}
+
+\item{ld_index_snp}{Character or \code{NULL}. The index SNP for LD colouring:
+the SNP \code{harmonised_data$ld_r2_index} is relative to, when that column
+exists. It is \code{index_snp} as given to \code{\link[=run_coloc]{run_coloc()}}, or else the exposure
+lead among the SNPs analysed when there was a \code{bfile}. \code{NULL} otherwise,
+for a non-success status, and for objects saved by mrpipeline before
+0.10.0.}
 }
 \value{
 An object of class \code{coloc_result}.

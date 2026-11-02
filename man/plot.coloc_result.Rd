@@ -10,15 +10,14 @@
 \item{x}{A \code{coloc_result} object.}
 
 \item{type}{Character. Plot type: \code{"pp_bar"} (default) for a bar chart of
-ABF posterior probabilities (H0--H4), \code{"regional"} for side-by-side
-regional association plots, or \code{"locuszoom"} for LD-coloured regional
-plots via the \code{locuszoomr} package (see \code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}} for its
-additional required arguments, passed through \code{...}).}
+ABF posterior probabilities (H0--H4), or \code{"regional"} for exposure and
+outcome regional association plots, coloured by LD when r2 is available
+and with an optional gene track (see \code{\link[=plot_coloc_regional]{plot_coloc_regional()}}).
+\code{"locuszoom"} is deprecated in favour of \code{"regional"} with \code{ens_db}.}
 
-\item{...}{For \code{type = "locuszoom"}, forwarded to
-\code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}} (\code{ens_db}, and optionally \code{bfile}, \code{plink_bin}
-and \code{index_snp}). Without \code{bfile} the plots have no LD colouring. Ignored
-for other types.}
+\item{...}{For \code{type = "regional"}, forwarded to \code{\link[=plot_coloc_regional]{plot_coloc_regional()}}
+(\code{ens_db}, \code{bfile}, \code{plink_bin} and \code{index_snp}). For \code{type = "locuszoom"},
+forwarded to \code{\link[=plot_coloc_locuszoom]{plot_coloc_locuszoom()}}. Ignored for \code{"pp_bar"}.}
 }
 \value{
 For \code{type = "pp_bar"}/\code{"regional"}, a ggplot object (or \code{NULL}
@@ -43,15 +42,12 @@ result <- run_coloc(
 plot(result, type = "pp_bar")
 plot(result, type = "regional")
 
-# locuszoomr resolves a character ens_db via the search path, so the
-# annotation package must be attached, not just installed.
+# Colour by LD with another SNP (recomputed, so it needs the panel)
+plot(result, type = "regional", index_snp = "rs1883832", bfile = bfile)
+
+# Add a gene track. A character ens_db must be attached, not just installed.
 library(EnsDb.Hsapiens.v75)
-plot(
-  result,
-  type = "locuszoom",
-  ens_db = "EnsDb.Hsapiens.v75",
-  bfile = bfile
-)
+plot(result, type = "regional", ens_db = "EnsDb.Hsapiens.v75")
 }
 
 }

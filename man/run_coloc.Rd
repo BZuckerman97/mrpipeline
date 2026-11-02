@@ -35,7 +35,8 @@ run_coloc(
   ref_frq = NULL,
   allele_check = c("error", "warn", "none"),
   harmonise_action = 2,
-  verbose = TRUE
+  verbose = TRUE,
+  index_snp = NULL
 )
 }
 \arguments{
@@ -162,6 +163,16 @@ allele frequencies gives level \code{2} nothing to resolve them with.}
 \item{verbose}{Logical. If \code{TRUE}, emit informational messages via
 \code{\link[cli:cli_inform]{cli::cli_inform()}}. Warnings and errors are always emitted regardless.
 Default \code{TRUE}.}
+
+\item{index_snp}{rsID to record as the index SNP for LD colouring in
+\code{plot(type = "regional")}, stored as \code{ld_index_snp} on the result. With
+\code{bfile}, each SNP's r2 with it is stored too. Without \code{bfile} only the SNP
+is recorded: the plot marks it, and colours by it if \code{bfile} is passed to
+\code{plot()}. \code{NULL} (the default) uses the exposure lead when there is a
+\code{bfile}: the lowest \code{pval.exposure}, with ties going to the largest
+|beta/se|. A SNP that is not among those analysed gives a warning and the
+default is used. It only affects plotting: no coloc method reads it, so
+it cannot change a result.}
 }
 \value{
 A \code{coloc_result} object. Check \code{result$status} for \code{"success"} vs

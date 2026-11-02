@@ -802,6 +802,175 @@ test_that("run_coloc returns too_few_snps after dropping SNPs missing EAF", {
   expect_true(any(stringr::str_detect(warnings, "Only 2 SNP")))
 })
 
+test_that("run_coloc stores each SNP's r2 with the exposure lead", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+
+  result <- run_abf(fx, bfile = bfile)
+  dat <- result$harmonised_data
+
+  # abf_fixture()'s exposure effects rise with row number
+  expect_equal(result$ld_index_snp, tail(fx$in_panel, 1))
+  ld <- compute_ld_to_index(dat$SNP, result$ld_index_snp, bfile)
+  expect_equal(dat$ld_r2_index, pmin(ld$r2[match(dat$SNP, ld$SNP)], 1))
+  expect_equal(dat$ld_r2_index[dat$SNP == result$ld_index_snp], 1)
+  expect_null(names(dat$ld_r2_index))
+})
+
+test_that("run_coloc picks the index SNP from the SNPs analysed", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+  raw_lead <- tail(fx$in_panel, 1)
+  fx$exposure$eaf.exposure[fx$exposure$SNP == raw_lead] <- NA
+  fx$outcome$eaf[fx$outcome$rsids == raw_lead] <- NA
+
+  result <- suppressWarnings(run_abf(fx, bfile = bfile))
+
+  expect_false(raw_lead %in% result$harmonised_data$SNP)
+  expect_equal(result$ld_index_snp, fx$in_panel[19])
+})
+
+test_that("run_coloc stores no r2 without bfile or when too few SNPs remain", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+
+  no_bfile <- run_abf(fx)
+  expect_null(no_bfile$ld_index_snp)
+  expect_false("ld_r2_index" %in% names(no_bfile$harmonised_data))
+
+  fx$exposure$eaf.exposure[1:18] <- NA
+  fx$outcome$eaf[1:18] <- NA
+  too_few <- suppressWarnings(run_abf(fx, bfile = bfile))
+  expect_equal(too_few$status, "too_few_snps")
+  expect_null(too_few$ld_index_snp)
+  expect_false("ld_r2_index" %in% names(too_few$harmonised_data))
+})
+
+test_that("run_coloc stores r2 with a chosen index_snp, leaving results unchanged", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+  chosen <- fx$in_panel[5]
+
+  default <- run_abf(fx, bfile = bfile)
+  result <- run_abf(fx, bfile = bfile, index_snp = chosen)
+  dat <- result$harmonised_data
+
+  expect_equal(result$ld_index_snp, chosen)
+  expect_equal(result$params$index_snp, chosen)
+  ld <- compute_ld_to_index(dat$SNP, chosen, bfile)
+  expect_equal(dat$ld_r2_index, pmin(ld$r2[match(dat$SNP, ld$SNP)], 1))
+  expect_equal(result$coloc_abf$summary, default$coloc_abf$summary)
+  expect_equal(result$coloc_abf$results, default$coloc_abf$results)
+  expect_equal(result$n_snps, default$n_snps)
+  expect_equal(dat$SNP, default$harmonised_data$SNP)
+})
+
+test_that("run_coloc records index_snp with no bfile, without any r2", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+
+  result <- run_abf(fx, index_snp = fx$not_in_panel[1])
+
+  expect_equal(result$ld_index_snp, fx$not_in_panel[1])
+  expect_false("ld_r2_index" %in% names(result$harmonised_data))
+})
+
+test_that("run_coloc warns and falls back when index_snp was not analysed", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+
+  # Dropped by LD alignment, so not in the final SNP set
+  expect_warning(
+    with_panel <- run_abf(fx, bfile = bfile, index_snp = fx$not_in_panel[1]),
+    "not among the 20 SNPs analysed"
+  )
+  expect_equal(with_panel$status, "success")
+  expect_equal(with_panel$ld_index_snp, tail(fx$in_panel, 1))
+
+  expect_warning(
+    no_panel <- run_abf(fx, index_snp = "rs1"),
+    "not among the 23 SNPs analysed"
+  )
+  expect_equal(no_panel$status, "success")
+  expect_null(no_panel$ld_index_snp)
+})
+
+test_that("run_coloc validates index_snp", {
+  expect_error(
+    run_coloc(
+      exposure = data.frame(),
+      exposure_id = "x",
+      outcome = data.frame(),
+      outcome_id = "y",
+      gene_chr = "1",
+      gene_start = 1,
+      gene_end = 2,
+      index_snp = c("rs1", "rs2")
+    ),
+    "index_snp.*single rsID"
+  )
+})
+
 test_that("run_coloc skips prop_test when susie not requested", {
   skip_if_not_installed("TwoSampleMR")
   skip_if_not_installed("coloc")

@@ -12,7 +12,9 @@
 #'   actually ran on: filtered and, when [run_coloc()] was given a `bfile`,
 #'   subset and reordered by [align_to_ld_matrix()] to match the LD matrix, so
 #'   its rows correspond one-to-one with the coloc datasets. The plotting
-#'   functions rely on that correspondence.
+#'   functions rely on that correspondence. On a successful run with a `bfile`
+#'   it also has a column `ld_r2_index`, each SNP's r2 with `ld_index_snp`,
+#'   which `plot(type = "regional")` uses for LD colouring.
 #' @param harmonisation Data frame. The complete, unfiltered
 #'   [TwoSampleMR::harmonise_data()] output -- every candidate variant, with
 #'   the `mr_keep`, `palindromic`, `ambiguous` and `remove` flags that explain
@@ -28,6 +30,12 @@
 #'   `status != "success"`.
 #' @param timing Named numeric vector of elapsed times (seconds) for each
 #'   major step inside `run_coloc()`. Empty by default.
+#' @param ld_index_snp Character or `NULL`. The index SNP for LD colouring:
+#'   the SNP `harmonised_data$ld_r2_index` is relative to, when that column
+#'   exists. It is `index_snp` as given to [run_coloc()], or else the exposure
+#'   lead among the SNPs analysed when there was a `bfile`. `NULL` otherwise,
+#'   for a non-success status, and for objects saved by mrpipeline before
+#'   0.10.0.
 #'
 #' @return An object of class `coloc_result`.
 #'
@@ -46,7 +54,8 @@ new_coloc_result <- function(
   params = list(),
   status = "success",
   status_reason = NULL,
-  timing = numeric(0)
+  timing = numeric(0),
+  ld_index_snp = NULL
 ) {
   structure(
     list(
@@ -63,7 +72,8 @@ new_coloc_result <- function(
       params = params,
       status = status,
       status_reason = status_reason,
-      timing = timing
+      timing = timing,
+      ld_index_snp = ld_index_snp
     ),
     class = "coloc_result"
   )
