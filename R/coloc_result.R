@@ -9,10 +9,10 @@
 #'   `NULL`.
 #' @param n_snps Integer. Number of SNPs used in the analysis.
 #' @param harmonised_data Data frame of the harmonised data the analysis
-#'   actually ran on: filtered, and subset and reordered by
-#'   [align_to_ld_matrix()] to match the LD matrix, so its rows correspond
-#'   one-to-one with the coloc datasets. The plotting functions rely on that
-#'   correspondence.
+#'   actually ran on: filtered and, when [run_coloc()] was given a `bfile`,
+#'   subset and reordered by [align_to_ld_matrix()] to match the LD matrix, so
+#'   its rows correspond one-to-one with the coloc datasets. The plotting
+#'   functions rely on that correspondence.
 #' @param harmonisation Data frame. The complete, unfiltered
 #'   [TwoSampleMR::harmonise_data()] output -- every candidate variant, with
 #'   the `mr_keep`, `palindromic`, `ambiguous` and `remove` flags that explain

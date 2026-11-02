@@ -2,7 +2,7 @@
 
 # --- Argument validation ----------------------------------------------------
 
-test_that("run_coloc errors when bfile is missing", {
+test_that("run_coloc errors without bfile for methods that need LD", {
   expect_error(
     run_coloc(
       exposure = data.frame(),
@@ -11,7 +11,18 @@ test_that("run_coloc errors when bfile is missing", {
       gene_start = 1000,
       gene_end = 2000
     ),
-    "bfile"
+    "bfile.*susie.*signals"
+  )
+  expect_error(
+    run_coloc(
+      exposure = data.frame(),
+      outcome = data.frame(),
+      gene_chr = 1,
+      gene_start = 1000,
+      gene_end = 2000,
+      methods = c("abf", "prop_test")
+    ),
+    "bfile.*prop_test"
   )
 })
 
@@ -541,6 +552,158 @@ test_that("run_coloc ABF-only returns correct coloc_result structure", {
   expect_true("PP.H4.abf" %in% names(result$coloc_abf$summary))
   expect_true(result$n_snps > 0)
   expect_true(nrow(result$harmonised_data) > 0)
+})
+
+# 20 panel SNPs plus 3 that are not in the panel, with an EAF that no
+# alignment step treats as ambiguous, as an exposure/outcome pair.
+abf_fixture <- function(bfile) {
+  bim <- utils::read.table(
+    paste0(bfile, ".bim"),
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  bim <- head(bim, 20)
+  extra <- max(bim$V4) + c(10, 20, 30)
+  not_in_panel <- paste0("rs99999990", 1:3)
+  snps <- c(bim$V2, not_in_panel)
+  pos <- c(bim$V4, extra)
+  a1 <- c(bim$V5, rep("A", 3))
+  a2 <- c(bim$V6, rep("C", 3))
+  chr <- as.character(bim$V1[1])
+  n <- length(snps)
+  beta_exp <- seq(0.01, 0.2, length.out = n)
+  beta_out <- rev(beta_exp)
+
+  list(
+    exposure = data.frame(
+      SNP = snps,
+      chr.exposure = chr,
+      pos.exposure = pos,
+      beta.exposure = beta_exp,
+      se.exposure = 0.03,
+      effect_allele.exposure = a1,
+      other_allele.exposure = a2,
+      pval.exposure = 2 * stats::pnorm(-abs(beta_exp / 0.03)),
+      eaf.exposure = 0.3,
+      exposure = "test_exp",
+      id.exposure = "exp1",
+      mr_keep.exposure = TRUE,
+      pval_origin.exposure = "reported",
+      samplesize.exposure = 10000,
+      stringsAsFactors = FALSE
+    ),
+    outcome = data.frame(
+      rsids = snps,
+      chr = chr,
+      pos = pos,
+      beta = beta_out,
+      se = 0.03,
+      eaf = 0.3,
+      pval = 2 * stats::pnorm(-abs(beta_out / 0.03)),
+      n = 20000,
+      effect_allele = a1,
+      other_allele = a2,
+      phenotype = "test_out",
+      stringsAsFactors = FALSE
+    ),
+    in_panel = bim$V2,
+    not_in_panel = not_in_panel,
+    chr = chr,
+    start = min(pos),
+    end = max(pos)
+  )
+}
+
+run_abf <- function(fx, exposure = fx$exposure, outcome = fx$outcome, ...) {
+  suppressMessages(run_coloc(
+    exposure = exposure,
+    exposure_id = "test_exp",
+    outcome = outcome,
+    outcome_id = "test_out",
+    gene_chr = fx$chr,
+    gene_start = fx$start,
+    gene_end = fx$end,
+    outcome_n = 20000,
+    allele_check = "none",
+    methods = "abf",
+    ...
+  ))
+}
+
+test_that("run_coloc abf runs on every harmonised SNP without bfile or PLINK", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+
+  # An unusable plink_bin shows that PLINK is never called
+  result <- run_abf(fx, plink_bin = "/does/not/exist")
+
+  expect_equal(result$status, "success")
+  expect_equal(result$n_snps, 23)
+  expect_true(all(fx$not_in_panel %in% result$harmonised_data$SNP))
+  expect_null(result$params$bfile)
+  expect_false("ld_matrix" %in% names(result$timing))
+  expect_true("PP.H4.abf" %in% names(result$coloc_abf$summary))
+})
+
+test_that("run_coloc abf with bfile stays on the SNPs aligned to the panel", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+
+  with_panel <- run_abf(fx, bfile = bfile)
+  expect_equal(with_panel$n_snps, 20)
+  expect_false(any(fx$not_in_panel %in% with_panel$harmonised_data$SNP))
+
+  # bfile only changes which SNPs go in: on the same SNPs, abf is identical
+  same_snps <- run_abf(
+    fx,
+    exposure = fx$exposure[fx$exposure$SNP %in% fx$in_panel, ],
+    outcome = fx$outcome[fx$outcome$rsids %in% fx$in_panel, ]
+  )
+  expect_equal(same_snps$n_snps, 20)
+  expect_equal(with_panel$coloc_abf$summary, same_snps$coloc_abf$summary)
+})
+
+test_that("run_coloc abf drops SNPs missing EAF in both datasets without bfile", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+  fx$exposure$eaf.exposure[1] <- NA
+  fx$outcome$eaf[1] <- NA
+
+  # The fixture's other warnings (one missing EAF per dataset) are expected
+  result <- suppressWarnings(run_abf(fx))
+
+  expect_equal(result$status, "success")
+  expect_equal(result$n_snps, 22)
 })
 
 test_that("run_coloc skips prop_test when susie not requested", {

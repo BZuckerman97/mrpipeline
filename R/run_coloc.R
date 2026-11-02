@@ -38,6 +38,21 @@
 #' *both* sides is dropped (with a warning) before colocalization, since there
 #' is no value left to fall back to.
 #'
+#' @section LD reference panel:
+#' `"abf"` uses no LD, while `"susie"`, `"signals"` and `"prop_test"` need
+#' `bfile`, so requesting any of them without one is an error. Whether
+#' `bfile` is supplied decides which SNPs every method runs on:
+#'
+#' - With `bfile`, all methods, `"abf"` included, run on the SNPs that pass
+#'   [align_to_ld_matrix()]. SNPs absent from the panel, with alleles that do
+#'   not match it, or palindromic with an ambiguous EAF are dropped, so all
+#'   methods in a call see the same SNPs, and the `"abf"` result depends on
+#'   the panel.
+#' - With `bfile = NULL`, `methods = "abf"` runs on the full harmonised SNP
+#'   set and PLINK is not needed. To get `"abf"` on the full set alongside the
+#'   LD-based methods, call `run_coloc()` twice: once with `methods = "abf"`
+#'   and no `bfile`, and once with `bfile` for the others.
+#'
 #' @section LD matrix orientation:
 #' [compute_ld_matrix()] (via [ieugwasr::ld_matrix()], `--r square
 #' --keep-allele-order`) returns a **signed** correlation matrix whose sign
@@ -111,7 +126,9 @@
 #' @param outcome_sdY Numeric. Standard deviation of the outcome trait
 #'   (for quantitative traits). Default `1`.
 #' @param bfile Character. Path to PLINK bfile prefix (without
-#'   .bed/.bim/.fam) for LD reference. Required.
+#'   .bed/.bim/.fam) for LD reference, or `NULL` (the default). Required for
+#'   `"susie"`, `"signals"` and `"prop_test"`. `"abf"` uses no LD, so it can
+#'   run without one. See the LD reference panel section.
 #' @param plink_bin Character. Path to PLINK binary. Auto-detected if `NULL`.
 #' @param methods Character vector of colocalization methods to run.
 #'   Options: `"abf"`, `"susie"`, `"signals"`, `"prop_test"`. Default
@@ -214,7 +231,7 @@ run_coloc <- function(
   exposure_sdY = 1,
   # nolint next: object_name_linter.
   outcome_sdY = 1,
-  bfile,
+  bfile = NULL,
   plink_bin = NULL,
   methods = c("abf", "susie", "signals"),
   p1 = 1e-4,
@@ -233,10 +250,6 @@ run_coloc <- function(
 ) {
   # --- Validate arguments ---------------------------------------------------
 
-  if (missing(bfile) || is.null(bfile)) {
-    cli::cli_abort("{.arg bfile} is required for colocalization analysis.")
-  }
-
   exposure_type <- rlang::arg_match(exposure_type)
   outcome_type <- rlang::arg_match(outcome_type)
   allele_check <- rlang::arg_match(allele_check)
@@ -246,6 +259,14 @@ run_coloc <- function(
     choices = c("abf", "susie", "signals", "prop_test"),
     several.ok = TRUE
   )
+
+  ld_methods <- setdiff(methods, "abf")
+  if (is.null(bfile) && length(ld_methods) > 0) {
+    cli::cli_abort(c(
+      "{.arg bfile} is required for {.val {ld_methods}}.",
+      "i" = "Supply an LD reference panel, or use {.code methods = \"abf\"}, which needs no LD."
+    ))
+  }
 
   if (exposure_type == "cc" && is.null(exposure_s)) {
     cli::cli_abort(
@@ -516,42 +537,50 @@ run_coloc <- function(
   }
 
   # --- LD matrix ------------------------------------------------------------
+  # With no bfile only "abf" can be running (see the check above), which never
+  # uses LD, so the full harmonised set goes through. With a bfile every method
+  # runs on the aligned set, "abf" included.
 
-  t0 <- proc.time()[["elapsed"]]
+  ld_mat <- NULL
+  ld_sign <- rep(1, nrow(harmonised))
 
-  ld_mat <- compute_ld_matrix(
-    snps = harmonised$SNP,
-    bfile = bfile,
-    plink_bin = plink_bin,
-    plink_threads = plink_threads,
-    plink_memory = plink_memory
-  )
-  aligned <- align_to_ld_matrix(harmonised, ld_mat, verbose = verbose)
-  harmonised <- aligned$data
-  ld_mat <- aligned$ld_matrix
-  ld_sign <- aligned$ld_sign
+  if (!is.null(bfile)) {
+    t0 <- proc.time()[["elapsed"]]
 
-  timing[["ld_matrix"]] <- proc.time()[["elapsed"]] - t0
-
-  if (nrow(harmonised) < 3) {
-    cli::cli_warn(
-      "Only {nrow(harmonised)} SNP(s) after LD alignment (need >= 3)."
+    ld_mat <- compute_ld_matrix(
+      snps = harmonised$SNP,
+      bfile = bfile,
+      plink_bin = plink_bin,
+      plink_threads = plink_threads,
+      plink_memory = plink_memory
     )
-    return(new_coloc_result(
-      exposure_id = exposure_id,
-      outcome_id = outcome_id,
-      n_snps = nrow(harmonised),
-      harmonised_data = harmonised,
-      harmonisation = harmonisation,
-      status = "too_few_snps",
-      status_reason = paste0(
-        "Only ",
-        nrow(harmonised),
-        " SNP(s) after LD alignment (need >= 3)"
-      ),
-      params = params,
-      timing = timing
-    ))
+    aligned <- align_to_ld_matrix(harmonised, ld_mat, verbose = verbose)
+    harmonised <- aligned$data
+    ld_mat <- aligned$ld_matrix
+    ld_sign <- aligned$ld_sign
+
+    timing[["ld_matrix"]] <- proc.time()[["elapsed"]] - t0
+
+    if (nrow(harmonised) < 3) {
+      cli::cli_warn(
+        "Only {nrow(harmonised)} SNP(s) after LD alignment (need >= 3)."
+      )
+      return(new_coloc_result(
+        exposure_id = exposure_id,
+        outcome_id = outcome_id,
+        n_snps = nrow(harmonised),
+        harmonised_data = harmonised,
+        harmonisation = harmonisation,
+        status = "too_few_snps",
+        status_reason = paste0(
+          "Only ",
+          nrow(harmonised),
+          " SNP(s) after LD alignment (need >= 3)"
+        ),
+        params = params,
+        timing = timing
+      ))
+    }
   }
 
   # --- MAF --------------------------------------------------------------------
@@ -628,7 +657,9 @@ run_coloc <- function(
     harmonised <- harmonised[keep, ]
     eaf_combined <- eaf_combined[keep]
     ld_sign <- ld_sign[keep]
-    ld_mat <- ld_mat[harmonised$SNP, harmonised$SNP, drop = FALSE]
+    if (!is.null(ld_mat)) {
+      ld_mat <- ld_mat[harmonised$SNP, harmonised$SNP, drop = FALSE]
+    }
 
     if (nrow(harmonised) < 3) {
       cli::cli_warn(paste0(
@@ -669,9 +700,9 @@ run_coloc <- function(
     N = exp_n,
     type = exposure_type,
     snp = harmonised$SNP,
-    MAF = maf,
-    LD = ld_mat
+    MAF = maf
   )
+  dataset_exp$LD <- ld_mat # no-op when NULL, so the element is left out
   if (exposure_type == "quant") {
     dataset_exp$sdY <- exposure_sdY
   } else {
@@ -684,9 +715,9 @@ run_coloc <- function(
     N = out_n,
     type = outcome_type,
     snp = harmonised$SNP,
-    MAF = maf,
-    LD = ld_mat
+    MAF = maf
   )
+  dataset_out$LD <- ld_mat
   if (outcome_type == "quant") {
     dataset_out$sdY <- outcome_sdY
   } else {

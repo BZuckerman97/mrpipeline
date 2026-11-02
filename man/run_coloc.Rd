@@ -21,7 +21,7 @@ run_coloc(
   outcome_s = NULL,
   exposure_sdY = 1,
   outcome_sdY = 1,
-  bfile,
+  bfile = NULL,
   plink_bin = NULL,
   methods = c("abf", "susie", "signals"),
   p1 = 1e-04,
@@ -88,7 +88,9 @@ Required when \code{outcome_type = "cc"}.}
 (for quantitative traits). Default \code{1}.}
 
 \item{bfile}{Character. Path to PLINK bfile prefix (without
-.bed/.bim/.fam) for LD reference. Required.}
+.bed/.bim/.fam) for LD reference, or \code{NULL} (the default). Required for
+\code{"susie"}, \code{"signals"} and \code{"prop_test"}. \code{"abf"} uses no LD, so it can
+run without one. See the LD reference panel section.}
 
 \item{plink_bin}{Character. Path to PLINK binary. Auto-detected if \code{NULL}.}
 
@@ -209,6 +211,24 @@ by \code{targets} metadata (\code{targets::tar_meta(fields = warnings)}) even th
 it doesn't print live during a \code{tar_make()} run. Any SNP missing EAF on
 \emph{both} sides is dropped (with a warning) before colocalization, since there
 is no value left to fall back to.
+}
+
+\section{LD reference panel}{
+
+\code{"abf"} uses no LD, while \code{"susie"}, \code{"signals"} and \code{"prop_test"} need
+\code{bfile}, so requesting any of them without one is an error. Whether
+\code{bfile} is supplied decides which SNPs every method runs on:
+\itemize{
+\item With \code{bfile}, all methods, \code{"abf"} included, run on the SNPs that pass
+\code{\link[=align_to_ld_matrix]{align_to_ld_matrix()}}. SNPs absent from the panel, with alleles that do
+not match it, or palindromic with an ambiguous EAF are dropped, so all
+methods in a call see the same SNPs, and the \code{"abf"} result depends on
+the panel.
+\item With \code{bfile = NULL}, \code{methods = "abf"} runs on the full harmonised SNP
+set and PLINK is not needed. To get \code{"abf"} on the full set alongside the
+LD-based methods, call \code{run_coloc()} twice: once with \code{methods = "abf"}
+and no \code{bfile}, and once with \code{bfile} for the others.
+}
 }
 
 \section{LD matrix orientation}{

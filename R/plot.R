@@ -91,8 +91,9 @@ plot.mr_result <- function(
 #'   plots via the `locuszoomr` package (see [plot_coloc_locuszoom()] for its
 #'   additional required arguments, passed through `...`).
 #' @param ... For `type = "locuszoom"`, forwarded to
-#'   [plot_coloc_locuszoom()] (`ens_db`, `bfile`, and optionally `plink_bin`/
-#'   `index_snp`). Ignored for other types.
+#'   [plot_coloc_locuszoom()] (`ens_db`, and optionally `bfile`, `plink_bin`
+#'   and `index_snp`). Without `bfile` the plots have no LD colouring. Ignored
+#'   for other types.
 #'
 #' @return For `type = "pp_bar"`/`"regional"`, a ggplot object (or `NULL`
 #'   invisibly if the result status is not `"success"` or the required data
@@ -219,7 +220,11 @@ plot_coloc_regional <- function(x) {
 #' coloured by LD (r2) to a chosen index SNP, and stacks them with
 #' `locuszoomr::multi_layout()`. LD is computed from a local reference panel
 #' via [compute_ld_to_index()] (reusing [compute_ld_matrix()] -- no network
-#' lookups).
+#' lookups). Without `bfile`, a warning says how to add LD colouring and the
+#' plots are drawn uncoloured.
+#'
+#' SNPs absent from the panel are kept, with no LD value. That happens when
+#' `x` came from [run_coloc()] with no `bfile`, or was aligned to another panel.
 #'
 #' There is no genome-build field stored on a `coloc_result` -- `ens_db` must
 #' match whatever build the exposure/outcome data (and `bfile`) actually use
@@ -234,7 +239,7 @@ plot_coloc_regional <- function(x) {
 #'   via `get(ens_db)` on the search path, and errors
 #'   ("Ensembl database not loaded") if it isn't attached.
 #' @param bfile Path to PLINK bfile prefix (without .bed/.bim/.fam), used as
-#'   the local LD reference panel.
+#'   the local LD reference panel, or `NULL` (the default) for no LD colouring.
 #' @param plink_bin Path to PLINK binary. If `NULL`, auto-detected via
 #'   [genetics.binaRies::get_plink_binary()].
 #' @param index_snp rsID to colour LD against and centre the plotted region
@@ -253,7 +258,7 @@ plot_coloc_regional <- function(x) {
 plot_coloc_locuszoom <- function(
   x,
   ens_db,
-  bfile,
+  bfile = NULL,
   plink_bin = NULL,
   index_snp = NULL,
   ...
@@ -273,13 +278,25 @@ plot_coloc_locuszoom <- function(
     index_snp <- dat$SNP[which.min(dat$pval.exposure)]
   }
 
-  ld <- compute_ld_to_index(
-    dat$SNP,
-    index_snp,
-    bfile,
-    plink_bin = plink_bin,
-    ...
-  )
+  ld <- NULL
+  if (is.null(bfile)) {
+    cli::cli_warn(c(
+      "No {.arg bfile} supplied, so the locuszoom plots have no LD colouring.",
+      "i" = paste0(
+        "To colour by LD, pass an LD reference panel: ",
+        "{.code plot(x, type = \"locuszoom\", ens_db = ens_db, bfile = \"/path/to/ld_ref\")}."
+      ),
+      "i" = "See \"Setting Up an LD Reference Panel\" in {.vignette mrpipeline::mrpipeline-user-guide}."
+    ))
+  } else {
+    ld <- compute_ld_to_index(
+      dat$SNP,
+      index_snp,
+      bfile,
+      plink_bin = plink_bin,
+      ...
+    )
+  }
 
   exposure_dat <- dat[, c(
     "SNP",
@@ -288,11 +305,16 @@ plot_coloc_locuszoom <- function(
     "pval.exposure"
   )]
   names(exposure_dat) <- c("SNP", "chrom", "pos", "pval")
-  exposure_dat <- merge(exposure_dat, ld, by = "SNP")
 
   outcome_dat <- dat[, c("SNP", "chr.outcome", "pos.outcome", "pval.outcome")]
   names(outcome_dat) <- c("SNP", "chrom", "pos", "pval")
-  outcome_dat <- merge(outcome_dat, ld, by = "SNP")
+
+  ld_col <- NULL
+  if (!is.null(ld)) {
+    exposure_dat <- merge(exposure_dat, ld, by = "SNP", all.x = TRUE)
+    outcome_dat <- merge(outcome_dat, ld, by = "SNP", all.x = TRUE)
+    ld_col <- "r2"
+  }
 
   loc_exp <- locuszoomr::locus(
     data = exposure_dat,
@@ -301,7 +323,7 @@ plot_coloc_locuszoom <- function(
     pos = "pos",
     p = "pval",
     labs = "SNP",
-    LD = "r2",
+    LD = ld_col,
     index_snp = index_snp
   )
   loc_out <- locuszoomr::locus(
@@ -311,7 +333,7 @@ plot_coloc_locuszoom <- function(
     pos = "pos",
     p = "pval",
     labs = "SNP",
-    LD = "r2",
+    LD = ld_col,
     index_snp = index_snp
   )
 
