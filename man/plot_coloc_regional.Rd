@@ -4,15 +4,59 @@
 \alias{plot_coloc_regional}
 \title{Regional association plot for coloc results}
 \usage{
-plot_coloc_regional(x)
+plot_coloc_regional(
+  x,
+  ens_db = NULL,
+  bfile = NULL,
+  plink_bin = NULL,
+  index_snp = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{A \code{coloc_result} object.}
+
+\item{ens_db}{\code{NULL} (the default) for no gene track, or an
+\code{ensembldb::EnsDb} object, or the name of an Ensembl annotation package as
+a string (e.g. \code{"EnsDb.Hsapiens.v75"}), matching the genome build of \code{x}'s
+data. If given as a string, the package must be \strong{attached} first
+(\code{library(EnsDb.Hsapiens.v75)}), not merely installed.}
+
+\item{bfile}{Path to PLINK bfile prefix (without .bed/.bim/.fam), the local
+LD reference panel. Only used when r2 has to be computed: \code{x} has no stored
+r2, or \code{index_snp} differs from the stored index SNP. SNPs absent from the
+panel stay on the plot in grey.}
+
+\item{plink_bin}{Path to PLINK binary. If \code{NULL}, auto-detected via
+\code{\link[genetics.binaRies:get_plink_binary]{genetics.binaRies::get_plink_binary()}}.}
+
+\item{index_snp}{rsID to colour LD against, overriding any index SNP stored
+by \code{\link[=run_coloc]{run_coloc()}} for this plot. Defaults to the stored index SNP, or the
+exposure lead when there is none: the lowest \code{pval.exposure}, with ties
+going to the largest |beta/se|. Must be one of the SNPs in \code{x}.}
+
+\item{...}{Forwarded to \code{\link[=compute_ld_to_index]{compute_ld_to_index()}} (\code{plink_threads},
+\code{plink_memory}).}
 }
 \value{
-A ggplot object or \code{NULL} invisibly.
+A ggplot object, or \code{NULL} invisibly if there is no harmonised data.
 }
 \description{
-Regional association plot for coloc results
+Plots -log10(p) against position, with exposure and outcome panels. Points
+are coloured by LD (r2) with an index SNP, using the r2 stored by
+\code{\link[=run_coloc]{run_coloc()}}, so no PLINK or panel is needed at plot time. With no stored
+r2 (a \code{\link[=run_coloc]{run_coloc()}} call with no \code{bfile}, or an object saved before
+mrpipeline 0.10.0), passing \code{bfile} computes it for this plot, and otherwise
+the plot is uncoloured, with any recorded index SNP still marked.
+}
+\details{
+The same index SNP and r2 are used in both panels, so the outcome panel shows
+LD with the exposure lead by default, not with the outcome lead.
+
+With \code{ens_db}, a gene track from \code{locuszoomr} is added under the panels, the
+x axis is in Mb rather than bp, and the plots are composed with
+\code{cowplot::plot_grid()}. Adding \code{ggplot2::labs(title = ...)} still sets the
+title, but other \code{ggplot2} additions, such as \code{theme()} changes to the
+panels, do not reach a composed plot.
 }
 \keyword{internal}

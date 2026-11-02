@@ -86,14 +86,13 @@ plot.mr_result <- function(
 #'
 #' @param x A `coloc_result` object.
 #' @param type Character. Plot type: `"pp_bar"` (default) for a bar chart of
-#'   ABF posterior probabilities (H0--H4), `"regional"` for side-by-side
-#'   regional association plots, or `"locuszoom"` for LD-coloured regional
-#'   plots via the `locuszoomr` package (see [plot_coloc_locuszoom()] for its
-#'   additional required arguments, passed through `...`).
-#' @param ... For `type = "locuszoom"`, forwarded to
-#'   [plot_coloc_locuszoom()] (`ens_db`, and optionally `bfile`, `plink_bin`
-#'   and `index_snp`). Without `bfile` the plots have no LD colouring. Ignored
-#'   for other types.
+#'   ABF posterior probabilities (H0--H4), or `"regional"` for exposure and
+#'   outcome regional association plots, coloured by LD when r2 is available
+#'   and with an optional gene track (see [plot_coloc_regional()]).
+#'   `"locuszoom"` is deprecated in favour of `"regional"` with `ens_db`.
+#' @param ... For `type = "regional"`, forwarded to [plot_coloc_regional()]
+#'   (`ens_db`, `bfile`, `plink_bin` and `index_snp`). For `type = "locuszoom"`,
+#'   forwarded to [plot_coloc_locuszoom()]. Ignored for `"pp_bar"`.
 #'
 #' @return For `type = "pp_bar"`/`"regional"`, a ggplot object (or `NULL`
 #'   invisibly if the result status is not `"success"` or the required data
@@ -113,15 +112,12 @@ plot.mr_result <- function(
 #' plot(result, type = "pp_bar")
 #' plot(result, type = "regional")
 #'
-#' # locuszoomr resolves a character ens_db via the search path, so the
-#' # annotation package must be attached, not just installed.
+#' # Colour by LD with another SNP (recomputed, so it needs the panel)
+#' plot(result, type = "regional", index_snp = "rs1883832", bfile = bfile)
+#'
+#' # Add a gene track. A character ens_db must be attached, not just installed.
 #' library(EnsDb.Hsapiens.v75)
-#' plot(
-#'   result,
-#'   type = "locuszoom",
-#'   ens_db = "EnsDb.Hsapiens.v75",
-#'   bfile = bfile
-#' )
+#' plot(result, type = "regional", ens_db = "EnsDb.Hsapiens.v75")
 #' }
 #'
 #' @export
@@ -141,7 +137,7 @@ plot.coloc_result <- function(
   switch(
     type,
     pp_bar = plot_coloc_pp_bar(x),
-    regional = plot_coloc_regional(x),
+    regional = plot_coloc_regional(x, ...),
     locuszoom = plot_coloc_locuszoom(x, ...)
   )
 }
@@ -180,41 +176,297 @@ plot_coloc_pp_bar <- function(x) {
 }
 
 #' Regional association plot for coloc results
+#'
+#' Plots -log10(p) against position, with exposure and outcome panels. Points
+#' are coloured by LD (r2) with an index SNP, using the r2 stored by
+#' [run_coloc()], so no PLINK or panel is needed at plot time. With no stored
+#' r2 (a [run_coloc()] call with no `bfile`, or an object saved before
+#' mrpipeline 0.10.0), passing `bfile` computes it for this plot, and otherwise
+#' the plot is uncoloured, with any recorded index SNP still marked.
+#'
+#' The same index SNP and r2 are used in both panels, so the outcome panel shows
+#' LD with the exposure lead by default, not with the outcome lead.
+#'
+#' With `ens_db`, a gene track from `locuszoomr` is added under the panels, the
+#' x axis is in Mb rather than bp, and the plots are composed with
+#' `cowplot::plot_grid()`. Adding `ggplot2::labs(title = ...)` still sets the
+#' title, but other `ggplot2` additions, such as `theme()` changes to the
+#' panels, do not reach a composed plot.
+#'
 #' @param x A `coloc_result` object.
-#' @return A ggplot object or `NULL` invisibly.
+#' @param ens_db `NULL` (the default) for no gene track, or an
+#'   `ensembldb::EnsDb` object, or the name of an Ensembl annotation package as
+#'   a string (e.g. `"EnsDb.Hsapiens.v75"`), matching the genome build of `x`'s
+#'   data. If given as a string, the package must be **attached** first
+#'   (`library(EnsDb.Hsapiens.v75)`), not merely installed.
+#' @param bfile Path to PLINK bfile prefix (without .bed/.bim/.fam), the local
+#'   LD reference panel. Only used when r2 has to be computed: `x` has no stored
+#'   r2, or `index_snp` differs from the stored index SNP. SNPs absent from the
+#'   panel stay on the plot in grey.
+#' @param plink_bin Path to PLINK binary. If `NULL`, auto-detected via
+#'   [genetics.binaRies::get_plink_binary()].
+#' @param index_snp rsID to colour LD against, overriding any index SNP stored
+#'   by [run_coloc()] for this plot. Defaults to the stored index SNP, or the
+#'   exposure lead when there is none: the lowest `pval.exposure`, with ties
+#'   going to the largest |beta/se|. Must be one of the SNPs in `x`.
+#' @param ... Forwarded to [compute_ld_to_index()] (`plink_threads`,
+#'   `plink_memory`).
+#'
+#' @return A ggplot object, or `NULL` invisibly if there is no harmonised data.
 #' @keywords internal
-plot_coloc_regional <- function(x) {
+plot_coloc_regional <- function(
+  x,
+  ens_db = NULL,
+  bfile = NULL,
+  plink_bin = NULL,
+  index_snp = NULL,
+  ...
+) {
   dat <- x$harmonised_data
   if (is.null(dat) || nrow(dat) == 0) {
     cli::cli_inform("No harmonised data available for regional plot.")
     return(invisible(NULL))
   }
 
+  if (!is.null(ens_db)) {
+    rlang::check_installed(
+      c("locuszoomr", "ensembldb", "cowplot"),
+      reason = "to add a gene track to regional plots."
+    )
+  }
+
+  ld <- regional_ld(x, index_snp, bfile, plink_bin, ...)
+
   # Build long-format data for faceted plot
+  pos_unit <- if (is.null(ens_db)) 1 else 1e6
   exposure_dat <- data.frame(
-    pos = dat$pos.exposure,
+    pos = dat$pos.exposure / pos_unit,
     log10p = -log10(dat$pval.exposure),
     panel = "Exposure"
   )
   outcome_dat <- data.frame(
-    pos = dat$pos.outcome,
+    pos = dat$pos.outcome / pos_unit,
     log10p = -log10(dat$pval.outcome),
     panel = "Outcome"
   )
   plot_data <- rbind(exposure_dat, outcome_dat)
 
-  ggplot2::ggplot(plot_data, ggplot2::aes(x = .data$pos, y = .data$log10p)) +
-    ggplot2::geom_point(alpha = 0.6) +
+  title <- "Regional association"
+  subtitle <- NULL
+  p <- ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(x = .data$pos, y = .data$log10p)
+  )
+
+  if (is.null(ld)) {
+    p <- p + ggplot2::geom_point(alpha = 0.6)
+  } else {
+    is_index <- rep(dat$SNP == ld$index_snp, 2)
+    points <- plot_data[!is_index, ]
+    subtitle <- paste("Purple diamond: index SNP", ld$index_snp)
+    if (is.null(ld$r2)) {
+      p <- p + ggplot2::geom_point(data = points, alpha = 0.6)
+    } else {
+      points$r2_bin <- rep(bin_ld_r2(ld$r2), 2)[!is_index]
+      p <- p +
+        # Sorted by bin so that strong LD is drawn on top
+        ggplot2::geom_point(
+          data = points[order(points$r2_bin), ],
+          ggplot2::aes(colour = .data$r2_bin),
+          show.legend = TRUE
+        ) +
+        ggplot2::scale_colour_manual(
+          name = expression(r^2),
+          values = ld_r2_colours(),
+          drop = FALSE,
+          guide = ggplot2::guide_legend(reverse = TRUE)
+        )
+    }
+    p <- p +
+      ggplot2::geom_point(
+        data = plot_data[is_index, ],
+        shape = 23,
+        size = 3,
+        colour = "black",
+        fill = "#9632B8"
+      )
+  }
+
+  p <- p +
     ggplot2::facet_wrap(~panel, ncol = 1, scales = "free_y") +
     ggplot2::labs(
-      title = "Regional association",
+      title = title,
+      subtitle = subtitle,
       x = "Position (bp)",
       y = expression(-log[10](p))
     ) +
     ggplot2::theme_minimal()
+
+  if (is.null(ens_db)) {
+    return(p)
+  }
+  add_gene_track(p, dat, ens_db, title, subtitle)
+}
+
+#' Stack a gene track under a regional plot
+#'
+#' `locuszoomr::genetracks_grob()` fills its panel with an x scale of the locus
+#' range plus 4% each side, so both plots use exactly that axis (see
+#' [gene_track_x_scale()]). With ggplot2's default 5% expansion the genes would
+#' sit slightly off the points.
+#'
+#' @param p The regional plot, with positions in Mb.
+#' @param dat `harmonised_data` of the `coloc_result`.
+#' @param ens_db As for [plot_coloc_regional()].
+#' @param title,subtitle Moved from `p` to the composed plot, where a later
+#'   `labs(title = ...)` replaces them.
+#'
+#' @return A composed ggplot object.
+#' @keywords internal
+add_gene_track <- function(p, dat, ens_db, title, subtitle) {
+  # Only the genes are taken from the locus: no data goes in, so the plotted
+  # points and r2 are exactly those of the plot without a track
+  loc <- suppressMessages(locuszoomr::locus(
+    seqname = dat$chr.exposure[1],
+    xrange = range(dat$pos.exposure, dat$pos.outcome),
+    ens_db = ens_db
+  ))
+  x_scale <- gene_track_x_scale(loc$xrange)
+
+  panels <- p +
+    x_scale +
+    ggplot2::labs(title = NULL, subtitle = NULL, x = NULL) +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_blank(),
+      axis.ticks.x = ggplot2::element_blank()
+    )
+  track <- locuszoomr::gg_genetracks(loc) + x_scale
+
+  # plot_grid() returns a ggplot whose theme blanks the title, so labs() would
+  # silently draw nothing unless the outer plot has title elements of its own
+  cowplot::plot_grid(
+    panels,
+    track,
+    ncol = 1,
+    rel_heights = c(3, 1),
+    align = "v",
+    axis = "lr"
+  ) +
+    ggplot2::labs(title = title, subtitle = subtitle) +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(hjust = 0, size = 13),
+      plot.subtitle = ggplot2::element_text(hjust = 0, size = 10),
+      plot.margin = ggplot2::margin(5.5, 5.5, 5.5, 5.5)
+    )
+}
+
+#' Shared x axis for a regional plot and its gene track
+#'
+#' @param xrange Plotted region in bp, as `c(start, end)`.
+#'
+#' @return A ggplot2 scale, in Mb.
+#' @keywords internal
+gene_track_x_scale <- function(xrange) {
+  ggplot2::scale_x_continuous(
+    limits = xrange / 1e6,
+    expand = ggplot2::expansion(mult = 0.04)
+  )
+}
+
+#' r2 and index SNP for a regional plot
+#'
+#' The index SNP is `index_snp`, or else the one stored by [run_coloc()], or
+#' else the exposure lead. Stored r2 is used when it is relative to that SNP,
+#' and otherwise r2 is computed from `bfile`.
+#'
+#' @inheritParams plot_coloc_regional
+#'
+#' @return `NULL` for no LD colouring, or a list with `index_snp` and `r2`,
+#'   aligned to the rows of `harmonised_data`. `r2` is `NULL` when an index SNP
+#'   is recorded but there is no r2 for it and no `bfile`.
+#' @keywords internal
+regional_ld <- function(
+  x,
+  index_snp = NULL,
+  bfile = NULL,
+  plink_bin = NULL,
+  ...
+) {
+  dat <- x$harmonised_data
+  stored_index <- x$ld_index_snp
+
+  if (!is.null(index_snp) && !index_snp %in% dat$SNP) {
+    cli::cli_abort(
+      "Index SNP {.val {index_snp}} is not among the SNPs in this result."
+    )
+  }
+
+  index <- index_snp %||% stored_index
+  is_stored <- !is.null(index) && identical(index, stored_index)
+
+  if (is_stored && "ld_r2_index" %in% names(dat)) {
+    return(list(r2 = dat$ld_r2_index, index_snp = index))
+  }
+
+  if (is.null(bfile)) {
+    if (!is.null(index) && !is_stored) {
+      cli::cli_abort(c(
+        "{.arg bfile} is required to colour by LD with {.val {index}}.",
+        "i" = "Any other SNP than a stored index SNP needs r2 computed from an LD reference panel."
+      ))
+    }
+    cli::cli_inform(
+      "No stored r2, so the regional plot has no LD colouring. Pass {.arg bfile} to compute it."
+    )
+    if (is_stored) {
+      return(list(r2 = NULL, index_snp = index))
+    }
+    return(NULL)
+  }
+
+  index <- index %||% exposure_lead(dat)
+  ld <- compute_ld_to_index(dat$SNP, index, bfile, plink_bin = plink_bin, ...)
+  list(r2 = ld$r2[match(dat$SNP, ld$SNP)], index_snp = index)
+}
+
+#' Bin r2 for LD colouring
+#'
+#' @param r2 Numeric vector of r2 values, `NA` where unknown.
+#'
+#' @return A factor with the LocusZoom bins and a level for missing r2, ordered
+#'   from no data up to strongest LD.
+#' @keywords internal
+bin_ld_r2 <- function(r2) {
+  levels <- names(ld_r2_colours())
+  bins <- cut(
+    pmin(r2, 1),
+    breaks = seq(0, 1, by = 0.2),
+    labels = levels[-1],
+    include.lowest = TRUE
+  )
+  bins <- as.character(bins)
+  bins[is.na(bins)] <- levels[1]
+  factor(bins, levels = levels)
+}
+
+#' LocusZoom colours for r2 bins
+#' @return Named character vector, from no data up to strongest LD.
+#' @keywords internal
+ld_r2_colours <- function() {
+  c(
+    "No LD data" = "#B8B8B8",
+    "0-0.2" = "#357EBD",
+    "0.2-0.4" = "#46B8DA",
+    "0.4-0.6" = "#5CB85C",
+    "0.6-0.8" = "#EEA236",
+    "0.8-1" = "#D43F3A"
+  )
 }
 
 #' LD-coloured regional plots for coloc results, via locuszoomr
+#'
+#' Deprecated: use `plot(x, type = "regional", ens_db = ...)`, which returns a
+#' ggplot. `plot_coloc_locuszoom()` keeps working for now, and warns.
 #'
 #' Builds exposure and outcome regional plots using `locuszoomr::locus()`,
 #' coloured by LD (r2) to a chosen index SNP, and stacks them with
@@ -267,6 +519,11 @@ plot_coloc_locuszoom <- function(
     c("locuszoomr", "ensembldb"),
     reason = "to build locuszoom regional plots."
   )
+
+  cli::cli_warn(c(
+    "{.code type = \"locuszoom\"} is deprecated.",
+    "i" = "Use {.code plot(x, type = \"regional\", ens_db = ens_db)} instead, which returns a ggplot."
+  ))
 
   dat <- x$harmonised_data
   if (is.null(dat) || nrow(dat) == 0) {

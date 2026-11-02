@@ -187,6 +187,16 @@
 #'   [cli::cli_inform()]. Warnings and errors are always emitted regardless.
 #'   Default `TRUE`.
 #'
+#' @param index_snp rsID to record as the index SNP for LD colouring in
+#'   `plot(type = "regional")`, stored as `ld_index_snp` on the result. With
+#'   `bfile`, each SNP's r2 with it is stored too. Without `bfile` only the SNP
+#'   is recorded: the plot marks it, and colours by it if `bfile` is passed to
+#'   `plot()`. `NULL` (the default) uses the exposure lead when there is a
+#'   `bfile`: the lowest `pval.exposure`, with ties going to the largest
+#'   |beta/se|. A SNP that is not among those analysed gives a warning and the
+#'   default is used. It only affects plotting: no coloc method reads it, so
+#'   it cannot change a result.
+#'
 #' @return A `coloc_result` object. Check `result$status` for `"success"` vs
 #'   failure reasons. The `$timing` field contains a named numeric vector of
 #'   elapsed seconds for each major step.
@@ -246,9 +256,14 @@ run_coloc <- function(
   ref_frq = NULL,
   allele_check = c("error", "warn", "none"),
   harmonise_action = 2,
-  verbose = TRUE
+  verbose = TRUE,
+  index_snp = NULL
 ) {
   # --- Validate arguments ---------------------------------------------------
+
+  if (!is.null(index_snp) && !rlang::is_string(index_snp)) {
+    cli::cli_abort("{.arg index_snp} must be a single rsID or {.code NULL}.")
+  }
 
   exposure_type <- rlang::arg_match(exposure_type)
   outcome_type <- rlang::arg_match(outcome_type)
@@ -308,7 +323,8 @@ run_coloc <- function(
     exclude_regions = exclude_regions,
     ref_frq = ref_frq,
     allele_check = allele_check,
-    harmonise_action = harmonise_action
+    harmonise_action = harmonise_action,
+    index_snp = index_snp
   )
 
   timing <- numeric(0)
@@ -902,6 +918,29 @@ run_coloc <- function(
 
   # --- Return ---------------------------------------------------------------
 
+  # --- Index SNP for LD colouring --------------------------------------------
+  # Stored so plot(type = "regional") can colour by LD with no PLINK or panel.
+  # Done last, on the final SNP set: the EAF drop above can remove the raw lead,
+  # and the coloc datasets are already built, so this cannot affect any result.
+
+  if (!is.null(index_snp) && !index_snp %in% harmonised$SNP) {
+    cli::cli_warn(c(
+      "Index SNP {.val {index_snp}} is not among the {nrow(harmonised)} SNPs analysed.",
+      "i" = "Using the exposure lead for LD colouring instead."
+    ))
+    index_snp <- NULL
+  }
+  ld_index_snp <- index_snp
+  if (!is.null(ld_mat)) {
+    ld_index_snp <- ld_index_snp %||% exposure_lead(harmonised)
+  }
+  if (!is.null(ld_mat) && !is.null(ld_index_snp)) {
+    harmonised$ld_r2_index <- pmin(
+      unname(ld_mat[harmonised$SNP, ld_index_snp])^2,
+      1
+    )
+  }
+
   new_coloc_result(
     exposure_id = exposure_id,
     outcome_id = outcome_id,
@@ -914,6 +953,7 @@ run_coloc <- function(
     harmonisation = harmonisation,
     methods_skipped = methods_skipped,
     params = params,
-    timing = timing
+    timing = timing,
+    ld_index_snp = ld_index_snp
   )
 }

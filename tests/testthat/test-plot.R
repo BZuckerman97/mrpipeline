@@ -104,6 +104,404 @@ test_that("plot.coloc_result regional returns NULL without data", {
   expect_null(p)
 })
 
+# --- plot_coloc_regional: LD colouring ----------------------------------------
+
+# Five SNPs with a stored r2 unless `r2 = NULL`. `index` is the stored index SNP.
+regional_result <- function(r2 = c(1, 0.9, 0.5, 0.1, NA), index = "rs1") {
+  dat <- data.frame(
+    SNP = paste0("rs", 1:5),
+    chr.exposure = "20",
+    pos.exposure = 1:5 * 1000,
+    beta.exposure = c(0.5, 0.4, 0.3, 0.2, 0.1),
+    se.exposure = 0.05,
+    pval.exposure = c(1e-20, 1e-10, 1e-5, 0.01, 0.1),
+    pos.outcome = 1:5 * 1000,
+    pval.outcome = c(1e-3, 1e-2, 0.1, 0.2, 0.3)
+  )
+  dat$ld_r2_index <- r2
+  new_coloc_result(
+    harmonised_data = dat,
+    n_snps = 5L,
+    status = "success",
+    ld_index_snp = index
+  )
+}
+
+# Records the index SNP compute_ld_to_index() is called with
+mock_ld_to_index <- function(env = parent.frame()) {
+  seen <- new.env()
+  testthat::local_mocked_bindings(
+    compute_ld_to_index = function(snps, index_snp, bfile, ...) {
+      seen$index <- index_snp
+      data.frame(
+        SNP = rev(snps),
+        r2 = rev(seq(1, 0, length.out = length(snps)))
+      )
+    },
+    .env = env
+  )
+  seen
+}
+
+test_that("bin_ld_r2 uses the LocusZoom bins, with a level for missing r2", {
+  bins <- bin_ld_r2(c(0, 0.2, 0.21, 0.4, 0.6, 0.8, 1, 1 + 1e-8, NA))
+
+  expect_equal(
+    as.character(bins),
+    c(
+      "0-0.2",
+      "0-0.2",
+      "0.2-0.4",
+      "0.2-0.4",
+      "0.4-0.6",
+      "0.6-0.8",
+      "0.8-1",
+      "0.8-1",
+      "No LD data"
+    )
+  )
+  expect_equal(levels(bins), names(ld_r2_colours()))
+})
+
+test_that("regional plot colours by stored r2 and marks the index SNP", {
+  p <- plot(regional_result(), type = "regional")
+
+  expect_s3_class(p, "ggplot")
+  points <- ggplot2::layer_data(p, 1)
+  index <- ggplot2::layer_data(p, 2)
+
+  # Both panels, without the index SNP in the coloured layer
+  expect_equal(nrow(points), 8)
+  expect_equal(nrow(index), 2)
+  expect_equal(unique(index$x), 1000)
+  expect_equal(unique(index$shape), 23)
+  expect_equal(
+    sort(unique(points$colour)),
+    sort(unname(ld_r2_colours()[c("No LD data", "0-0.2", "0.4-0.6", "0.8-1")]))
+  )
+  # Same r2 at the same position in each panel
+  by_pos <- split(points$colour, points$x)
+  expect_true(all(lengths(lapply(by_pos, unique)) == 1))
+  # Strong LD is drawn last
+  expect_equal(
+    points$colour[1:2],
+    rep(unname(ld_r2_colours()["No LD data"]), 2)
+  )
+  expect_equal(p$labels$subtitle, "Purple diamond: index SNP rs1")
+})
+
+test_that("regional plot keeps every r2 bin in the legend", {
+  p <- plot(
+    regional_result(r2 = c(1, 0.9, 0.9, 0.9, 0.9)),
+    type = "regional"
+  )
+  colour_scale <- ggplot2::ggplot_build(p)$plot$scales$get_scales("colour")
+
+  expect_equal(colour_scale$get_limits(), names(ld_r2_colours()))
+})
+
+test_that("regional plot takes labs(), as rps_amd's figures do", {
+  p <- plot(regional_result(), type = "regional") +
+    ggplot2::labs(title = "CD40") +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"))
+
+  expect_s3_class(p, "ggplot")
+  expect_equal(p$labels$title, "CD40")
+})
+
+test_that("regional plot does not need locuszoomr without ens_db", {
+  local_mocked_bindings(
+    check_installed = function(...) stop("check_installed called"),
+    .package = "rlang"
+  )
+
+  expect_s3_class(plot_coloc_regional(regional_result()), "ggplot")
+})
+
+test_that("regional plot is uncoloured with no stored r2 and no bfile", {
+  res <- regional_result(r2 = NULL, index = NULL)
+
+  expect_message(
+    p <- plot(res, type = "regional"),
+    "No stored r2.*bfile"
+  )
+
+  expect_s3_class(p, "ggplot")
+  expect_length(p$layers, 1)
+  expect_null(p$labels$subtitle)
+})
+
+test_that("regional plot accepts objects saved before ld_index_snp existed", {
+  res <- regional_result(r2 = NULL, index = NULL)
+  res$ld_index_snp <- NULL
+  expect_false("ld_index_snp" %in% names(res))
+
+  expect_no_error(suppressMessages(p <- plot(res, type = "regional")))
+  expect_s3_class(p, "ggplot")
+})
+
+test_that("regional plot uses stored r2 without PLINK", {
+  seen <- mock_ld_to_index()
+
+  plot(regional_result(), type = "regional")
+  plot(regional_result(), type = "regional", bfile = "unused")
+  plot(regional_result(), type = "regional", index_snp = "rs1")
+
+  expect_null(seen$index)
+})
+
+test_that("regional plot recomputes r2 for another index_snp", {
+  seen <- mock_ld_to_index()
+
+  p <- plot(
+    regional_result(),
+    type = "regional",
+    index_snp = "rs2",
+    bfile = "panel"
+  )
+
+  expect_equal(seen$index, "rs2")
+  expect_equal(p$labels$subtitle, "Purple diamond: index SNP rs2")
+  expect_equal(unique(ggplot2::layer_data(p, 2)$x), 2000)
+})
+
+test_that("regional plot computes r2 at plot time when none is stored", {
+  seen <- mock_ld_to_index()
+  res <- regional_result(r2 = NULL, index = NULL)
+
+  # To the exposure lead by default, or to index_snp
+  p <- plot(res, type = "regional", bfile = "panel")
+  expect_equal(seen$index, "rs1")
+  expect_length(p$layers, 2)
+
+  p <- plot(res, type = "regional", bfile = "panel", index_snp = "rs3")
+  expect_equal(seen$index, "rs3")
+})
+
+test_that("regional plot marks a recorded index SNP with no r2", {
+  seen <- mock_ld_to_index()
+  res <- regional_result(r2 = NULL, index = "rs3")
+
+  expect_message(
+    p <- plot(res, type = "regional"),
+    "No stored r2.*bfile"
+  )
+
+  expect_length(p$layers, 2)
+  expect_equal(unique(ggplot2::layer_data(p, 2)$x), 3000)
+  expect_equal(nrow(ggplot2::layer_data(p, 1)), 8)
+  expect_equal(p$labels$subtitle, "Purple diamond: index SNP rs3")
+  expect_null(seen$index)
+})
+
+test_that("regional plot prefers index_snp, then the recorded SNP, then the lead", {
+  seen <- mock_ld_to_index()
+  res <- regional_result(r2 = NULL, index = "rs3")
+
+  plot(res, type = "regional", bfile = "panel")
+  expect_equal(seen$index, "rs3")
+
+  plot(res, type = "regional", bfile = "panel", index_snp = "rs2")
+  expect_equal(seen$index, "rs2")
+
+  plot(regional_result(r2 = NULL, index = NULL), type = "regional", bfile = "x")
+  expect_equal(seen$index, "rs1")
+})
+
+test_that("regional plot's index_snp overrides a stored one for that plot only", {
+  seen <- mock_ld_to_index()
+  res <- regional_result(index = "rs2")
+
+  p <- plot(res, type = "regional", index_snp = "rs4", bfile = "panel")
+
+  expect_equal(seen$index, "rs4")
+  expect_equal(unique(ggplot2::layer_data(p, 2)$x), 4000)
+  expect_equal(res$ld_index_snp, "rs2")
+})
+
+test_that("regional plot matches computed r2 to SNPs by name", {
+  mock_ld_to_index()
+  res <- regional_result(r2 = NULL, index = NULL)
+
+  # The mock returns rs5 first, with r2 rising from 0 at rs5 to 1 at rs1
+  ld <- regional_ld(res, bfile = "panel")
+
+  expect_equal(ld$r2, c(1, 0.75, 0.5, 0.25, 0))
+})
+
+test_that("regional plot requires bfile for an index_snp with no stored r2", {
+  seen <- mock_ld_to_index()
+
+  expect_error(
+    plot(regional_result(), type = "regional", index_snp = "rs2"),
+    "bfile.*is required"
+  )
+  expect_error(
+    plot(
+      regional_result(r2 = NULL, index = NULL),
+      type = "regional",
+      index_snp = "rs2"
+    ),
+    "bfile.*is required"
+  )
+  expect_null(seen$index)
+})
+
+test_that("regional plot rejects an index_snp not in the result", {
+  seen <- mock_ld_to_index()
+
+  expect_error(
+    plot(
+      regional_result(),
+      type = "regional",
+      index_snp = "rsMissing",
+      bfile = "panel"
+    ),
+    "rsMissing.*not among the SNPs"
+  )
+  expect_null(seen$index)
+})
+
+test_that("regional plot computes real r2 and keeps SNPs absent from the panel", {
+  skip_if_not_installed("TwoSampleMR")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  bim <- utils::read.table(
+    paste0(bfile, ".bim"),
+    header = FALSE,
+    stringsAsFactors = FALSE
+  )
+  res <- regional_result(r2 = NULL, index = NULL)
+  res$harmonised_data$SNP <- c(head(bim$V2, 4), "rs999999901")
+
+  p <- plot(res, type = "regional", bfile = bfile)
+
+  grey <- unname(ld_r2_colours()["No LD data"])
+  points <- ggplot2::layer_data(p, 1)
+  expect_equal(sum(points$colour == grey), 2)
+  expect_equal(unique(points$x[points$colour == grey]), 5000)
+})
+
+test_that("coloured and uncoloured regional plots combine with cowplot", {
+  skip_if_not_installed("cowplot")
+
+  panels <- list(
+    plot(regional_result(), type = "regional") +
+      ggplot2::labs(title = "A"),
+    suppressMessages(
+      plot(regional_result(r2 = NULL, index = NULL), type = "regional")
+    ) +
+      ggplot2::labs(title = "B")
+  )
+
+  combined <- cowplot::plot_grid(
+    plotlist = panels,
+    ncol = 2,
+    align = "hv",
+    axis = "tblr"
+  )
+
+  expect_s3_class(combined, "ggplot")
+  expect_no_error(ggplot2::ggplotGrob(combined))
+})
+
+# --- plot_coloc_regional: gene track ------------------------------------------
+
+test_that("regional plot with a gene track keeps the same points, in Mb", {
+  skip_if_not_installed("locuszoomr")
+  skip_if_not_installed("ensembldb")
+  skip_if_not_installed("cowplot")
+  plain <- plot(regional_result(), type = "regional")
+  local_mocked_bindings(
+    add_gene_track = function(p, ...) p
+  )
+
+  p <- plot(regional_result(), type = "regional", ens_db = "unused")
+
+  expect_equal(
+    ggplot2::layer_data(p, 1)$x,
+    ggplot2::layer_data(plain, 1)$x / 1e6
+  )
+  expect_equal(ggplot2::layer_data(p, 1)$y, ggplot2::layer_data(plain, 1)$y)
+  expect_equal(
+    ggplot2::layer_data(p, 1)$colour,
+    ggplot2::layer_data(plain, 1)$colour
+  )
+})
+
+test_that("regional plot's axis matches the gene track's own scale", {
+  skip_if_not_installed("locuszoomr")
+  skip_if_not_installed("ensembldb")
+  skip_if_not_installed("EnsDb.Hsapiens.v75")
+
+  loc <- suppressMessages(locuszoomr::locus(
+    seqname = "20",
+    xrange = c(44746911, 44758502),
+    ens_db = EnsDb.Hsapiens.v75::EnsDb.Hsapiens.v75
+  ))
+  expect_true("CD40" %in% loc$TX$gene_name)
+
+  p <- ggplot2::ggplot(data.frame(x = loc$xrange / 1e6, y = 0:1)) +
+    ggplot2::aes(.data$x, .data$y) +
+    ggplot2::geom_point() +
+    gene_track_x_scale(loc$xrange)
+  axis_range <- ggplot2::ggplot_build(p)$layout$panel_params[[1]]$x.range
+
+  # Fails if locuszoomr changes its padding, which would misplace the genes
+  expect_equal(
+    axis_range,
+    locuszoomr::genetracks_grob(loc)$childrenvp$xscale
+  )
+})
+
+test_that("regional plot with a gene track renders and takes a title", {
+  skip_if_not_installed("locuszoomr")
+  skip_if_not_installed("ensembldb")
+  skip_if_not_installed("cowplot")
+  skip_if_not_installed("EnsDb.Hsapiens.v75")
+  res <- regional_result()
+  res$harmonised_data$pos.exposure <- 44746911 + 0:4 * 2000
+  res$harmonised_data$pos.outcome <- res$harmonised_data$pos.exposure
+
+  p <- plot(
+    res,
+    type = "regional",
+    ens_db = EnsDb.Hsapiens.v75::EnsDb.Hsapiens.v75
+  ) +
+    ggplot2::labs(title = "CD40")
+
+  expect_s3_class(p, "ggplot")
+  # On a bare plot_grid() labs() draws nothing, without any error
+  grob <- ggplot2::ggplotGrob(p)
+  title <- grob$grobs[[which(grob$layout$name == "title")]]
+  expect_false(inherits(title, "zeroGrob"))
+
+  out_file <- tempfile(fileext = ".png")
+  ggplot2::ggsave(out_file, p, width = 8, height = 7, dpi = 72)
+  expect_gt(file.size(out_file), 1000)
+})
+
+test_that("plot.coloc_result regional ens_db requires the gene track packages", {
+  skip_if(
+    requireNamespace("locuszoomr", quietly = TRUE) &&
+      requireNamespace("ensembldb", quietly = TRUE) &&
+      requireNamespace("cowplot", quietly = TRUE),
+    "gene track packages are installed -- guard cannot be exercised"
+  )
+
+  expect_error(
+    plot(regional_result(), type = "regional", ens_db = "EnsDb.Hsapiens.v75"),
+    "locuszoomr|ensembldb|cowplot"
+  )
+})
+
 test_that("plot.coloc_result locuszoom requires locuszoomr and ensembldb", {
   skip_if(
     requireNamespace("locuszoomr", quietly = TRUE) &&
@@ -185,11 +583,14 @@ test_that("plot.coloc_result locuszoom renders with locuszoomr/ensembldb install
   # (a non-trivial file), not just that the call completed without error.
   out_file <- tempfile(fileext = ".png")
   grDevices::png(out_file, width = 800, height = 800)
-  p <- plot(
-    res,
-    type = "locuszoom",
-    ens_db = "EnsDb.Hsapiens.v75",
-    bfile = bfile
+  expect_warning(
+    p <- plot(
+      res,
+      type = "locuszoom",
+      ens_db = "EnsDb.Hsapiens.v75",
+      bfile = bfile
+    ),
+    "deprecated.*regional"
   )
   grDevices::dev.off()
 
@@ -238,7 +639,10 @@ test_that("plot.coloc_result locuszoom without bfile warns and draws uncoloured"
   out_file <- tempfile(fileext = ".png")
   grDevices::png(out_file, width = 800, height = 800)
   expect_warning(
-    plot(res, type = "locuszoom", ens_db = "EnsDb.Hsapiens.v75"),
+    expect_warning(
+      plot(res, type = "locuszoom", ens_db = "EnsDb.Hsapiens.v75"),
+      "deprecated.*regional"
+    ),
     "no LD colouring.*bfile.*mrpipeline-user-guide"
   )
   grDevices::dev.off()
@@ -254,11 +658,14 @@ test_that("plot.coloc_result locuszoom without bfile warns and draws uncoloured"
   )
   out_file <- tempfile(fileext = ".png")
   grDevices::png(out_file, width = 800, height = 800)
-  p <- plot(
-    res,
-    type = "locuszoom",
-    ens_db = "EnsDb.Hsapiens.v75",
-    bfile = bfile
+  expect_warning(
+    p <- plot(
+      res,
+      type = "locuszoom",
+      ens_db = "EnsDb.Hsapiens.v75",
+      bfile = bfile
+    ),
+    "deprecated"
   )
   grDevices::dev.off()
   expect_null(p)

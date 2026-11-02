@@ -727,6 +727,25 @@ compute_ld_to_index <- function(
   data.frame(SNP = names(r), r2 = as.numeric(r)^2, stringsAsFactors = FALSE)
 }
 
+#' Lead exposure SNP
+#'
+#' The SNP with the lowest `pval.exposure`. Ties go to the largest |beta/se|:
+#' GWAS p-values are often floored (e.g. at 1e-200), which can tie many SNPs at
+#' a strong locus, and row order says nothing about which of them leads.
+#'
+#' @param dat Harmonised data frame.
+#'
+#' @return The rsID, or `NULL` if every `pval.exposure` is missing.
+#'
+#' @keywords internal
+exposure_lead <- function(dat) {
+  if (all(is.na(dat$pval.exposure))) {
+    return(NULL)
+  }
+  z <- abs(dat$beta.exposure / dat$se.exposure)
+  dat$SNP[order(dat$pval.exposure, -z)[1]]
+}
+
 #' Clump instruments using LD reference
 #'
 #' Computes pseudo p-values (to ensure correct ranking by PLINK) and

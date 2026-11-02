@@ -308,7 +308,8 @@ cannot proceed (e.g. no SNPs in region). The object contains:
 - `harmonised_data` — the harmonised data the analysis actually ran on:
   filtered, then (when `bfile` was given) subset and reordered by
   `align_to_ld_matrix()` so its rows correspond one-to-one with the coloc
-  datasets
+  datasets. On a successful run with a `bfile` it also has `ld_r2_index`, each
+  SNP's r2 with `ld_index_snp`
 - `harmonisation` — the complete, unfiltered `harmonise_data()` output,
   with the `mr_keep`/`palindromic`/`ambiguous`/`remove` flags
 - `methods_skipped` — named character vector (method name → reason skipped).
@@ -320,6 +321,14 @@ cannot proceed (e.g. no SNPs in region). The object contains:
 - `status` — one of `"success"`, `"no_snps_in_region"`, `"too_few_snps"`,
   `"no_harmonised_variants"`
 - `status_reason` — human-readable explanation when `status != "success"`
+- `ld_index_snp` — the index SNP for LD colouring, which
+  `harmonised_data$ld_r2_index` is relative to when that column exists:
+  `run_coloc(index_snp = )`, or else the exposure lead when there was a `bfile`.
+  It can be set with no `ld_r2_index`, when `index_snp` was given with no
+  `bfile`. Set by `run_coloc()` last, on the final SNP set, from the LD matrix
+  it already holds, so it cannot affect any result. It is `NULL` on early
+  returns and on objects saved before 0.10.0, so plotting code must not assume
+  it exists
 
 `print.coloc_result()` shows a one-line summary: N SNPs, ABF PP.H4, and
 SuSiE max PP.H4 with credible set count (if available).
@@ -340,29 +349,31 @@ Both S3 classes have `plot()` methods defined in `R/plot.R`:
   - `"loo"`: `TwoSampleMR::mr_leaveoneout_plot()` on `x$loo`
 - `plot.coloc_result(x, type)` — custom ggplot2 plots, except `"locuszoom"`:
   - `"pp_bar"` (default): bar chart of ABF posterior probabilities (H0–H4)
-  - `"regional"`: side-by-side regional association plots (-log10(p) vs
-    position) for exposure and outcome
-  - `"locuszoom"`: LD-coloured regional plots via the (`Suggests`-only)
-    `locuszoomr` package, dispatched to the internal
-    `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)`.
-    With `bfile = NULL` it warns and draws the plots with no LD colouring.
-    Unlike every other plot function in this file, this one does **not**
-    return a ggplot object (or any re-renderable object) -- `locuszoomr`'s
-    `locus()`/`multi_layout()` draw directly to the current graphics device
-    as a side effect, like base/grid plotting functions, and
-    `plot_coloc_locuszoom()` returns `NULL` invisibly regardless of success.
-    Callers must open a device (`pdf()`, `png()`, ...) before calling and
-    `dev.off()` after, to save the result. `ens_db`, if given as a string,
-    must already be **attached** via `library()` -- `locuszoomr::locus()`
-    resolves it via `get(ens_db)` on the search path and errors if it's
-    only installed, not attached. LD (r2) is computed against a single
-    index SNP (default: the SNP with the lowest `pval.exposure`, matching
-    `locuszoomr::locus()`'s own default) via the internal helper
-    `compute_ld_to_index()` (see below), which reuses `compute_ld_matrix()`
-    -- no new LD mechanism or network calls. There is no genome-build field
-    stored on `coloc_result`, so the caller must supply `ens_db` matching
-    whatever build the data/`bfile` actually use (e.g. `EnsDb.Hsapiens.v75`
-    for GRCh37, `EnsDb.Hsapiens.v86` for GRCh38) -- no auto-detection.
+  - `"regional"`: `plot_coloc_regional(x, ens_db, bfile, plink_bin, index_snp, ...)`,
+    -log10(p) vs position for exposure and outcome, as one faceted ggplot.
+    `regional_ld()` picks the index SNP (`index_snp`, then `ld_index_snp`, then
+    `exposure_lead()`) and decides where r2 comes from: stored r2 when it is
+    relative to that SNP, otherwise `compute_ld_to_index()` if `bfile` was
+    given, otherwise no colouring, with a recorded index SNP still marked (or an
+    error if `index_snp` asked for a SNP with no r2).
+    `bin_ld_r2()` and `ld_r2_colours()` hold the bins and colours.
+    With `ens_db`, `add_gene_track()` stacks `locuszoomr::gg_genetracks()` under
+    the panels with `cowplot::plot_grid()`. No data goes into `locus()`, so the
+    points and r2 are exactly those of the plot without a track. Two details
+    there are easy to break: `gene_track_x_scale()` must match the 4% padding
+    `genetracks_grob()` draws with, or genes sit off the points (a test compares
+    the two), and the outer plot needs its own title theme elements, because
+    `plot_grid()` blanks them and `labs(title = ...)` would silently draw
+    nothing. `ens_db` as a string must be **attached** via `library()`.
+    There is no genome-build field stored on `coloc_result`, so the caller must
+    supply `ens_db` matching whatever build the data actually use (e.g.
+    `EnsDb.Hsapiens.v75` for GRCh37, `EnsDb.Hsapiens.v86` for GRCh38).
+  - `"locuszoom"`: **deprecated** in favour of `"regional"` with `ens_db`.
+    `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)` keeps
+    its own code until removal, rather than forwarding to `"regional"`: it draws
+    to the current device and returns `NULL`, so forwarding would return a
+    ggplot that nothing prints, and a `pdf(); plot(...); dev.off()` script would
+    silently write an empty file. It does not use stored r2.
 
 Both S3 methods return `NULL` invisibly for non-success results with an
 informative message.
@@ -710,10 +721,19 @@ computed on exactly the instrument set and allele coding that
 ### `compute_ld_to_index()`
 
 Reuses `compute_ld_matrix()` and squares its signed correlation column for
-one chosen index SNP to get r2 -- no separate LD mechanism. Backs
-`plot_coloc_locuszoom()`'s LD colouring; not used anywhere else. Aborts if the
-index SNP is not in the panel, which can happen for a `coloc_result` from a
-`run_coloc()` call with no `bfile`.
+one chosen index SNP to get r2 -- no separate LD mechanism. Backs LD colouring
+in `plot_coloc_regional()`, when r2 has to be computed at plot time, and in
+`plot_coloc_locuszoom()`. Aborts if the index SNP is not in the panel, which can
+happen for a `coloc_result` from a `run_coloc()` call with no `bfile`.
+
+### `exposure_lead()`
+
+The lowest `pval.exposure`, with ties going to the largest |beta/se|. GWAS
+p-values are often floored, which can tie many SNPs at a strong locus (13 at
+1e-200 at one locus in a real analysis), so `which.min()` would pick whichever
+came first in row order. Used for the default stored index SNP and in
+`regional_ld()`.
+`plot_coloc_locuszoom()` keeps `which.min()`, as it is deprecated.
 
 ### `clump_instruments()`
 
