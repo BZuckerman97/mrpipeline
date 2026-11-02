@@ -31,25 +31,29 @@ not found in Ensembl are dropped with a warning.
 ``` r
 get_gene_coords("CD40")
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'
-#> Also defined by ‘Rmpfr’
+#> Also defined by 'Rmpfr'
 #> Ensembl site unresponsive, trying asia mirror
-#> Ensembl site unresponsive, trying useast mirror
-#> Error in .chooseEnsemblMirror(mirror = mirror, http_config = http_config): Unable to query any Ensembl site
+#> Error in req_perform(html_request): Failed to perform HTTP request.
+#> Caused by error in `curl::curl_fetch_memory()`:
+#> ! Timeout was reached [jun2026.archive.ensembl.org]:
+#> Operation timed out after 9009 milliseconds with 0 bytes received
 get_gene_coords(c("CD40", "APOE"), build = "grch37")
-#> Error: Your query has been redirected to https://status.ensembl.org indicating this Ensembl service is currently unavailable.
-#> Look at ?useEnsembl for details on how to try a mirror site.
+#> Error in req_perform(request): Failed to perform HTTP request.
+#> Caused by error in `curl::curl_fetch_memory()`:
+#> ! Unsupported protocol [grch37.ensembl.org]:
+#> Received HTTP/0.9 when not allowed
 ```

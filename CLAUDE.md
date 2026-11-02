@@ -34,6 +34,9 @@ However, the plan is to integrate eQTL, scQTL and other GWAS data.
 [`check_allele_orientation()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.md),
 [`check_allele_orientation_gwas()`](https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.md),
 [`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md),
+[`exposure_lead()`](https://github.com/BZuckerman97/mrpipeline/reference/exposure_lead.md)
+(lowest `pval.exposure`, ties to the largest \|beta/se\|, because
+floored p-values can tie many SNPs),
 [`clump_instruments()`](https://github.com/BZuckerman97/mrpipeline/reference/clump_instruments.md),
 [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md),
 [`eaf_to_maf()`](https://github.com/BZuckerman97/mrpipeline/reference/eaf_to_maf.md),

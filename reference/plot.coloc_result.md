@@ -19,19 +19,20 @@ plot(x, type = c("pp_bar", "regional", "locuszoom"), ...)
 - type:
 
   Character. Plot type: `"pp_bar"` (default) for a bar chart of ABF
-  posterior probabilities (H0–H4), `"regional"` for side-by-side
-  regional association plots, or `"locuszoom"` for LD-coloured regional
-  plots via the `locuszoomr` package (see
-  [`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)
-  for its additional required arguments, passed through `...`).
+  posterior probabilities (H0–H4), or `"regional"` for exposure and
+  outcome regional association plots, coloured by LD when r2 is
+  available and with an optional gene track (see
+  [`plot_coloc_regional()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_regional.md)).
+  `"locuszoom"` is deprecated in favour of `"regional"` with `ens_db`.
 
 - ...:
 
-  For `type = "locuszoom"`, forwarded to
-  [`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)
-  (`ens_db`, and optionally `bfile`, `plink_bin` and `index_snp`).
-  Without `bfile` the plots have no LD colouring. Ignored for other
-  types.
+  For `type = "regional"`, forwarded to
+  [`plot_coloc_regional()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_regional.md)
+  (`ens_db`, `bfile`, `plink_bin` and `index_snp`). For
+  `type = "locuszoom"`, forwarded to
+  [`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md).
+  Ignored for `"pp_bar"`.
 
 ## Value
 
@@ -56,14 +57,11 @@ result <- run_coloc(
 plot(result, type = "pp_bar")
 plot(result, type = "regional")
 
-# locuszoomr resolves a character ens_db via the search path, so the
-# annotation package must be attached, not just installed.
+# Colour by LD with another SNP (recomputed, so it needs the panel)
+plot(result, type = "regional", index_snp = "rs1883832", bfile = bfile)
+
+# Add a gene track. A character ens_db must be attached, not just installed.
 library(EnsDb.Hsapiens.v75)
-plot(
-  result,
-  type = "locuszoom",
-  ens_db = "EnsDb.Hsapiens.v75",
-  bfile = bfile
-)
+plot(result, type = "regional", ens_db = "EnsDb.Hsapiens.v75")
 } # }
 ```

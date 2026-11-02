@@ -13,7 +13,7 @@ coloc_result S3 object."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -84,7 +84,8 @@ coloc (coloc.susie), coloc.signals, and colocPropTest. Returns a
 <span>  ref_frq <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  allele_check <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"error"</span>, <span class="st">"warn"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
 <span>  harmonise_action <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  index_snp <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -276,6 +277,18 @@ allele frequencies gives level <code>2</code> nothing to resolve them with.</p><
 <dd><p>Logical. If <code>TRUE</code>, emit informational messages via
 <code><a href="https://cli.r-lib.org/reference/cli_abort.html" class="external-link">cli::cli_inform()</a></code>. Warnings and errors are always emitted regardless.
 Default <code>TRUE</code>.</p></dd>
+
+
+<dt id="arg-index-snp">index_snp<a class="anchor" aria-label="anchor" href="#arg-index-snp"></a></dt>
+<dd><p>rsID to record as the index SNP for LD colouring in
+<code>plot(type = "regional")</code>, stored as <code>ld_index_snp</code> on the result. With
+<code>bfile</code>, each SNP's r2 with it is stored too. Without <code>bfile</code> only the SNP
+is recorded: the plot marks it, and colours by it if <code>bfile</code> is passed to
+<code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>. <code>NULL</code> (the default) uses the exposure lead when there is a
+<code>bfile</code>: the lowest <code>pval.exposure</code>, with ties going to the largest
+|beta/se|. A SNP that is not among those analysed gives a warning and the
+default is used. It only affects plotting: no coloc method reads it, so
+it cannot change a result.</p></dd>
 
 </dl></div>
     <div class="section level2">

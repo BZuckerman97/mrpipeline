@@ -9,7 +9,7 @@ package."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,17 +61,16 @@ package.</p>
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
 <dd><p>Character. Plot type: <code>"pp_bar"</code> (default) for a bar chart of
-ABF posterior probabilities (H0–H4), <code>"regional"</code> for side-by-side
-regional association plots, or <code>"locuszoom"</code> for LD-coloured regional
-plots via the <code>locuszoomr</code> package (see <code><a href="plot_coloc_locuszoom.html">plot_coloc_locuszoom()</a></code> for its
-additional required arguments, passed through <code>...</code>).</p></dd>
+ABF posterior probabilities (H0–H4), or <code>"regional"</code> for exposure and
+outcome regional association plots, coloured by LD when r2 is available
+and with an optional gene track (see <code><a href="plot_coloc_regional.html">plot_coloc_regional()</a></code>).
+<code>"locuszoom"</code> is deprecated in favour of <code>"regional"</code> with <code>ens_db</code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>For <code>type = "locuszoom"</code>, forwarded to
-<code><a href="plot_coloc_locuszoom.html">plot_coloc_locuszoom()</a></code> (<code>ens_db</code>, and optionally <code>bfile</code>, <code>plink_bin</code>
-and <code>index_snp</code>). Without <code>bfile</code> the plots have no LD colouring. Ignored
-for other types.</p></dd>
+<dd><p>For <code>type = "regional"</code>, forwarded to <code><a href="plot_coloc_regional.html">plot_coloc_regional()</a></code>
+(<code>ens_db</code>, <code>bfile</code>, <code>plink_bin</code> and <code>index_snp</code>). For <code>type = "locuszoom"</code>,
+forwarded to <code><a href="plot_coloc_locuszoom.html">plot_coloc_locuszoom()</a></code>. Ignored for <code>"pp_bar"</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -96,15 +95,12 @@ graphics device rather than returning a re-renderable object.</p>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># locuszoomr resolves a character ens_db via the search path, so the</span></span></span>
-<span class="r-in"><span><span class="co"># annotation package must be attached, not just installed.</span></span></span>
+<span class="r-in"><span><span class="co"># Colour by LD with another SNP (recomputed, so it needs the panel)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span>, type <span class="op">=</span> <span class="st">"regional"</span>, index_snp <span class="op">=</span> <span class="st">"rs1883832"</span>, bfile <span class="op">=</span> <span class="va">bfile</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Add a gene track. A character ens_db must be attached, not just installed.</span></span></span>
 <span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">EnsDb.Hsapiens.v75</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  <span class="va">result</span>,</span></span>
-<span class="r-in"><span>  type <span class="op">=</span> <span class="st">"locuszoom"</span>,</span></span>
-<span class="r-in"><span>  ens_db <span class="op">=</span> <span class="st">"EnsDb.Hsapiens.v75"</span>,</span></span>
-<span class="r-in"><span>  bfile <span class="op">=</span> <span class="va">bfile</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">result</span>, type <span class="op">=</span> <span class="st">"regional"</span>, ens_db <span class="op">=</span> <span class="st">"EnsDb.Hsapiens.v75"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>

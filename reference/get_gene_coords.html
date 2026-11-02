@@ -11,7 +11,7 @@ Results are filtered to standard chromosomes (1–22, X, Y), deduplicated
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,27 +75,31 @@ Genes not found in Ensembl are dropped with a warning.</p>
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">get_gene_coords</span><span class="op">(</span><span class="st">"CD40"</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Found more than one class "atomicVector" in cache; using the first, from namespace 'Matrix'</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by ‘Rmpfr’</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Also defined by 'Rmpfr'</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Ensembl site unresponsive, trying asia mirror</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Ensembl site unresponsive, trying useast mirror</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in .chooseEnsemblMirror(mirror = mirror, http_config = http_config):</span> Unable to query any Ensembl site</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in req_perform(html_request):</span> Failed to perform HTTP request.</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Caused by error in `curl::curl_fetch_memory()`:</span></span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Timeout was reached [jun2026.archive.ensembl.org]:</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> Operation timed out after 9009 milliseconds with 0 bytes received</span>
 <span class="r-in"><span><span class="fu">get_gene_coords</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"CD40"</span>, <span class="st">"APOE"</span><span class="op">)</span>, build <span class="op">=</span> <span class="st">"grch37"</span><span class="op">)</span></span></span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error:</span> Your query has been redirected to https://status.ensembl.org indicating this Ensembl service is currently unavailable.</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> Look at ?useEnsembl for details on how to try a mirror site.</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in req_perform(request):</span> Failed to perform HTTP request.</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span style="font-weight: bold;">Caused by error in `curl::curl_fetch_memory()`:</span></span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Unsupported protocol [grch37.ensembl.org]:</span>
+<span class="r-err co"><span class="r-pr">#&gt;</span> Received HTTP/0.9 when not allowed</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

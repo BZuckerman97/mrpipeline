@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -58,7 +58,8 @@
 <span>  params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  status <span class="op">=</span> <span class="st">"success"</span>,</span>
 <span>  status_reason <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  timing <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span>
+<span>  timing <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
+<span>  ld_index_snp <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -100,7 +101,9 @@
 actually ran on: filtered and, when <code><a href="run_coloc.html">run_coloc()</a></code> was given a <code>bfile</code>,
 subset and reordered by <code><a href="align_to_ld_matrix.html">align_to_ld_matrix()</a></code> to match the LD matrix, so
 its rows correspond one-to-one with the coloc datasets. The plotting
-functions rely on that correspondence.</p></dd>
+functions rely on that correspondence. On a successful run with a <code>bfile</code>
+it also has a column <code>ld_r2_index</code>, each SNP's r2 with <code>ld_index_snp</code>,
+which <code>plot(type = "regional")</code> uses for LD colouring.</p></dd>
 
 
 <dt id="arg-harmonisation">harmonisation<a class="anchor" aria-label="anchor" href="#arg-harmonisation"></a></dt>
@@ -134,6 +137,15 @@ values are reasons for skipping.</p></dd>
 <dt id="arg-timing">timing<a class="anchor" aria-label="anchor" href="#arg-timing"></a></dt>
 <dd><p>Named numeric vector of elapsed times (seconds) for each
 major step inside <code><a href="run_coloc.html">run_coloc()</a></code>. Empty by default.</p></dd>
+
+
+<dt id="arg-ld-index-snp">ld_index_snp<a class="anchor" aria-label="anchor" href="#arg-ld-index-snp"></a></dt>
+<dd><p>Character or <code>NULL</code>. The index SNP for LD colouring:
+the SNP <code>harmonised_data$ld_r2_index</code> is relative to, when that column
+exists. It is <code>index_snp</code> as given to <code><a href="run_coloc.html">run_coloc()</a></code>, or else the exposure
+lead among the SNPs analysed when there was a <code>bfile</code>. <code>NULL</code> otherwise,
+for a non-success status, and for objects saved by mrpipeline before
+0.10.0.</p></dd>
 
 </dl></div>
     <div class="section level2">

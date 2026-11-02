@@ -19,7 +19,8 @@ new_coloc_result(
   params = list(),
   status = "success",
   status_reason = NULL,
-  timing = numeric(0)
+  timing = numeric(0),
+  ld_index_snp = NULL
 )
 ```
 
@@ -67,7 +68,10 @@ new_coloc_result(
   was given a `bfile`, subset and reordered by
   [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
   to match the LD matrix, so its rows correspond one-to-one with the
-  coloc datasets. The plotting functions rely on that correspondence.
+  coloc datasets. The plotting functions rely on that correspondence. On
+  a successful run with a `bfile` it also has a column `ld_r2_index`,
+  each SNP's r2 with `ld_index_snp`, which `plot(type = "regional")`
+  uses for LD colouring.
 
 - harmonisation:
 
@@ -105,6 +109,16 @@ new_coloc_result(
   inside
   [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md).
   Empty by default.
+
+- ld_index_snp:
+
+  Character or `NULL`. The index SNP for LD colouring: the SNP
+  `harmonised_data$ld_r2_index` is relative to, when that column exists.
+  It is `index_snp` as given to
+  [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md),
+  or else the exposure lead among the SNPs analysed when there was a
+  `bfile`. `NULL` otherwise, for a non-success status, and for objects
+  saved by mrpipeline before 0.10.0.
 
 ## Value
 

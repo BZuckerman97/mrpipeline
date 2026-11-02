@@ -1,15 +1,8 @@
 # LD-coloured regional plots for coloc results, via locuszoomr
 
-Builds exposure and outcome regional plots using
-[`locuszoomr::locus()`](https://rdrr.io/pkg/locuszoomr/man/locus.html),
-coloured by LD (r2) to a chosen index SNP, and stacks them with
-[`locuszoomr::multi_layout()`](https://rdrr.io/pkg/locuszoomr/man/multi_layout.html).
-LD is computed from a local reference panel via
-[`compute_ld_to_index()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_to_index.md)
-(reusing
-[`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
-– no network lookups). Without `bfile`, a warning says how to add LD
-colouring and the plots are drawn uncoloured.
+Deprecated: use `plot(x, type = "regional", ens_db = ...)`, which
+returns a ggplot. `plot_coloc_locuszoom()` keeps working for now, and
+warns.
 
 ## Usage
 
@@ -77,6 +70,17 @@ and [`dev.off()`](https://rdrr.io/r/grDevices/dev.html) after, to save
 the result.
 
 ## Details
+
+Builds exposure and outcome regional plots using
+[`locuszoomr::locus()`](https://rdrr.io/pkg/locuszoomr/man/locus.html),
+coloured by LD (r2) to a chosen index SNP, and stacks them with
+[`locuszoomr::multi_layout()`](https://rdrr.io/pkg/locuszoomr/man/multi_layout.html).
+LD is computed from a local reference panel via
+[`compute_ld_to_index()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_to_index.md)
+(reusing
+[`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
+– no network lookups). Without `bfile`, a warning says how to add LD
+colouring and the plots are drawn uncoloured.
 
 SNPs absent from the panel are kept, with no LD value. That happens when
 `x` came from

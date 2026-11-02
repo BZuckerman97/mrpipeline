@@ -10,7 +10,9 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/authors.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/index.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/news/index.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/add_gene_track.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/bin_ld_r2.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/cd40_exposure.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/check_allele_orientation_gwas.html</loc></url>
@@ -23,6 +25,7 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/diag_ids.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/eaf_to_maf.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/empty_mr_results.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/exposure_lead.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/forest_plot.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/format_gwas.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/format_pqtl_decode.html</loc></url>
@@ -32,6 +35,7 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/format_sceqtl_dynamic_cseqtl.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/format_single_cell_onek1k.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/fread_file.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/gene_track_x_scale.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/get_gene_coords.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/gls_weight_matrix.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/harmonisation_summary.html</loc></url>
@@ -39,6 +43,7 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/heterogeneity_correlated.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/index.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/last_allele_check.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/ld_r2_colours.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/loo_correlated.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/mr_method_entry.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/mr_method_registry.html</loc></url>
@@ -60,6 +65,7 @@
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/print_harmonisation_summary.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/rd_method_table.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/read_vcf_data.html</loc></url>
+<url><loc>https://github.com/BZuckerman97/mrpipeline/reference/regional_ld.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/resolve_sample_size.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.html</loc></url>
 <url><loc>https://github.com/BZuckerman97/mrpipeline/reference/run_mr.html</loc></url>

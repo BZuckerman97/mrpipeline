@@ -382,7 +382,9 @@ call returns a `coloc_result` object — even when analysis cannot proceed
 - `harmonised_data` — the harmonised data the analysis actually ran on:
   filtered, then (when `bfile` was given) subset and reordered by
   [`align_to_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/align_to_ld_matrix.md)
-  so its rows correspond one-to-one with the coloc datasets
+  so its rows correspond one-to-one with the coloc datasets. On a
+  successful run with a `bfile` it also has `ld_r2_index`, each SNP’s r2
+  with `ld_index_snp`
 - `harmonisation` — the complete, unfiltered `harmonise_data()` output,
   with the `mr_keep`/`palindromic`/`ambiguous`/`remove` flags
 - `methods_skipped` — named character vector (method name → reason
@@ -396,6 +398,15 @@ call returns a `coloc_result` object — even when analysis cannot proceed
   `"too_few_snps"`, `"no_harmonised_variants"`
 - `status_reason` — human-readable explanation when
   `status != "success"`
+- `ld_index_snp` — the index SNP for LD colouring, which
+  `harmonised_data$ld_r2_index` is relative to when that column exists:
+  `run_coloc(index_snp = )`, or else the exposure lead when there was a
+  `bfile`. It can be set with no `ld_r2_index`, when `index_snp` was
+  given with no `bfile`. Set by
+  [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
+  last, on the final SNP set, from the LD matrix it already holds, so it
+  cannot affect any result. It is `NULL` on early returns and on objects
+  saved before 0.10.0, so plotting code must not assume it exists
 
 [`print.coloc_result()`](https://github.com/BZuckerman97/mrpipeline/reference/print.coloc_result.md)
 shows a one-line summary: N SNPs, ABF PP.H4, and SuSiE max PP.H4 with
@@ -428,40 +439,49 @@ in `R/plot.R`:
   `"locuszoom"`:
   - `"pp_bar"` (default): bar chart of ABF posterior probabilities
     (H0–H4)
-  - `"regional"`: side-by-side regional association plots (-log10(p) vs
-    position) for exposure and outcome
-  - `"locuszoom"`: LD-coloured regional plots via the (`Suggests`-only)
-    `locuszoomr` package, dispatched to the internal
-    `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)`.
-    With `bfile = NULL` it warns and draws the plots with no LD
-    colouring. Unlike every other plot function in this file, this one
-    does **not** return a ggplot object (or any re-renderable object) –
-    `locuszoomr`’s `locus()`/`multi_layout()` draw directly to the
-    current graphics device as a side effect, like base/grid plotting
-    functions, and
-    [`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)
-    returns `NULL` invisibly regardless of success. Callers must open a
-    device ([`pdf()`](https://rdrr.io/r/grDevices/pdf.html),
-    [`png()`](https://rdrr.io/r/grDevices/png.html), …) before calling
-    and [`dev.off()`](https://rdrr.io/r/grDevices/dev.html) after, to
-    save the result. `ens_db`, if given as a string, must already be
-    **attached** via [`library()`](https://rdrr.io/r/base/library.html)
-    –
-    [`locuszoomr::locus()`](https://rdrr.io/pkg/locuszoomr/man/locus.html)
-    resolves it via `get(ens_db)` on the search path and errors if it’s
-    only installed, not attached. LD (r2) is computed against a single
-    index SNP (default: the SNP with the lowest `pval.exposure`,
-    matching
-    [`locuszoomr::locus()`](https://rdrr.io/pkg/locuszoomr/man/locus.html)’s
-    own default) via the internal helper
+  - `"regional"`:
+    `plot_coloc_regional(x, ens_db, bfile, plink_bin, index_snp, ...)`,
+    -log10(p) vs position for exposure and outcome, as one faceted
+    ggplot.
+    [`regional_ld()`](https://github.com/BZuckerman97/mrpipeline/reference/regional_ld.md)
+    picks the index SNP (`index_snp`, then `ld_index_snp`, then
+    [`exposure_lead()`](https://github.com/BZuckerman97/mrpipeline/reference/exposure_lead.md))
+    and decides where r2 comes from: stored r2 when it is relative to
+    that SNP, otherwise
     [`compute_ld_to_index()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_to_index.md)
-    (see below), which reuses
-    [`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
-    – no new LD mechanism or network calls. There is no genome-build
-    field stored on `coloc_result`, so the caller must supply `ens_db`
-    matching whatever build the data/`bfile` actually use
-    (e.g. `EnsDb.Hsapiens.v75` for GRCh37, `EnsDb.Hsapiens.v86` for
-    GRCh38) – no auto-detection.
+    if `bfile` was given, otherwise no colouring, with a recorded index
+    SNP still marked (or an error if `index_snp` asked for a SNP with no
+    r2).
+    [`bin_ld_r2()`](https://github.com/BZuckerman97/mrpipeline/reference/bin_ld_r2.md)
+    and
+    [`ld_r2_colours()`](https://github.com/BZuckerman97/mrpipeline/reference/ld_r2_colours.md)
+    hold the bins and colours. With `ens_db`,
+    [`add_gene_track()`](https://github.com/BZuckerman97/mrpipeline/reference/add_gene_track.md)
+    stacks
+    [`locuszoomr::gg_genetracks()`](https://rdrr.io/pkg/locuszoomr/man/gg_genetracks.html)
+    under the panels with
+    [`cowplot::plot_grid()`](https://wilkelab.org/cowplot/reference/plot_grid.html).
+    No data goes into `locus()`, so the points and r2 are exactly those
+    of the plot without a track. Two details there are easy to break:
+    [`gene_track_x_scale()`](https://github.com/BZuckerman97/mrpipeline/reference/gene_track_x_scale.md)
+    must match the 4% padding `genetracks_grob()` draws with, or genes
+    sit off the points (a test compares the two), and the outer plot
+    needs its own title theme elements, because `plot_grid()` blanks
+    them and `labs(title = ...)` would silently draw nothing. `ens_db`
+    as a string must be **attached** via
+    [`library()`](https://rdrr.io/r/base/library.html). There is no
+    genome-build field stored on `coloc_result`, so the caller must
+    supply `ens_db` matching whatever build the data actually use (e.g.
+    `EnsDb.Hsapiens.v75` for GRCh37, `EnsDb.Hsapiens.v86` for GRCh38).
+  - `"locuszoom"`: **deprecated** in favour of `"regional"` with
+    `ens_db`.
+    `plot_coloc_locuszoom(x, ens_db, bfile, plink_bin, index_snp, ...)`
+    keeps its own code until removal, rather than forwarding to
+    `"regional"`: it draws to the current device and returns `NULL`, so
+    forwarding would return a ggplot that nothing prints, and a
+    [`pdf(); plot(...); dev.off()`](https://rdrr.io/r/grDevices/pdf.html)
+    script would silently write an empty file. It does not use stored
+    r2.
 
 Both S3 methods return `NULL` invisibly for non-success results with an
 informative message.
@@ -898,12 +918,27 @@ then reconciles with the exposure.
 Reuses
 [`compute_ld_matrix()`](https://github.com/BZuckerman97/mrpipeline/reference/compute_ld_matrix.md)
 and squares its signed correlation column for one chosen index SNP to
-get r2 – no separate LD mechanism. Backs
-[`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)’s
-LD colouring; not used anywhere else. Aborts if the index SNP is not in
-the panel, which can happen for a `coloc_result` from a
+get r2 – no separate LD mechanism. Backs LD colouring in
+[`plot_coloc_regional()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_regional.md),
+when r2 has to be computed at plot time, and in
+[`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md).
+Aborts if the index SNP is not in the panel, which can happen for a
+`coloc_result` from a
 [`run_coloc()`](https://github.com/BZuckerman97/mrpipeline/reference/run_coloc.md)
 call with no `bfile`.
+
+### `exposure_lead()`
+
+The lowest `pval.exposure`, with ties going to the largest \|beta/se\|.
+GWAS p-values are often floored, which can tie many SNPs at a strong
+locus (13 at 1e-200 at one locus in a real analysis), so
+[`which.min()`](https://rdrr.io/r/base/which.min.html) would pick
+whichever came first in row order. Used for the default stored index SNP
+and in
+[`regional_ld()`](https://github.com/BZuckerman97/mrpipeline/reference/regional_ld.md).
+[`plot_coloc_locuszoom()`](https://github.com/BZuckerman97/mrpipeline/reference/plot_coloc_locuszoom.md)
+keeps [`which.min()`](https://rdrr.io/r/base/which.min.html), as it is
+deprecated.
 
 ### `clump_instruments()`
 

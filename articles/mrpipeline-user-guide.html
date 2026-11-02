@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mrpipeline</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -211,9 +211,12 @@ rate-limited)</td>
 <td>LD matrix of the region</td>
 </tr>
 <tr class="odd">
-<td><code>plot(coloc_res, type = "locuszoom")</code></td>
-<td>Warning, plots have no LD colouring</td>
-<td>LD colouring</td>
+<td><code>plot(coloc_res, type = "regional")</code></td>
+<td>Uses r2 stored by <code><a href="../reference/run_coloc.html">run_coloc()</a></code>, or no LD colouring if
+none is stored</td>
+<td>Computes r2 if none is stored or for another
+<code>index_snp</code>
+</td>
 </tr>
 </tbody>
 </table>
@@ -1552,41 +1555,136 @@ sizes and so the posteriors:</p>
 <div class="section level3">
 <h3 id="plotting-coloc-results">Plotting coloc results<a class="anchor" aria-label="anchor" href="#plotting-coloc-results"></a>
 </h3>
-<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> for <code>coloc_result</code> objects supports
-three plot types:</p>
+<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> for <code>coloc_result</code> objects has two
+plot types, both returning a ggplot (they require
+<code>ggplot2</code>):</p>
 <div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>   <span class="co"># ABF posterior probabilities (default; requires ggplot2)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"pp_bar"</span><span class="op">)</span>   <span class="co"># ABF posterior probabilities (default)</span></span></code></pre></div>
 <p><img src="mrpipeline-user-guide_files/figure-html/coloc-plot-1.png" class="r-plt" alt="" width="672"></p>
 <div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span> <span class="co"># regional association plots (requires ggplot2)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span><span class="op">)</span> <span class="co"># regional association plots</span></span></code></pre></div>
 <p><img src="mrpipeline-user-guide_files/figure-html/coloc-plot-2.png" class="r-plt" alt="" width="672"></p>
-<p><code>type = "locuszoom"</code> renders LD-coloured regional plots
-via the <code>locuszoomr</code> package (requires
-<code>locuszoomr</code> and <code>ensembldb</code>, plus an Ensembl
-annotation package matching your data’s genome build, e.g.
-<code>EnsDb.Hsapiens.v75</code> for GRCh37 – <strong>attached</strong>
-with <code><a href="https://rdrr.io/r/base/library.html" class="external-link">library()</a></code>, not just installed, since
-<code><a href="https://rdrr.io/pkg/locuszoomr/man/locus.html" class="external-link">locuszoomr::locus()</a></code> looks up a character
-<code>ens_db</code> on the search path). It needs a local LD reference
-panel (<code>bfile</code>) and an <code>ens_db</code> – there is no
-genome-build field stored on <code>coloc_result</code>, so
-<code>ens_db</code> must be supplied explicitly and must match whatever
-build <code>bfile</code> and the coloc data actually use. Unlike the
-other two plot types, this one draws directly to the current graphics
-device (like a base R plot) and returns <code>NULL</code> – open a
-device first if you want to save it. (Not run here: it needs the Ensembl
-annotation package and writes a file.)</p>
+<p><strong>LD colouring.</strong> With a <code>bfile</code>,
+<code><a href="../reference/run_coloc.html">run_coloc()</a></code> stores each SNP’s r2 with an index SNP: the
+exposure lead (the lowest <code>pval.exposure</code>, with ties going to
+the largest |beta/se|), or the SNP you name with
+<code>run_coloc(index_snp = )</code>. <code>index_snp</code> affects
+only plotting: no coloc method reads it. <code>type = "regional"</code>
+colours both panels by that r2, so plotting needs no PLINK or panel, and
+marks the index SNP with a purple diamond. Because the same r2 is used
+in both panels, the outcome panel shows LD with that SNP, not with the
+outcome lead. SNPs with no r2 are grey.</p>
+<p>With no <code>bfile</code>, <code>run_coloc(index_snp = )</code> only
+records the SNP: the plot marks it and is otherwise uncoloured. Passing
+<code>bfile</code> to <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> computes r2 for that plot,
+which is how to colour a result from <code><a href="../reference/run_coloc.html">run_coloc()</a></code> with no
+<code>bfile</code>, or one saved by an earlier version. It isn’t saved
+back to the result, and SNPs absent from the panel stay grey.
+<code>index_snp</code> in <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> overrides the index SNP
+for one plot, which needs <code>bfile</code> because only one SNP’s r2
+is stored. The SNP used is the first of <code>plot(index_snp = )</code>,
+<code>run_coloc(index_snp = )</code> and the exposure lead:</p>
 <div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">EnsDb.Hsapiens.v75</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># A result with no stored r2, coloured by LD with its index SNP</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span>, bfile <span class="op">=</span> <span class="st">"/path/to/ld_reference"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/grDevices/pdf.html" class="external-link">pdf</a></span><span class="op">(</span><span class="st">"locuszoom_plot.pdf"</span>, width <span class="op">=</span> <span class="fl">9</span>, height <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>
+<span><span class="co"># Any result, coloured by LD with a chosen SNP</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span></span>
 <span>  <span class="va">coloc_res</span>,</span>
-<span>  type <span class="op">=</span> <span class="st">"locuszoom"</span>,</span>
-<span>  ens_db <span class="op">=</span> <span class="st">"EnsDb.Hsapiens.v75"</span>,</span>
+<span>  type <span class="op">=</span> <span class="st">"regional"</span>,</span>
+<span>  index_snp <span class="op">=</span> <span class="st">"rs1883832"</span>,</span>
 <span>  bfile <span class="op">=</span> <span class="st">"/path/to/ld_reference"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/grDevices/dev.html" class="external-link">dev.off</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span></code></pre></div>
+<p><strong>Gene track.</strong> <code>ens_db</code> adds a gene track
+under the panels and plots position in Mb. It requires
+<code>locuszoomr</code>, <code>ensembldb</code> and
+<code>cowplot</code>, plus an Ensembl annotation package matching your
+data’s genome build, e.g. <code>EnsDb.Hsapiens.v75</code> for GRCh37.
+There is no genome-build field stored on <code>coloc_result</code>, so
+it must be supplied explicitly. As a string it must be
+<strong>attached</strong> with <code><a href="https://rdrr.io/r/base/library.html" class="external-link">library()</a></code>, not just
+installed, since <code><a href="https://rdrr.io/pkg/locuszoomr/man/locus.html" class="external-link">locuszoomr::locus()</a></code> looks it up on the
+search path. (Not run here: it needs the annotation package.)</p>
+<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">EnsDb.Hsapiens.v75</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">coloc_res</span>, type <span class="op">=</span> <span class="st">"regional"</span>, ens_db <span class="op">=</span> <span class="st">"EnsDb.Hsapiens.v75"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"CD40"</span><span class="op">)</span></span></code></pre></div>
+<p>With a gene track the result is a composed plot:
+<code>labs(title = ...)</code> works, but <code>theme()</code> changes
+to the panels do not reach it.</p>
+<p><code>type = "locuszoom"</code> is deprecated in favour of
+<code>type = "regional"</code> with <code>ens_db</code>. It still works,
+and warns. Unlike the other types it draws to the current graphics
+device and returns <code>NULL</code>.</p>
+</div>
+<div class="section level3">
+<h3 id="plotting-overview">Plotting overview<a class="anchor" aria-label="anchor" href="#plotting-overview"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Call</th>
+<th>Shows</th>
+<th>Returns</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>
+<code>plot(mr_res, type = "scatter")</code> (default)</td>
+<td>SNP effects with method fits</td>
+<td>list of ggplots, take <code>[[1]]</code>
+</td>
+</tr>
+<tr class="even">
+<td><code>plot(mr_res, type = "forest")</code></td>
+<td>one row per SNP</td>
+<td>list of ggplots</td>
+</tr>
+<tr class="odd">
+<td><code>plot(mr_res, type = "funnel")</code></td>
+<td>funnel plot</td>
+<td>list of ggplots</td>
+</tr>
+<tr class="even">
+<td><code>plot(mr_res, type = "loo")</code></td>
+<td>leave-one-out results</td>
+<td>list of ggplots</td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/forest_plot.html">forest_plot()</a></code></td>
+<td>one row per method, for one or several results</td>
+<td>ggplot</td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/outcome_forest_plot.html">outcome_forest_plot()</a></code></td>
+<td>one row per outcome</td>
+<td>ggplot</td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/table_forest_plot.html">table_forest_plot()</a></code></td>
+<td>one row per outcome, with an inline result table</td>
+<td>forestplot object, render with <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>
+</td>
+</tr>
+<tr class="even">
+<td>
+<code>plot(coloc_res, type = "pp_bar")</code> (default)</td>
+<td>ABF posterior probabilities</td>
+<td>ggplot</td>
+</tr>
+<tr class="odd">
+<td><code>plot(coloc_res, type = "regional")</code></td>
+<td>exposure and outcome -log10(p), coloured by LD when available, with
+an optional gene track</td>
+<td>ggplot</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="section level2">
