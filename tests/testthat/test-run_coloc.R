@@ -706,6 +706,102 @@ test_that("run_coloc abf drops SNPs missing EAF in both datasets without bfile",
   expect_equal(result$n_snps, 22)
 })
 
+test_that("run_coloc keeps LD aligned when SNPs missing EAF are dropped", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+  dropped <- fx$exposure$SNP[1]
+  fx$exposure$eaf.exposure[1] <- NA
+  fx$outcome$eaf[1] <- NA
+
+  # abf ignores LD, so inspect the matrix handed to coloc directly
+  ld_seen <- NULL
+  coloc_abf <- coloc::coloc.abf
+  local_mocked_bindings(
+    coloc.abf = function(dataset1, dataset2, ...) {
+      ld_seen <<- dataset1$LD
+      coloc_abf(dataset1, dataset2, ...)
+    },
+    .package = "coloc"
+  )
+
+  result <- suppressWarnings(run_abf(fx, bfile = bfile))
+
+  expect_equal(result$status, "success")
+  expect_equal(result$n_snps, 19)
+  expect_equal(rownames(ld_seen), result$harmonised_data$SNP)
+  expect_equal(colnames(ld_seen), result$harmonised_data$SNP)
+  expect_false(dropped %in% rownames(ld_seen))
+})
+
+test_that("run_coloc returns too_few_snps after LD alignment", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+  keep <- c(fx$in_panel[1:2], fx$not_in_panel)
+
+  expect_warning(
+    result <- run_abf(
+      fx,
+      exposure = fx$exposure[fx$exposure$SNP %in% keep, ],
+      outcome = fx$outcome[fx$outcome$rsids %in% keep, ],
+      bfile = bfile
+    ),
+    "after LD alignment"
+  )
+
+  expect_equal(result$status, "too_few_snps")
+  expect_equal(result$n_snps, 2)
+})
+
+test_that("run_coloc returns too_few_snps after dropping SNPs missing EAF", {
+  skip_if_not_installed("TwoSampleMR")
+  skip_if_not_installed("coloc")
+  bfile <- sub(
+    "\\.bed$",
+    "",
+    system.file("extdata", "ld_ref.bed", package = "mrpipeline")
+  )
+  skip_if_not(
+    file.exists(paste0(bfile, ".bed")),
+    "LD reference panel not available"
+  )
+  fx <- abf_fixture(bfile)
+  fx$exposure$eaf.exposure[1:18] <- NA
+  fx$outcome$eaf[1:18] <- NA
+
+  warnings <- character()
+  result <- withCallingHandlers(
+    run_abf(fx, bfile = bfile),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  expect_equal(result$status, "too_few_snps")
+  expect_equal(result$n_snps, 2)
+  expect_true(any(stringr::str_detect(warnings, "Only 2 SNP")))
+})
+
 test_that("run_coloc skips prop_test when susie not requested", {
   skip_if_not_installed("TwoSampleMR")
   skip_if_not_installed("coloc")
